@@ -53,12 +53,12 @@ def read_com(filename):
             if cols[0] == 'TORS':
                 tors.append(tuple(map(int, cols[1:3])))
             if cols[0] == 'RCA4':
-                x = map(int, cols[1:5])
+                x = list(map(int, cols[1:5]))
                 if x[2] < x[1]:
                     x.reverse()
                 rca4.append(tuple(x))
             if cols[0] == 'TORC':
-                x = map(int, cols[1:5])
+                x = list(map(int, cols[1:5]))
                 if x[2] < x[1]:
                     x.reverse()
                 x.append(float(cols[5]))
