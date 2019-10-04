@@ -61,6 +61,7 @@ To enforce a trans bond:
 
 Watch out because MacroModel sometimes assigns these enforcing floats wrong.
 """
+from __future__ import absolute_import
 import argparse
 import sys
 from itertools import zip_longest
