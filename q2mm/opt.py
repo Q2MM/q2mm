@@ -177,14 +177,38 @@ def differentiate_params(params, central=True):
     param_sets = []
     for i, param in enumerate(params):
         while True:
-            original_value = param.value
+            original_value = float(param.value)
             forward_params = copy.deepcopy(params)
             if central:
                 backward_params = copy.deepcopy(params)
+
             try:
-                forward_params[i].value = original_value + param.step
+                # forward_params[i].value = original_value
+
+                ori_step = float(param.step)
+                forward_params[i].value = original_value + ori_step #param.step
                 if central:
-                    backward_params[i].value = original_value - param.step
+                    # backward_params[i].value = original_value
+                    backward_params[i].value = original_value - ori_step# param.step
+            except datatypes.ParamFE as e:
+                logger.warning(str(e))
+                forward_params[i].value = forward_params[i].allowed_range[1]
+                param.step = param.step/2.0
+                logger.warning("  -- No Forward Step. Staying with value of {}. Step size change to {}".format(forward_params[i].allowed_range[1],param.step))
+                backward_params[i].value = original_value - ori_step # if Forward step is blocked, Backward step should not be a problem
+                param_sets.append(forward_params)
+                if central:
+                    param_sets.append(backward_params)
+                break
+            except datatypes.ParamBE as e:
+                logger.warning(str(e))
+                backward_params[i].value = back_params[i].allowed_range[0]
+                param.step = param.step/2.0
+                logger.warning("  -- No Backward Step. Staying with value of {}. Step size change to {}".format(backward_params[i].allowed_range[0],param.step))
+                param_sets.append(forward_params)
+                if central:
+                    param_sets.append(backward_params)
+                break
             except datatypes.ParamError as e:
                 logger.warning(str(e))
                 old_step = param.step

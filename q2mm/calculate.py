@@ -36,6 +36,7 @@ import compare
 import datatypes
 import filetypes
 import parameters
+import sch_util
 
 logger = logging.getLogger(__name__)
 
@@ -1057,7 +1058,8 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
         int4 = []
         if os.path.isfile("calc/geo.npy"):
             hes_geo = None
-            if np.__version__ >= '1.16.4':
+            # if np.lib.NumpyVersion(np.__version__) >= '1.16.3':
+            if np.__version__ == '1.16.4':
                 hes_geo = np.load("calc/geo.npy",allow_pickle=True)
             else:
                 hes_geo = np.load("calc/geo.npy")
@@ -1854,11 +1856,15 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
         hess = datatypes.check_mm_dummy(hess, hess_dummies)
         low_tri_idx = np.tril_indices_from(hess)
         low_tri = hess[low_tri_idx]
+        ints = sch_util.interation234(filename)
         data.extend([datatypes.Datum(
                     val=e,
                     com='mh',
                     typ='h',
                     src_1=mae.filename,
+                    atm_1=int((x) // 3 + 1),
+                    atm_2=int((y) // 3 + 1),
+                    wht=sch_util.wht(int((x) // 3 + 1), int((y) // 3 + 1),ints),
                     idx_1=x + 1,
                     idx_2=y + 1)
                      for e, x, y in zip(
