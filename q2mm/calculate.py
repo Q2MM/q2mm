@@ -2130,7 +2130,8 @@ def collect_structural_data_from_amber_geo(
     data.extend(struct.select_data(
             typ,
             com=com,
-            src_1=name_geo))
+            src_1=name_xyz,
+            idx_2=1))
     return(data)
 def collect_structural_data_from_amber_ene(
     name_xyz, inps, outs, direc, com, ind, typ, idx_1 = None):
@@ -2150,14 +2151,16 @@ def collect_structural_data_from_amber_ene(
         new_datum = (datatypes.Datum(
             val=energy,
             typ=typ,
-            src_1=name_ene,
-            idx_1=idx_1 + 1))
+            src_1=name_xyz,
+            idx_1=idx_1 + 1,
+            idx_2=1))
         return(new_datum)
     else:
         data.extend(struct.select_data(
             typ,
             com=com,
-            src_1=name_ene))
+            src_1=name_xyz,
+            idx_2=1))
         return(data)
 
 
