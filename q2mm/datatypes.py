@@ -30,7 +30,10 @@ P_3_END = 55
 
 class ParamError(Exception):
     pass
-
+class ParamFE(Exception):
+    pass
+class ParamBE(Exception):
+    pass
 class Param(object):
     """
     A single parameter.
@@ -125,6 +128,12 @@ class Param(object):
             self._value = value
     def value_in_range(self, value):
         if self.allowed_range[0] <= value <= self.allowed_range[1]:
+            return True
+        elif value == self.allowed_range[0] - 0.1:
+            raise ParamBE("{} Backward Error. Forward Derivative only".format(str(self)))
+        elif value == self.allowed_range[1] + 0.1:
+            raise ParamFE("{} Forward Error. Backward Derivative only".format(str(self)))
+        elif value == self.allowed_range[1] or value == self.allowed_range[0]:
             return True
         else:
             raise ParamError(
@@ -510,6 +519,9 @@ class AmberFF(FF):
 class TinkerFF(FF):
     """
     STUFF TO FILL IN LATER
+    THE PROBLEM: Depending on the forcefield used, the parameter structures are different.
+    mm3.prm (exists)
+    amoeba09.prm (development)
     """
     def __init__(self, path=None, data=None, method=None, params=None,
                  score=None):
@@ -570,6 +582,7 @@ class TinkerFF(FF):
                         mass = split[5]
                         #still don't know what this colum does. I don't even
                         # know if its valence
+                        # Number of bonds - KJK
                         valence = split[6]
                     if split[0] in bonds:
                         at = [split[1], split[2]]

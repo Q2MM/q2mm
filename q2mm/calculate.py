@@ -73,7 +73,6 @@ COM_ALL = COM_GAUSSIAN + COM_JAGUAR + COM_MACROMODEL + COM_TINKER + \
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
-logger.log(50, "CALCULATE LOGGER")
 
 def main(args):
     """
@@ -1856,11 +1855,15 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
         hess = datatypes.check_mm_dummy(hess, hess_dummies)
         low_tri_idx = np.tril_indices_from(hess)
         low_tri = hess[low_tri_idx]
+        ints = sch_util.interation234(filename)
         data.extend([datatypes.Datum(
                     val=e,
                     com='mh',
                     typ='h',
                     src_1=mae.filename,
+                    atm_1=int((x) // 3 + 1),
+                    atm_2=int((y) // 3 + 1),
+                    wht=sch_util.wht(int((x) // 3 + 1), int((y) // 3 + 1),ints),
                     idx_1=x + 1,
                     idx_2=y + 1)
                      for e, x, y in zip(
@@ -2127,7 +2130,8 @@ def collect_structural_data_from_amber_geo(
     data.extend(struct.select_data(
             typ,
             com=com,
-            src_1=name_geo))
+            src_1=name_xyz,
+            idx_2=1))
     return(data)
 def collect_structural_data_from_amber_ene(
     name_xyz, inps, outs, direc, com, ind, typ, idx_1 = None):
@@ -2147,14 +2151,16 @@ def collect_structural_data_from_amber_ene(
         new_datum = (datatypes.Datum(
             val=energy,
             typ=typ,
-            src_1=name_ene,
-            idx_1=idx_1 + 1))
+            src_1=name_xyz,
+            idx_1=idx_1 + 1,
+            idx_2=1))
         return(new_datum)
     else:
         data.extend(struct.select_data(
             typ,
             com=com,
-            src_1=name_ene))
+            src_1=name_xyz,
+            idx_2=1))
         return(data)
 
 

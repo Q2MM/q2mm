@@ -247,8 +247,13 @@ def main(args):
     # The function import_ff should be more like something that just
     # interprets filetypes.
     # ff = datatypes.import_ff(opts.ffpath)
-    ff = datatypes.MM3(opts.ffpath)
+    ff = None
+    if "frcmod" in opts.ffpath:
+        ff = datatypes.AmberFF(opts.ffpath)
+    else:
+        ff = datatypes.MM3(opts.ffpath)
     ff.import_ff()
+    
     # Set the selected parameter types.
     if opts.all:
         opts.ptypes.extend(ALL_PARM_TYPES)
