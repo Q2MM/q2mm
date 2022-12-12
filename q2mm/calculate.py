@@ -37,8 +37,6 @@ import datatypes
 import filetypes
 import parameters
 
-logger = logging.getLogger(__name__)
-
 # Commands where we need to load the force field.
 COM_LOAD_FF    = ['ma', 'mb', 'mt',
                   'ja', 'jb', 'jt']
@@ -72,6 +70,10 @@ COM_OTHER = ['r']
 # All possible commands.
 COM_ALL = COM_GAUSSIAN + COM_JAGUAR + COM_MACROMODEL + COM_TINKER + \
           COM_AMBER + COM_OTHER
+
+logging.config.dictConfig(co.LOG_SETTINGS)
+logger = logging.getLogger(__file__)
+logger.log(50, "CALCULATE LOGGER")
 
 def main(args):
     """
@@ -684,6 +686,7 @@ def collect_reference(path):
     return np.array(data)
 
 # Must be rewritten to go in a particular order of data types every time.
+#TODO: MF Why and what order? Has this already been done?  What priority level is this?
 def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
     """
     Arguments

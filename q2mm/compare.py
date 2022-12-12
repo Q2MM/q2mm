@@ -24,7 +24,9 @@ import calculate
 import constants as co
 import datatypes
 
-logger = logging.getLogger(__name__)
+logging.config.dictConfig(co.LOG_SETTINGS)
+logger = logging.getLogger(__file__)
+logger.log(50, "COMPARE LOGGER")
 
 def main(args):
     parser = return_compare_parser()
@@ -185,7 +187,7 @@ def compare_data(r_dict, c_dict, output=None, doprint=False):
                          c.lbl, r.wht, r.val, c.val, score))
             else:
                 strings.append('  {:<30}  {:>7.2f}  {:>11.4f}  {:>11.4f}  {:>11.4f}  '\
-                       '{!:>5} '.format(
+                       '{:>5} '.format(
                         c.lbl, r.wht, r.val, c.val, score, c.ff_row))
 #            print(strings)
     strings.append('-' * 89)

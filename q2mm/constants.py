@@ -26,8 +26,8 @@ LOG_SETTINGS = {
             # 'class': 'logging.StreamHandler', 'formatter': 'basic',
             # 'level': 'NOTSET'},
         'root_file_handler': {
-            'class': 'logging.FileHandler', 'filename': 'root.log',
-            'formatter': 'bare', 'level': 'NOTSET'}
+            'class': 'logging.FileHandler', 'filename': 'test.root.log',
+            'formatter': 'bare', 'level': 'DEBUG'}
             # 'class': 'logging.FileHandler', 'filename': 'root.log',
             # 'formatter': 'basic', 'level': 'NOTSET'}
         },

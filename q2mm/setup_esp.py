@@ -28,7 +28,8 @@ import logging.config
 import constants as co
 import filetypes as ft
 
-logger = logging.getLogger(__name__)
+logging.config.dictConfig(co.LOG_SETTINGS)
+logger = logging.getLogger(__file__)
 
 def return_parser():
     parser = argparse.ArgumentParser(

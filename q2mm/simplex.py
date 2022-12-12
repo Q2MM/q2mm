@@ -20,7 +20,8 @@ import datatypes
 import opt
 import parameters
 
-logger = logging.getLogger(__name__)
+logging.config.dictConfig(co.LOG_SETTINGS)
+logger = logging.getLogger(__file__)
 
 class Simplex(opt.Optimizer):
     """

@@ -22,7 +22,8 @@ import opt
 import parameters
 import simplex
 
-logger = logging.getLogger(__name__)
+logging.config.dictConfig(co.LOG_SETTINGS)
+logger = logging.getLogger(__file__)
 
 class Loop(object):
     def __init__(self):

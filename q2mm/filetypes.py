@@ -43,7 +43,9 @@ except:
 import constants as co
 import datatypes
 
-logger = logging.getLogger(__name__)
+logging.config.dictConfig(co.LOG_SETTINGS)
+logger = logging.getLogger(__file__)
+
 # Print out full matrices rather than having Numpy truncate them.
 # np.nan seems to no longer be supported for untruncated printing
 # of arrays. The suggestion is to use sys.maxsize but I haven't checked
@@ -1459,7 +1461,7 @@ class GaussLog(File):
                     match = pattern.search(line)
                     self._esp_rms = float(match.group(1))
                 # Gathering some geometric information.
-                elif 'orientation:' in line:
+                elif 'Standard orientation:' in line:
                     self._structures.append(Structure())
                     next(file_iterator)
                     next(file_iterator)
@@ -3433,6 +3435,10 @@ def detect_filetype(filename):
     return file_ob
 
 def main(args):
+<<<<<<< HEAD
+=======
+
+>>>>>>> fa4d26e (initial from nsf-c-cas/q2mm-2)
     parser = return_filetypes_parser()
     opts = parser.parse_args(args)
     file_ob = detect_filetype(opts.input)

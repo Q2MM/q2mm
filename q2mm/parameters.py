@@ -19,7 +19,8 @@ import constants as co
 import datatypes
 import filetypes
 
-logger = logging.getLogger(__name__)
+logging.config.dictConfig(co.LOG_SETTINGS)
+logger = logging.getLogger(__file__)
 
 ALL_PARM_TYPES = ('ae', 'af', 'be', 'bf', 'df', 'imp1', 'imp2',
                   'sb', 'q', 'vdwe', 'vdwr')
