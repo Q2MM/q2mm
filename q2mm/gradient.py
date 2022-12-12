@@ -259,6 +259,13 @@ class Gradient(opt.Optimizer):
             jacob = return_jacobian(jacob, os.path.join(self.direc, par_file))
             # logger.log(5, 'JACOBIAN:\n{}'.format(jacob))
             logger.log(20, '  -- Formed {} Jacobian.'.format(jacob.shape))
+            jac_file = 'Jacobian.txt'
+            with open(os.path.join(self.direc, jac_file), 'w') as jac_file:
+                for i in jacob:
+                    jac_file.write((' '.join(['%10.6f ']*i.size)+'\n\n') % tuple(i))
+            
+            # logger.log(5, 'JACOBIAN:\n{}'.format(jacob))
+            logger.log(20, '  -- Wrote Jacobian vector of size {} to {}.'.format(jacob.shape, jac_file))
             ma = jacob.T.dot(jacob)
             vb = jacob.T.dot(resid)
             # We need these for most optimization methods.

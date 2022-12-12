@@ -3436,9 +3436,12 @@ def detect_filetype(filename):
 
 def main(args):
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> fa4d26e (initial from nsf-c-cas/q2mm-2)
+=======
+>>>>>>> 04f6bf9 (initial from afs group q2mm_jacobian)
     parser = return_filetypes_parser()
     opts = parser.parse_args(args)
     file_ob = detect_filetype(opts.input)
