@@ -274,27 +274,27 @@ class Gradient(opt.Optimizer):
             # logger.log(5, 'b:\n{}'.format(vb))
         # Start coming up with new parameter sets.
         if self.do_newton and not restart:
-            logger.log(20, '~~ NEWTON-RAPHSON ~~'.rjust(79, '~'))
+            logger.log(20, '~~ NEWTON-RAPHSON ~~'.rjust(79, '~')) #one parameter at a time here after fwd and bckwd
             # Moved the derivative section outside of here.
             changes = do_newton(self.ff.params,
                                 radii=self.newton_radii,
                                 cutoffs=self.newton_cutoffs)
             cleanup(self.new_ffs, self.ff, changes)
         if self.do_lstsq:
-            logger.log(20, '~~ LEAST SQUARES ~~'.rjust(79, '~'))
+            logger.log(20, '~~ LEAST SQUARES ~~'.rjust(79, '~')) #TODO Gauss-Newton ?
             changes = do_lstsq(ma, vb,
                                radii=self.lstsq_radii,
                                cutoffs=self.lstsq_cutoffs)
             cleanup(self.new_ffs, self.ff, changes)
         if self.do_lagrange:
-            logger.log(20, '~~ LAGRANGE ~~'.rjust(79, '~'))
+            logger.log(20, '~~ LAGRANGE ~~'.rjust(79, '~')) #modification of Gauss-Newton
             for factor in sorted(self.lagrange_factors):
                 changes = do_lagrange(ma, vb, factor,
                                       radii=self.lagrange_radii,
                                       cutoffs=self.lagrange_cutoffs)
                 cleanup(self.new_ffs, self.ff, changes)
         if self.do_levenberg:
-            logger.log(20, '~~ LEVENBERG ~~'.rjust(79, '~'))
+            logger.log(20, '~~ LEVENBERG ~~'.rjust(79, '~')) #modification of Gauss-Newton
             for factor in sorted(self.levenberg_factors):
                 changes = do_levenberg(ma, vb, factor,
                                        radii=self.levenberg_radii,

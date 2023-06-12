@@ -22,14 +22,14 @@ LOG_SETTINGS = {
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler', 'formatter': 'bare',
-            'level': 'NOTSET'},
+            'level':20},
             # 'class': 'logging.StreamHandler', 'formatter': 'basic',
-            # 'level': 'NOTSET'},
+            # 'level': 1},
         'root_file_handler': {
-            'class': 'logging.FileHandler', 'filename': 'test.root.log',
-            'formatter': 'bare', 'level': 'DEBUG'}
             # 'class': 'logging.FileHandler', 'filename': 'root.log',
-            # 'formatter': 'basic', 'level': 'NOTSET'}
+            # 'formatter': 'bare', 'level': 1} #20}
+            'class': 'logging.FileHandler', 'filename': 'root.log',
+            'formatter': 'basic', 'level': '20'}
         },
     'loggers': {'__main__': {'level': 5, 'propagate': True},
                 'calculate': {'level': 20, 'propagate': True},
@@ -43,18 +43,21 @@ LOG_SETTINGS = {
                 'parameters': {'level': 20, 'propagate': True},
                 'simplex': {'level': 5, 'propagate': True}
                 },
-    # 'loggers': {'__main__': {'level': 'NOTSET', 'propagate': True},
-    #             'calculate': {'level': 'NOTSET', 'propagate': True},
-    #             'compare': {'level': 'NOTSET', 'propagate': True},
-    #             'constants': {'level': 'NOTSET', 'propagate': True},
-    #             'datatypes': {'level': 'NOTSET',' propagate': True},
-    #             'filetypes': {'level': 'NOTSET', 'propagate': True},
-    #             'gradient': {'level': 'NOTSET', 'propagate': True},
-    #             'loop': {'level': 'NOTSET', 'propagate': True},
-    #             'opt': {'level': 'NOTSET', 'propagate': True},
-    #             'parameters': {'level': 'NOTSET', 'propagate': True},
-    #             'simplex': {'level': 'NOTSET', 'propagate': True}
+
+    #  debug logger
+    # 'loggers': {'__main__': {'level': 1, 'propagate': True},
+    #             'calculate': {'level': 1, 'propagate': True},
+    #             'compare': {'level': 1, 'propagate': True},
+    #             'constants': {'level': 1, 'propagate': True},
+    #             'datatypes': {'level': 1,' propagate': True},
+    #             'filetypes': {'level': 1, 'propagate': True},
+    #             'gradient': {'level': 1, 'propagate': True},
+    #             'loop': {'level': 1, 'propagate': True},
+    #             'opt': {'level': 1, 'propagate': True},
+    #             'parameters': {'level': 1, 'propagate': True},
+    #             'simplex': {'level': 1, 'propagate': True}
     #             },
+
     'root': {
         'level': 'NOTSET',
         'propagate': True,
