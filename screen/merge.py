@@ -355,7 +355,7 @@ def get_overlapping_atoms_in_both(struct_1, struct_2):
     print('>>> new_match_struct_1: {}'.format(new_match_struct_1))
     print('>>> new_match_struct_2: {}'.format(new_match_struct_2))
 
-    # Sometimes a match is made that isn't what is wanted by the user and
+    # Sometimes a match is made that isn't what is wanted by the user and 
     # incorporates an aromatic where it should not be. This prevents aryl
     # aromatic rings that have 2 or more atoms in a match to be used as a
     # match. -TR
