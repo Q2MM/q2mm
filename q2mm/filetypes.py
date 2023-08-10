@@ -1485,7 +1485,8 @@ class GaussLog(File):
                     while not '---' in line:
                         cols = line.split()
                         self._structures[-1].atoms.append(
-                            Atom(atomic_num=int(cols[1]),
+                            Atom(index=int(cols[0]),
+                                 atomic_num=int(cols[1]),
                                  x=float(cols[3]),
                                  y=float(cols[4]),
                                  z=float(cols[5])))
@@ -1929,6 +1930,7 @@ class GaussLog(File):
                                 else:
                                     current_atom.atomic_num = int(
                                         match.group(2))
+                                current_atom.index = int(match.group(1))
                                 current_atom.coords_type = 'input'
                                 current_atom.x = float(match.group(3))
                                 current_atom.y = float(match.group(4))
@@ -1977,6 +1979,7 @@ class GaussLog(File):
                                 else:
                                     current_atom.atomic_num = int(
                                         match.group(2))
+                                current_atom.index = int(match.group(1))
                                 current_atom.coords_type = 'standard'
                                 current_atom.x = float(match.group(3))
                                 current_atom.y = float(match.group(4))
@@ -2081,6 +2084,7 @@ class GaussLog(File):
                                 else:
                                     current_atom.atomic_num = \
                                         int(match.group(2))
+                                current_atom.index = int(match.group(1))
                                 current_atom.coords_type = 'input'
                                 current_atom.x = float(match.group(3))
                                 current_atom.y = float(match.group(4))
@@ -2126,6 +2130,7 @@ class GaussLog(File):
                                 else:
                                     current_atom.atomic_num = int(
                                         match.group(2))
+                                current_atom.index = int(match.group(1))
                                 current_atom.coords_type = 'standard'
                                 current_atom.x = float(match.group(3))
                                 current_atom.y = float(match.group(4))
@@ -2941,6 +2946,7 @@ class MacroModel(File):
         return self._structures
     def read_line_for_bond(self, line):
         match = co.RE_BOND.match(line)
+        #TODO: MF find if atom_nums are atomic or index, where index bc need for sub_hessian seminario
         if match:
             atom_nums = [int(x) for x in [match.group(1), match.group(2)]]
             value = float(match.group(3))

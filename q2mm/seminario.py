@@ -47,6 +47,37 @@ def sub_hessian(hessian, atom1, atom2) :
     eigval, eigvec = np.linalg.eig(submat)
     return vec12, eigval, eigvec
 
+def sub_hessian_new(hessian, atom1, atom2) :
+    """
+    Subsample the Hessian matrix that is formed between atom1 and atom2
+    as well as calculating the vector from atom1 to atom2
+
+    Parameters
+    ----------
+    hessian : numpy.ndarray
+        the Hessian matrix
+    atom1 : Atom
+        the first atom
+    atom2 : Atom
+        the second atom
+
+    Returns
+    -------
+    numpy.ndarray
+        the vector from atom1 to atom2
+    numpy.ndarray
+        the eigenvalues of the submatrix
+    numpy.ndarray
+        the eigenvector of the submatrix
+    """
+    vec12 = np.asarray([atom1.x - atom2.x, atom1.y - atom2.y, atom1.z - atom2.z])
+    vec12 = vec12 / np.linalg.norm(vec12)
+
+    submat = -hessian[3*atom1.index:3*atom1.index+3, 3*atom2.index:3*atom2.index+3]
+    eigval, eigvec = np.linalg.eig(submat)
+    return vec12, eigval, eigvec
+
+
 def seminario_sum(vec, eigval, eigvec) :
     """
     Average the projections of the eigenvector on a specific unit vector
@@ -71,7 +102,7 @@ def seminario_sum(vec, eigval, eigvec) :
         ssum += eigval[i] * np.abs(np.dot(eigvec[:,i], vec))
     return ssum
 
-def seminario_bond(bond, hessian, scaling) :
+def seminario_bond(bond, hessian, scaling=0.963) :
     """
     Estimate the bond force constant using the Seminario method, i.e. by
     analysing the Hessian submatrix. Will average over atom1->atom2 and
@@ -97,7 +128,33 @@ def seminario_bond(bond, hessian, scaling) :
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
     return scaling * 2240.87 * 418.4 * 0.5 * (f12+f21)
 
-def make_bonded_ff(struct, xyz_orig, hess, bonds, scaling) :
+def seminario_bond_new(atom1, atom2, hessian, scaling=0.963) :
+    """
+    Estimate the bond force constant using the Seminario method, i.e. by
+    analysing the Hessian submatrix. Will average over atom1->atom2 and
+    atom2->atom1 force constants
+
+    Parameters
+    ----------
+    bond : parmed.Bond
+        the bond to estimate the force constant for
+    hessian : numpy.ndarray
+        the Hessian matrix
+    scaling : float
+        the Hessian scaling factor
+    """
+
+    vec12, eigval12, eigvec12 = sub_hessian_new(hessian, atom1, atom2)
+    f12 = seminario_sum(vec12, eigval12, eigvec12)
+
+    vec21, eigval21, eigvec21 = sub_hessian_new(hessian, atom2, atom1)
+    f21 = seminario_sum(vec21, eigval21, eigvec21)
+
+    # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
+    # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
+    return scaling * 2240.87 * 418.4 * 0.5 * (f12+f21)
+
+def make_bonded_ff(struct, xyz_orig, hess, bonds, scaling=0.963) :
     """
     Make bonded force field parameters for selected bonds using the Seminario
     method.
@@ -133,7 +190,7 @@ def make_bonded_ff(struct, xyz_orig, hess, bonds, scaling) :
         print("%s\t%d\t%d\t%.4f\t%.4f\t%.4f"%(bondmask, bond.atom1.idx+1,
             bond.atom2.idx+1, bond_orig.measure()*0.1, bond.measure()*0.1, force))
 
-def seminario_angle(angle, hessian, scaling) :
+def seminario_angle(angle, hessian, scaling=0.963) :
     """
     Estimate the angle force constant using the Seminario method, i.e. by
     analysing the Hessian submatrix.
@@ -171,7 +228,7 @@ def seminario_angle(angle, hessian, scaling) :
     # 4.184 is kcal/mol to kJ/mol
     return scaling * 627.5095 * 4.184 * f
 
-def make_angled_ff(struct, xyz_orig, hess, angles, scaling) :
+def make_angled_ff(struct, xyz_orig, hess, angles, scaling=0.963) :
     """
     Make angle force field parameters for selected angles using the Seminario
     method.
@@ -290,6 +347,7 @@ def seminario_ff() :
     struct = parmed.load_file(args.struct, skip_bonds=True)
     xyz_opt, hess = parse_fchk(args.checkpoint)
     xyz_orig = np.array(struct.coordinates)
+    #struct.coordinates is type(np.array) of shape n_atoms, 3
     struct.coordinates = xyz_opt*0.529177249 # 0.529177249 is Bohr to A
 
     if args.saveopt :
