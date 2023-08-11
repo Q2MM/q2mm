@@ -411,7 +411,7 @@ def main(args):
     if arg_in.params is None:
         #add all bonds, angles to structure for seminario
         #TODO: MF - temporarily will just output to new frcmod ignoring input ff
-        params = 'all'
+        params = ff_in.params
     else:
         #TODO: MF - pull params from input forcefield
         #raise NotImplemented()
@@ -431,17 +431,35 @@ def main(args):
     struct = parmed.load_file(args.struct, structure=True)
     mol_coords = np.array(struct.coordinates)
     #struct.coordinates is type(np.array) of shape n_atoms, 3
-    struct.coordinates = dft_coords*0.529177249 # 0.529177249 is Bohr to A
+    struct.coordinates = dft_coords#*0.529177249 # 0.529177249 is Bohr to A #TODO: MF - check which units Q2MM uses
 
     if params is not 'all':
         temp_struct = struct.copy(type(struct))
         temp_struct.bonds.clear()
-        for bond in struct.bonds:
-            possible_match1 = [bond.atom1.type, bond.atom2.type]
-            possible_match2 = [bond.atom2.type, bond.atom1.type]
-            for param in ff_in.params:
-                if param.atom_types is possible_match1 or param.atom_types is possible_match2:
-                    temp_struct.bonds.append(bond)
+        temp_struct.angles.clear()
+        for param in params:
+            if param.ptype is 'bf':
+                for bond in struct.bonds:
+                    possibile_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
+                    if param.atom_types in possibile_matches:
+                        param.value = seminario_bond(bond, dft_hessian)
+            if param.ptype is 'be':
+                for bond in struct.bonds:
+                    possibile_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
+                    if param.atom_types in possibile_matches:
+                        temp_struct.bonds.append(bond)
+                        param.value = bond.measure()
+            if param.ptype is 'af':
+                for angle in struct.angles:
+                    possibile_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
+                    if param.atom_types in possibile_matches:
+                        param.value = seminario_angle(angle, dft_hessian)
+            if param.ptype is 'ae':
+                for angle in struct.angles:
+                    possibile_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
+                    if param.atom_types in possibile_matches:
+                        temp_struct.angles.append(angle)
+                        param.value = angle.measure() #TODO: MF - CHECK UNITS, does setting coords in struct set them for atoms? NOPE TODO
 
         struct = temp_struct
         #TODO: MF add bonds and angles to structure based on what is in the frcmod file
