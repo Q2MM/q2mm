@@ -19,6 +19,7 @@ import constants as co
 import datatypes
 import filetypes
 from q2mm.seminario import seminario_bond, seminario_bond_new
+from tools.file_converter import mae_to_mol2
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
@@ -61,7 +62,7 @@ vdwr - van der Waals radius''')
               'each equilibrium value in the optimized section is replaced\n'
               'by the average value from the MacroModel file.'))
     par_group.add_argument(
-        '--seminario', '-s', action='store_true',
+        '--seminario', '-s', type=str, metavar='mm3.sem.fld',
         help=('Use MacroModel files to generate a new force field where\n'
               'each force constant value in the optimized section is replaced\n'
               'by its average value estimated from the seminario calculation\n'
@@ -85,11 +86,11 @@ vdwr - van der Waals radius''')
     #     '-ah', type=str, nargs='+', action='append', default=[], metavar='somename.crd',
     #     help='Amber Hessian extracted from a file.')
     par_group.add_argument(
-        '-mh', type=str, nargs='+', action='append', default=[], metavar='somename.mae',
-        help='Macromodel Hessian extracted from a .mae file.')
+        '-ms', type=str, nargs='+', action='append', default=[], metavar='somename.mae',
+        help='Maestro structures extracted from a .mae file for seminario calculations.')
     par_group.add_argument(
-        '-gh', type=str, nargs='+', action='append', default=[], metavar='somename.log',
-        help='Gaussian Hessian and structures extracted from .log file(s).')
+        '-gs', type=str, nargs='+', action='append', default=[], metavar='somename.log',
+        help='Gaussian Hessian and structures extracted from .log file(s) for seminario calculations.')
     par_group.add_argument(
         '--nozero', action='store_true',
         help='Exclude any parameters that have values of zero.')
@@ -271,7 +272,7 @@ def main(args):
         assert opts.mmo, 'Must provide MacroModel .mmo files!'
 
     if opts.seminario:
-        assert (opts.mmo and opts.mh) or opts.gh, 'Must provide files covering structure and Hessian!'
+        assert opts.ms or opts.gs, 'Must provide files covering structure and Hessian!'
     # The function import_ff should be more like something that just
     # interprets filetypes.
     # ff = datatypes.import_ff(opts.ffpath)
@@ -313,12 +314,13 @@ def main(args):
                 # TODO: MF Perhaps calculate Seminario here and output files as go
                 # must average force constants NOT structure values
                 bond_dic, angle_dic, torsion_dic = gather_values(mmos) #BUG: shouldn't this be one indent back, out of for-loop? shouldn't affect output, just performance
-        elif opts.seminario:
-            if opts.maes:
-                for filename in opts.mae:
-                    maes.append(filetypes.MacroModelLog(filename))
-            elif opts.gh:
-                for filename in opts.gh:
+        if opts.seminario:
+            if opts.ms:
+                for filename in opts.ms:
+                    mae_to_mol2(filename, filename[-4]+'.sem.mol2')
+                    maes.append(filetypes.Mae(filename))
+            elif opts.gs:
+                for filename in opts.gs:
                     ghs.append(filetypes.GaussLog(filename))
         # Check if the parameter's FF row shows up in the data gathered
         # from the MacroModel .mmo file. Currently only takes into
@@ -326,27 +328,28 @@ def main(args):
         if opts.check:
             all_rows = bond_dic.keys() + angle_dic.keys() + torsion_dic.keys()
             for param in params:
-                #TODO: Here we could calculate seminario for each parameter per file
-                # calculations will placed in a dictionary with param as key, then -> file
-                # Would need to refactor this whole section, but it could be worth it if
-                # iterating through all of these a ton...
                 if not param.mm3_row in all_rows:
                     print("{} doesn't appear to be in use.".format(param))
+
         if opts.seminario:
-            for mmo in mmos:
-                for structure in mmo.structures:
+            seminario_by_mae = dict()
+            for mae in maes:
+                seminario_by_struct = dict()
+                for structure in mae.structures:
                     bonds = structure.bonds
+                    seminario_bonds = np.empty((len(structure.atoms), len(structure.atoms)))
+                    seminario_angles = dict()
                     for bond in bonds:
                         #Bond(atom_nums*, comment, value, ff_row) where atom_nums is atom index number NOT atomic number unlike all other objects
                         #TODO: need to change filetypes.py to read in atom coordinates as well or pull from mae
-                        atom1 = filetypes.Atom(index=bond.atom_nums[0])
-                        atom2 = filetypes.Atom(index=bond.atom_nums[1])
-                        seminario_bond_new(atom1, atom2, structure.hessian)
+                        atom1 = structure.atoms[bond.atom_nums[0]]
+                        atom2 = structure.atoms[bond.atom_nums[1]]
+                        #atom2 = filetypes.Atom(index=bond.atom_nums[1])
+                        seminario_bonds = seminario_bond_new(atom1, atom2, structure.hessian)
 
                 #TODO: Here we will calculate seminario for each parameter per file
                 # calculations will placed in a dictionary with param as key, then -> file
-                if not param.mm3_row in all_rows:
-                    print("{} doesn't appear to be in use.".format(param))
+
             for gauss_log in ghs:
                 for structure in gauss_log.structures:
                     for bond in structure.bonds:
@@ -376,13 +379,33 @@ def main(args):
                 angle_avg[ff_row] = np.mean(values)
                 print(">> STD {}: {}".format(ff_row,np.std(values)))
             # Update parameter values.
-            for param in params: #TODO: replace force constants w avg seminario
+            for param in params:
                 if param.ptype in ['be', 'ae'] and param.mm3_row in bond_avg:
                     param.value = bond_avg[param.mm3_row]
                 if param.ptype in ['be', 'ae'] and param.mm3_row in angle_avg:
                     param.value = angle_avg[param.mm3_row]
             # Export the updated parameters.
             ff.export_ff(opts.average, params)
+        if opts.seminario:
+            # bond_avg = {1857: 2.3171,
+            #             1858: 1.3556
+            #            }
+            bond_avg = {}
+            for ff_row, values in bond_dic.items():
+                bond_avg[ff_row] = np.mean(values)
+                print(">> STD {}: {}".format(ff_row,np.std(values)))
+            angle_avg = {}
+            for ff_row, values in angle_dic.items():
+                angle_avg[ff_row] = np.mean(values)
+                print(">> STD {}: {}".format(ff_row,np.std(values)))
+            # Update parameter values.
+            for param in params: #TODO: replace force constants w avg seminario
+                if param.ptype in ['bf', 'af'] and param.mm3_row in bond_avg:
+                    param.value = bond_avg[param.mm3_row]
+                if param.ptype in ['bf', 'af'] and param.mm3_row in angle_avg:
+                    param.value = angle_avg[param.mm3_row]
+            # Export the updated parameters.
+            ff.export_ff(opts.seminario, params)
     # Print the parameters.
     if opts.printparams:
         for param in params:

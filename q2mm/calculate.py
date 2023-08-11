@@ -1089,7 +1089,7 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
                 if len(line) == 1:
                     f_atom.append(int(line[0]))
             print("Reading fixedatoms.txt\nFixed Atom Numbers:",f_atom)
-        def int_wht(at_1,at_2):
+        def int_wht(at_1,at_2): #TODO: MF - Why is this defined within a for-loop??
             """
                 Weighted value for hessian matrix
                 default value

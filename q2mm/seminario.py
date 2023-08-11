@@ -1,14 +1,24 @@
 """
-This module contains tools to estimate force field parameters with the
-Seminario method, code adapted from Samuel Genheden and can be found at
+Estimates bond, angle force constants  and outputs to a new forcefield with the
+Seminario method. This code is used for both AMBER and MM3 FF generation/preparation,
+but it should only be called as a script for AMBER frcmod generation from a mol2 file
+and a Gausian log file or an fchk file.  
+
+Seminario estimation of force constants should be done at the same time as bond length
+and angle equilibrium value averaging via -av in parameters.py.
+
+Code adapted from Samuel Genheden and can be found at
 https://github.com/SGenheden/Seminario
 """
 from __future__ import division, print_function, absolute_import
 import argparse
 import os
+import sys
 
 import numpy as np
 import parmed
+
+from q2mm.datatypes import AmberFF
 
 
 __all__ = ['make_angled_ff', 'make_bonded_ff', 'seminario_angle',
@@ -318,6 +328,141 @@ def parse_fchk(filename):
 
     natoms = int(n / 3)
     return crds.reshape([natoms,3]), hess_sqr
+
+#endregion
+
+#region Arguments
+
+def return_params_parser(add_help=True):
+    '''
+    Returns an argparse.ArgumentParser object for the selection of
+    parameters.
+    '''
+    if add_help:
+        description=(__doc__ +
+                     '''
+PTYPES:
+ae   - equilibrium angles
+af   - angle force constants
+be   - equilibrium bond lengths
+bf   - bond force constants
+df   - dihedral force constants
+imp1 - improper torsions (1st MM3* column)
+imp2 - improper torsions (2nd MM3* column)
+sb   - stretch-bend force constants
+q    - bond dipoles
+vdwe - van der Waals epsilon
+vdwr - van der Waals radius''')
+        parser = argparse.ArgumentParser(
+            formatter_class=argparse.RawTextHelpFormatter,
+            description=description)
+    else:
+        parser = argparse.ArgumentParser(add_help=False)
+    par_group = parser.add_argument_group('seminario')
+    par_group.add_argument(
+        '-o', '--ff-out', type=str, metavar='filename.seminario.frcmod', default='amber.seminario.frcmod',
+        help=('Use mol2 file and Gaussian Hessian to generate a new force field where\n'
+              'each force constant value is replaced\n'
+              'by its value estimated from the seminario calculation\n'
+              'of force constants in the structure.'))
+    par_group.add_argument(
+        '-i', '--ff-in', metavar='filename.frcmod', default='amber.frcmod',
+        help='Path to input frcmod.')
+    par_group.add_argument(
+        '--mol', '-m', type=str, metavar='structure.mol2', default=None,
+        help='Read this mol2 file.')
+    par_group.add_argument(
+        '--log', '-gl',  type=str, metavar='gaussian.log', default=None,
+        help='Gaussian Hessian is extracted from this .log file for seminario calculations.')
+    par_group.add_argument(
+        '--fchk', '-gf', type=str, metavar='gaussian.fchk', default=None,
+        help='Gaussian Hessian and structure are extracted from this .fchk file for seminario calculations.')
+    par_group.add_argument(
+        '--params', '-p', type=str, metavar='parameters.txt', default=None,
+        help='Text file containing the parameters (bonds, angles) to be calculated.')
+    return parser
+
+
+#endregion
+
+#region Stand-alone AMBER Seminario methods process
+
+def get_frcmod_bonds():
+    raise NotImplemented()
+
+def main(args):
+    if sys.version_info > (3, 0):
+        if isinstance(args, str):
+            args = args.split()
+    else:
+        if isinstance(args, basestring):
+            args = args.split()
+    parser = return_params_parser()
+    arg_in = parser.parse_args(args)
+
+    assert arg_in.i, "Input frcmod AMBER FF file is required!"
+
+    assert arg_in.mol and (arg_in.log or arg_in.fchk), "Both a mol2 structure file and a Gaussian log or Gaussian fchk (DFT Hessian) file are needed!"
+
+
+    ff_in = AmberFF(arg_in.i)
+    ff_in.import_ff()
+    params = []
+    if arg_in.params is None:
+        #add all bonds, angles to structure for seminario
+        #TODO: MF - temporarily will just output to new frcmod ignoring input ff
+        params = 'all'
+    else:
+        #TODO: MF - pull params from input forcefield
+        #raise NotImplemented()
+        #read in params file
+        with open(arg_in.params, 'r') as param_file:
+            lines = param_file.readlines()
+            for line in lines:
+                params.append(line)
+
+
+
+    if arg_in.fchk:
+        dft_coords, dft_hessian = parse_fchk(arg_in.fchk)
+    elif arg_in.log:
+        raise NotImplemented()
+    
+    struct = parmed.load_file(args.struct, structure=True)
+    mol_coords = np.array(struct.coordinates)
+    #struct.coordinates is type(np.array) of shape n_atoms, 3
+    struct.coordinates = dft_coords*0.529177249 # 0.529177249 is Bohr to A
+
+    if params is not 'all':
+        temp_struct = struct.copy(type(struct))
+        temp_struct.bonds.clear()
+        for bond in struct.bonds:
+            possible_match1 = [bond.atom1.type, bond.atom2.type]
+            possible_match2 = [bond.atom2.type, bond.atom1.type]
+            for param in ff_in.params:
+                if param.atom_types is possible_match1 or param.atom_types is possible_match2:
+                    temp_struct.bonds.append(bond)
+
+        struct = temp_struct
+        #TODO: MF add bonds and angles to structure based on what is in the frcmod file
+        # unless auto-added in parmed? It looks like they are...
+
+    seminario_bonds = dict()
+    for bond in struct.bonds:
+        seminario_bonds[bond] = seminario_bond(bond, dft_hessian)
+
+    seminario_angles = dict()
+    for angle in struct.angles:
+        seminario_bonds[angle] = seminario_angle(angle, dft_hessian)
+
+    make_bonded_ff(struct, mol_coords, dft_hessian, struct.bonds)
+
+    make_angled_ff(struct, mol_coords, dft_hessian, struct.angles)
+
+    #TODO: MF - Write out new frcmod
+    # need to change param values
+    ff_in.export_ff(arg_in.o, params)
+
 
 #endregion
 

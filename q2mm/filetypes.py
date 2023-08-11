@@ -2176,7 +2176,7 @@ class SchrodingerFile(File):
     """
     Parent class used for all Schrodinger files.
     """
-    def conv_sch_str(self, sch_struct):
+    def conv_sch_str(self, sch_struct:sch_str):
         """
         Converts a schrodinger.structure object to my own structure object.
         Sort of pointless. Probably remove soon.
@@ -2795,6 +2795,7 @@ class MacroModelLog(File):
     def __init__(self, path):
         super(MacroModelLog, self).__init__(path)
         self._hessian = None
+        self._structures = None
     @property
     def hessian(self):
         if self._hessian is None:
@@ -2855,6 +2856,106 @@ class MacroModelLog(File):
             self._hessian = hessian
             logger.log(5, '  -- Creating {} Hessian matrix.'.format(hessian.shape))
         return self._hessian
+
+    @property
+    def structures(self):
+        if self._structures is None:
+            logger.log(10, 'READING: {}'.format(self.filename))
+            self._structures = []
+            with open(self.path, 'r') as f:
+                count_current = 0
+                count_input = 0
+                count_structure = 0
+                count_previous = 0
+                atoms = []
+                bonds = []
+                section = None
+                for line in f:
+                    if 'm_atom' in line:
+                        section = 'atom'
+                    elif 'm_bond' in line:
+                        section = 'bond'
+                    elif ':::' in line and 'ready' not in section:
+                        section = section + 'ready'
+                    elif ':::' in line and 'ready' in section:
+                        section = None
+                    elif section is 'atom ready':
+                        #read in atoms to list
+                        continue
+                    elif section is 'bond ready':
+                        #read in bond atom numbers, populate later with atoms
+                        continue
+                    else:
+                        continue
+                # This would probably be better as a function in the structure
+                # class but I wanted this as upstream as possible so I didn't
+                # have to worry about other coding issues. The MMO file lists
+                # the bonds, angles, and torsions in some order that I am unsure
+                # of. It seems consistent with the same filename but with two
+                # files with the exact same structure the ordering is off. This
+                # reorders the lists before being added to the structure class.
+                    if 'Input filename' in line:
+                        count_input += 1
+                    if 'Input Structure Name' in line:
+                        count_structure += 1
+                    count_previous = count_current
+                    # Sometimes only one of the above ("Input filename" and
+                    # "Input Structure Name") is used, sometimes both are used.
+                    # count_current will make sure you catch both.
+                    count_current = max(count_input, count_structure)
+                    # If these don't match, then we reached the end of a
+                    # structure.
+                    if count_current != count_previous:
+                        bonds = []
+                        angles = []
+                        torsions = []
+                        current_structure = Structure()
+                        self._structures.append(current_structure)
+                    # For each structure we come across, look for sections that
+                    # we are interested in: those pertaining to bonds, angles,
+                    # and torsions. Of course more could be added. We set the
+                    # section to None to mark the end of a section, and we leave
+                    # it None for parts of the file we don't care about.
+                    if 'BOND LENGTHS AND STRETCH ENERGIES' in line:
+                        section = 'bond'
+                    if 'ANGLES, BEND AND STRETCH BEND ENERGIES' in line:
+                        section = 'angle'
+                    if 'BEND-BEND ANGLES AND ENERGIES' in line:
+                        section = None
+                    if 'DIHEDRAL ANGLES AND TORSIONAL ENERGIES' in line:
+                        section = 'torsion'
+                    if 'DIHEDRAL ANGLES AND TORSIONAL CROSS-TERMS' in line:
+                        section = None
+                    if section == 'bond':
+                        bond = self.read_line_for_bond(line)
+                        if bond is not None:
+                            #current_structure.bonds.append(bond)
+                            bonds.append(bond)
+                    if section == 'angle':
+                        angle = self.read_line_for_angle(line)
+                        if angle is not None:
+                            #current_structure.angles.append(angle)
+                            angles.append(angle)
+                    if section == 'torsion':
+                        torsion = self.read_line_for_torsion(line)
+                        if torsion is not None:
+                            #current_structure.torsions.append(torsion)
+                            torsions.append(torsion)
+                    if 'Connection Table' in line:
+                        # Sort the bonds, angles, and torsions before the start
+                        # of a new structure
+                        if bonds:
+                            bonds.sort(key = lambda x: (x.atom_nums[0], x.atom_nums[1]))
+                            current_structure.bonds.extend(bonds)
+                        if angles:
+                            angles.sort(key = lambda x: (x.atom_nums[1], x.atom_nums[0], x.atom_nums[2]))
+                            current_structure.angles.extend(angles)
+                        if torsions:
+                            torsions.sort(key = lambda x: (x.atom_nums[1], x.atom_nums[2], x.atom_nums[0], x.atom_nums[3]))
+                            current_structure.torsions.extend(torsions)
+            logger.log(5, '  -- Imported {} structure(s).'.format(
+                    len(self._structures)))
+        return self._structures
 
 class MacroModel(File):
     """

@@ -2,6 +2,7 @@
 Constants and variables used throughout Q2MM.
 """
 import re
+import logging
 from collections import OrderedDict
 
 #GAUSSIAN_ENERGIES = ['HF', 'ZeroPoint']
@@ -22,14 +23,14 @@ LOG_SETTINGS = {
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler', 'formatter': 'bare',
-            'level':20},
+            'level':logging.INFO},
             # 'class': 'logging.StreamHandler', 'formatter': 'basic',
             # 'level': 1},
         'root_file_handler': {
             # 'class': 'logging.FileHandler', 'filename': 'root.log',
             # 'formatter': 'bare', 'level': 1} #20}
             'class': 'logging.FileHandler', 'filename': 'root.log',
-            'formatter': 'basic', 'level': '20'}
+            'formatter': 'basic', 'level': logging.INFO}
         },
     'loggers': {'__main__': {'level': 5, 'propagate': True},
                 'calculate': {'level': 20, 'propagate': True},
@@ -100,7 +101,7 @@ WEIGHTS = {'a':          2.00,
            'h12':        0.031,
            'h13':       0.031,
            'h14':       0.31,
-           'eig_i':      0.00, # Weight of 1st eigenvalue.
+           'eig_i':      0.00, # Weight of 1st e4622117715igenvalue.
            'eig_d_low':  0.10, # Weight of low mode diagonal elements
            'eig_d_high': 0.10, # Weight of high mode diagonal elemetns
            'eig_o':      0.05, # Weight of off diagonals in eigenmatrix.
