@@ -30,7 +30,7 @@ LOG_SETTINGS = {
             # 'class': 'logging.FileHandler', 'filename': 'root.log',
             # 'formatter': 'bare', 'level': 1} #20}
             'class': 'logging.FileHandler', 'filename': 'root.log',
-            'formatter': 'basic', 'level': logging.INFO}
+            'formatter': 'basic', 'level': 20}
         },
     'loggers': {'__main__': {'level': 5, 'propagate': True},
                 'calculate': {'level': 20, 'propagate': True},

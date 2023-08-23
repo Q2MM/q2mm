@@ -3556,7 +3556,6 @@ def detect_filetype(filename):
     return file_ob
 
 def main(args):
-
     parser = return_filetypes_parser()
     opts = parser.parse_args(args)
     file_ob = detect_filetype(opts.input)
