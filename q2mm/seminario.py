@@ -18,7 +18,7 @@ import sys
 import numpy as np
 import parmed
 
-from q2mm.datatypes import AmberFF
+from datatypes import AmberFF
 
 
 __all__ = ['make_angled_ff', 'make_bonded_ff', 'seminario_angle',
@@ -387,9 +387,6 @@ vdwr - van der Waals radius''')
 
 #region Stand-alone AMBER Seminario methods process
 
-def get_frcmod_bonds():
-    raise NotImplemented()
-
 def main(args):
     if sys.version_info > (3, 0):
         if isinstance(args, str):
@@ -409,13 +406,9 @@ def main(args):
     ff_in.import_ff()
     params = []
     if arg_in.params is None:
-        #add all bonds, angles to structure for seminario
-        #TODO: MF - temporarily will just output to new frcmod ignoring input ff
         params = ff_in.params
     else:
-        #TODO: MF - pull params from input forcefield
-        #raise NotImplemented()
-        #read in params file
+        #TODO: MF - check which params in params input string are in ff params, if in, then add to params variable
         with open(arg_in.params, 'r') as param_file:
             lines = param_file.readlines()
             for line in lines:
@@ -440,45 +433,35 @@ def main(args):
         for param in params:
             if param.ptype is 'bf':
                 for bond in struct.bonds:
-                    possibile_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
-                    if param.atom_types in possibile_matches:
+                    possible_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
+                    if param.atom_types in possible_matches:
                         param.value = seminario_bond(bond, dft_hessian)
             if param.ptype is 'be':
                 for bond in struct.bonds:
-                    possibile_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
-                    if param.atom_types in possibile_matches:
+                    possible_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
+                    if param.atom_types in possible_matches:
                         temp_struct.bonds.append(bond)
                         param.value = bond.measure()
             if param.ptype is 'af':
                 for angle in struct.angles:
-                    possibile_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
-                    if param.atom_types in possibile_matches:
+                    possible_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
+                    if param.atom_types in possible_matches:
                         param.value = seminario_angle(angle, dft_hessian)
             if param.ptype is 'ae':
                 for angle in struct.angles:
-                    possibile_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
-                    if param.atom_types in possibile_matches:
+                    possible_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
+                    if param.atom_types in possible_matches:
                         temp_struct.angles.append(angle)
-                        param.value = angle.measure() #TODO: MF - CHECK UNITS, does setting coords in struct set them for atoms? NOPE TODO
+                        param.value = angle.measure() #TODO: MF - CHECK UNITS, does setting coords in struct set them for atoms? NOPE
+    # NOTE: user must make sure mol2 structure is the same as gaussian log or fchk structure (just in IRC)
 
         struct = temp_struct
-        #TODO: MF add bonds and angles to structure based on what is in the frcmod file
-        # unless auto-added in parmed? It looks like they are...
-
-    seminario_bonds = dict()
-    for bond in struct.bonds:
-        seminario_bonds[bond] = seminario_bond(bond, dft_hessian)
-
-    seminario_angles = dict()
-    for angle in struct.angles:
-        seminario_bonds[angle] = seminario_angle(angle, dft_hessian)
 
     make_bonded_ff(struct, mol_coords, dft_hessian, struct.bonds)
 
     make_angled_ff(struct, mol_coords, dft_hessian, struct.angles)
 
-    #TODO: MF - Write out new frcmod
-    # need to change param values
+    # Write out new frcmod
     ff_in.export_ff(arg_in.o, params)
 
 
