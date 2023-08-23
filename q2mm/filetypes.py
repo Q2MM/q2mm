@@ -24,6 +24,7 @@ from __future__ import division
 from argparse import RawTextHelpFormatter
 from string import digits
 import logging
+from logging import config
 import mmap
 import numpy as np
 import math
