@@ -376,6 +376,9 @@ vdwr - van der Waals radius''')
         '--mol', '-m', type=str, metavar='structure.mol2', default=None,
         help='Read this mol2 file.')
     par_group.add_argument(
+        '--pdb', type=str, metavar='structure.pdb', default=None,
+        help='Read this pdb file.')
+    par_group.add_argument(
         '--log', '-gl',  type=str, metavar='gaussian.log', default=None,
         help='Gaussian Hessian is extracted from this .log file for seminario calculations.')
     par_group.add_argument(
@@ -406,7 +409,7 @@ def main(args):
 
     assert args.ff_in, "Input frcmod AMBER FF file is required!"
 
-    assert args.mol and (args.log or args.fchk), "Both a mol2 structure file and a Gaussian log or Gaussian fchk (DFT Hessian) file are needed!"
+    assert (args.mol or args.pdb) and (args.log or args.fchk), "Both a mol2 structure file and a Gaussian log or Gaussian fchk (DFT Hessian) file are needed!"
 
 
     ff_in = AmberFF(args.ff_in)
@@ -428,7 +431,7 @@ def main(args):
     elif args.log:
         raise NotImplemented()
     
-    struct = parmed.load_file(args.mol, structure=True)
+    struct = parmed.load_file(args.mol, structure=True) if args.mol else parmed.load_file(args.pdb, structure=True) 
     mol_coords = np.array(struct.coordinates)
     #struct.coordinates is type(np.array) of shape n_atoms, 3
     struct.coordinates = dft_coords#*0.529177249 # 0.529177249 is Bohr to A #TODO: MF - check which units Q2MM uses
