@@ -417,8 +417,8 @@ def main(args):
     params = []
     if args.params is None:
         params = ff_in.params
-        print("ff params "+ff_in.params)
-        print("params: "+params)
+        print("ff params "+str(ff_in.params))
+        print("params: "+str(params))
     else:
         #TODO: MF - check which params in params input string are in ff params, if in, then add to params variable
         with open(args.params, 'r') as param_file:
