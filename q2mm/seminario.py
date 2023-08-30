@@ -444,6 +444,8 @@ def main(args):
         temp_struct.bonds.clear()
         temp_struct.angles.clear()
         for param in params:
+            print(str(param))
+            print(param.ptype)
             if param.ptype is 'bf':
                 print("bf")
                 for bond in struct.bonds:
