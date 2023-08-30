@@ -20,6 +20,10 @@ import parmed
 
 from datatypes import AmberFF
 
+import logging
+import logging.config
+import constants as co
+
 
 __all__ = ['make_angled_ff', 'make_bonded_ff', 'seminario_angle',
             'seminario_bond', 'seminario_sum', 'sub_hessian']
@@ -386,8 +390,9 @@ vdwr - van der Waals radius''')
 #endregion
 
 #region Stand-alone AMBER Seminario methods process
-
+print("pre main")
 def main(args):
+    print("in main")
     if sys.version_info > (3, 0):
         if isinstance(args, str):
             args = args.split()
@@ -395,33 +400,35 @@ def main(args):
         if isinstance(args, basestring):
             args = args.split()
     parser = return_params_parser()
-    arg_in = parser.parse_args(args)
+    args = parser.parse_args()
 
-    assert arg_in.i, "Input frcmod AMBER FF file is required!"
+    print(str(args))
 
-    assert arg_in.mol and (arg_in.log or arg_in.fchk), "Both a mol2 structure file and a Gaussian log or Gaussian fchk (DFT Hessian) file are needed!"
+    assert args.ff_in, "Input frcmod AMBER FF file is required!"
+
+    assert args.mol and (args.log or args.fchk), "Both a mol2 structure file and a Gaussian log or Gaussian fchk (DFT Hessian) file are needed!"
 
 
-    ff_in = AmberFF(arg_in.i)
+    ff_in = AmberFF(args.ff_in)
     ff_in.import_ff()
     params = []
-    if arg_in.params is None:
+    if args.params is None:
         params = ff_in.params
     else:
         #TODO: MF - check which params in params input string are in ff params, if in, then add to params variable
-        with open(arg_in.params, 'r') as param_file:
+        with open(args.params, 'r') as param_file:
             lines = param_file.readlines()
             for line in lines:
                 params.append(line)
 
 
 
-    if arg_in.fchk:
-        dft_coords, dft_hessian = parse_fchk(arg_in.fchk)
-    elif arg_in.log:
+    if args.fchk:
+        dft_coords, dft_hessian = parse_fchk(args.fchk)
+    elif args.log:
         raise NotImplemented()
     
-    struct = parmed.load_file(args.struct, structure=True)
+    struct = parmed.load_file(args.mol, structure=True)
     mol_coords = np.array(struct.coordinates)
     #struct.coordinates is type(np.array) of shape n_atoms, 3
     struct.coordinates = dft_coords#*0.529177249 # 0.529177249 is Bohr to A #TODO: MF - check which units Q2MM uses
@@ -462,10 +469,14 @@ def main(args):
     make_angled_ff(struct, mol_coords, dft_hessian, struct.angles)
 
     # Write out new frcmod
-    ff_in.export_ff(arg_in.o, params)
+    ff_in.export_ff(args.ff_out, params)
 
 
 #endregion
+
+if __name__ == '__main__':
+    logging.config.dictConfig(co.LOG_SETTINGS)
+    main(sys.argv[1:])
 
 #region tools
 
