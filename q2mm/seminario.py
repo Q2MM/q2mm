@@ -436,28 +436,35 @@ def main(args):
     #struct.coordinates is type(np.array) of shape n_atoms, 3
     struct.coordinates = dft_coords#*0.529177249 # 0.529177249 is Bohr to A #TODO: MF - check which units Q2MM uses
 
+    print("structure: "+str(struct))
+
     if params is not 'all':
+        print("params")
         temp_struct = struct.copy(type(struct))
         temp_struct.bonds.clear()
         temp_struct.angles.clear()
         for param in params:
             if param.ptype is 'bf':
+                print("bf")
                 for bond in struct.bonds:
                     possible_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
                     if param.atom_types in possible_matches:
                         param.value = seminario_bond(bond, dft_hessian)
             if param.ptype is 'be':
+                print("be")
                 for bond in struct.bonds:
                     possible_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
                     if param.atom_types in possible_matches:
                         temp_struct.bonds.append(bond)
                         param.value = bond.measure()
             if param.ptype is 'af':
+                print("af")
                 for angle in struct.angles:
                     possible_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
                     if param.atom_types in possible_matches:
                         param.value = seminario_angle(angle, dft_hessian)
             if param.ptype is 'ae':
+                print("ae")
                 for angle in struct.angles:
                     possible_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
                     if param.atom_types in possible_matches:
