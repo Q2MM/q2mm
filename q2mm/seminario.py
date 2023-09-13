@@ -23,6 +23,7 @@ from datatypes import AmberFF
 import logging
 import logging.config
 import constants as co
+from q2mm.filetypes import GaussLog
 
 
 __all__ = ['make_angled_ff', 'make_bonded_ff', 'seminario_angle',
@@ -431,7 +432,11 @@ def main(args):
     if args.fchk:
         dft_coords, dft_hessian = parse_fchk(args.fchk)
     elif args.log:
-        raise NotImplemented()
+        log = GaussLog(args.log)
+        structures = log.structures
+        #TODO: get coords by pulling from each atom
+        dft_coords = np.array(log.structures[0].coords)
+        dft_hessian = log.structures[0].hess
     
     struct = parmed.load_file(args.mol, structure=True) if args.mol else parmed.load_file(args.pdb, structure=True) 
     mol_coords = np.array(struct.coordinates)
