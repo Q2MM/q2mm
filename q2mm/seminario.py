@@ -23,7 +23,7 @@ from datatypes import AmberFF
 import logging
 import logging.config
 import constants as co
-from q2mm.filetypes import GaussLog
+from filetypes import GaussLog
 
 
 __all__ = ['make_angled_ff', 'make_bonded_ff', 'seminario_angle',
