@@ -117,7 +117,7 @@ def seminario_sum(vec, eigval, eigvec) :
         ssum += eigval[i] * np.abs(np.dot(eigvec[:,i], vec))
     return ssum
 
-def seminario_bond(bond, hessian, scaling=0.963) :
+def seminario_bond(bond, hessian, scaling=0.963, convert=False) :
     """
     Estimate the bond force constant using the Seminario method, i.e. by
     analysing the Hessian submatrix. Will average over atom1->atom2 and
@@ -141,7 +141,9 @@ def seminario_bond(bond, hessian, scaling=0.963) :
 
     # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
-    return scaling * 2240.87 * 418.4 * 0.5 * (f12+f21)
+    
+    if convert: return scaling * 2240.87 * 418.4 * 0.5 * (f12+f21)
+    else: return scaling * 0.5 * (f12+f21)
 
 def seminario_bond_new(atom1, atom2, hessian, scaling=0.963) :
     """
@@ -205,7 +207,7 @@ def make_bonded_ff(struct, xyz_orig, hess, bonds, scaling=0.963) :
         print("%s\t%d\t%d\t%.4f\t%.4f\t%.4f"%(bondmask, bond.atom1.idx+1,
             bond.atom2.idx+1, bond_orig.measure()*0.1, bond.measure()*0.1, force))
 
-def seminario_angle(angle, hessian, scaling=0.963) :
+def seminario_angle(angle, hessian, scaling=0.963, convert=False) :
     """
     Estimate the angle force constant using the Seminario method, i.e. by
     analysing the Hessian submatrix.
@@ -241,7 +243,8 @@ def seminario_angle(angle, hessian, scaling=0.963) :
 
     # 627.5095 is Hatree to kcal/mol
     # 4.184 is kcal/mol to kJ/mol
-    return scaling * 627.5095 * 4.184 * f
+    if convert: return scaling * 627.5095 * 4.184 * f
+    else: return scaling * f
 
 def make_angled_ff(struct, xyz_orig, hess, angles, scaling=0.963) :
     """
@@ -375,16 +378,16 @@ vdwr - van der Waals radius''')
         help='Path to input frcmod.')
     par_group.add_argument(
         '--mol', '-m', type=str, metavar='structure.mol2', default=None,
-        help='Read this mol2 file.')
+        help='Read this mol2 file, units are in Angstrom.')
     par_group.add_argument(
         '--pdb', type=str, metavar='structure.pdb', default=None,
-        help='Read this pdb file.')
+        help='Read this pdb file, units are in Angstrom.')
     par_group.add_argument(
         '--log', '-gl',  type=str, metavar='gaussian.log', default=None,
-        help='Gaussian Hessian is extracted from this .log file for seminario calculations.')
+        help='Gaussian Hessian is extracted from this .log file for seminario calculations. Units are in Bohr.')
     par_group.add_argument(
         '--fchk', '-gf', type=str, metavar='gaussian.fchk', default=None,
-        help='Gaussian Hessian and structure are extracted from this .fchk file for seminario calculations.')
+        help='Gaussian Hessian and structure are extracted from this .fchk file for seminario calculations. Units are in Bohr.')
     par_group.add_argument(
         '--params', '-p', type=str, metavar='parameters.txt', default=None,
         help='Text file containing the parameters (bonds, angles) to be calculated.')
@@ -435,8 +438,8 @@ def main(args):
         log = GaussLog(args.log)
         structures = log.structures
         #TODO: get coords by pulling from each atom
-        dft_coords = np.array(log.structures[0].coords)
-        dft_hessian = log.structures[0].hess
+        dft_coords = np.array(log.structures[-1].coords)
+        dft_hessian = log.structures[-1].hess
     
     struct = parmed.load_file(args.mol, structure=True) if args.mol else parmed.load_file(args.pdb, structure=True) 
     mol_coords = np.array(struct.coordinates)
@@ -458,7 +461,7 @@ def main(args):
                 for bond in struct.bonds:
                     possible_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
                     if param.atom_types in possible_matches:
-                        param.value = seminario_bond(bond, dft_hessian)
+                        param.value = seminario_bond(bond, dft_hessian, convert=args.fchk)
             if param.ptype is 'be':
                 print("be")
                 for bond in struct.bonds:
@@ -471,7 +474,7 @@ def main(args):
                 for angle in struct.angles:
                     possible_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
                     if param.atom_types in possible_matches:
-                        param.value = seminario_angle(angle, dft_hessian)
+                        param.value = seminario_angle(angle, dft_hessian, convert=args.fchk)
             if param.ptype is 'ae':
                 print("ae")
                 for angle in struct.angles:
