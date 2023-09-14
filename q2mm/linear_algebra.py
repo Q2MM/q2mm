@@ -37,7 +37,7 @@ def replace_neg_eigenvalue(eigenvalues:np.ndarray, replace_with=1.0):
 
 # region Hessian-specific
 
-def reform_hessian(eigenvalues: np.ndarray[float], eigenvectors: np.ndarray[float]) -> np.ndarray[float]:
+def reform_hessian(eigenvalues: np.ndarray, eigenvectors: np.ndarray) -> np.ndarray:
     """_summary_
 
     Args:
@@ -45,12 +45,12 @@ def reform_hessian(eigenvalues: np.ndarray[float], eigenvectors: np.ndarray[floa
         eigenvectors (np.ndarray[float]): _description_
 
     Returns:
-        np.ndarray[float]: _description_
+        np.ndarray: _description_
     """
     reformed_hessian = (np.diag(eigenvalues).dot(np.transpose(eigenvectors)))
     return reformed_hessian
 
-def invert_ts_curvature(hessian_matrix: np.ndarray[float]) -> np.ndarray[float]:
+def invert_ts_curvature(hessian_matrix: np.ndarray) -> np.ndarray:
     
     eigenvalues, eigenvectors = decompose(hessian_matrix)
     inv_curv_hessian = reform_hessian(replace_neg_eigenvalue(eigenvalues), eigenvectors)
