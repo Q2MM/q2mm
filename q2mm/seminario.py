@@ -24,6 +24,7 @@ import logging
 import logging.config
 import constants as co
 from filetypes import GaussLog
+from math.linear_algebra import invert_ts_curvature
 
 
 __all__ = ['make_angled_ff', 'make_bonded_ff', 'seminario_angle',
@@ -440,6 +441,8 @@ def main(args):
         #TODO: get coords by pulling from each atom
         dft_coords = np.array(log.structures[-1].coords)
         dft_hessian = log.structures[-1].hess
+
+    min_hessian = invert_ts_curvature(dft_hessian)
     
     struct = parmed.load_file(args.mol, structure=True) if args.mol else parmed.load_file(args.pdb, structure=True) 
     mol_coords = np.array(struct.coordinates)
@@ -461,7 +464,7 @@ def main(args):
                 for bond in struct.bonds:
                     possible_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
                     if param.atom_types in possible_matches:
-                        param.value = seminario_bond(bond, dft_hessian, convert=args.fchk)
+                        param.value = seminario_bond(bond, min_hessian, convert=args.fchk)
             if param.ptype is 'be':
                 print("be")
                 for bond in struct.bonds:
@@ -474,7 +477,7 @@ def main(args):
                 for angle in struct.angles:
                     possible_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
                     if param.atom_types in possible_matches:
-                        param.value = seminario_angle(angle, dft_hessian, convert=args.fchk)
+                        param.value = seminario_angle(angle, min_hessian, convert=args.fchk)
             if param.ptype is 'ae':
                 print("ae")
                 for angle in struct.angles:
@@ -489,6 +492,10 @@ def main(args):
     make_bonded_ff(struct, mol_coords, dft_hessian, struct.bonds)
 
     make_angled_ff(struct, mol_coords, dft_hessian, struct.angles)
+
+    make_bonded_ff(struct, mol_coords, min_hessian, struct.bonds)
+
+    make_angled_ff(struct, mol_coords, min_hessian, struct.angles)
 
     # Write out new frcmod
     ff_in.export_ff(args.ff_out, params)
