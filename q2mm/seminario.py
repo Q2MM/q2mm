@@ -18,13 +18,13 @@ import sys
 import numpy as np
 import parmed
 
+from linear_algebra import invert_ts_curvature
 from datatypes import AmberFF
 
 import logging
 import logging.config
 import constants as co
 from filetypes import GaussLog
-from math.linear_algebra import invert_ts_curvature
 
 
 __all__ = ['make_angled_ff', 'make_bonded_ff', 'seminario_angle',
