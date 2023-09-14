@@ -135,10 +135,18 @@ def seminario_bond(bond, hessian, scaling=0.963, convert=False) :
     """
 
     vec12, eigval12, eigvec12 = sub_hessian(hessian, bond.atom1, bond.atom2)
+    print("vec12: "+vec12)
+    print("eigval12: "+eigval12)
+    print("eigvec12: "+eigvec12)
     f12 = seminario_sum(vec12, eigval12, eigvec12)
+    print("f12: "+f12)
 
     vec21, eigval21, eigvec21 = sub_hessian(hessian, bond.atom2, bond.atom1)
+    print("vec21: "+vec21)
+    print("eigval21: "+eigval21)
+    print("eigvec21: "+eigvec21)
     f21 = seminario_sum(vec21, eigval21, eigvec21)
+    print("f21: "+f21)
 
     # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
