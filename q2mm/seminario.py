@@ -19,7 +19,7 @@ import numpy as np
 import parmed
 
 from linear_algebra import invert_ts_curvature
-from datatypes import AmberFF
+from datatypes import MM3, AmberFF
 
 import logging
 import logging.config
@@ -135,18 +135,18 @@ def seminario_bond(bond, hessian, scaling=0.963, convert=False) :
     """
 
     vec12, eigval12, eigvec12 = sub_hessian(hessian, bond.atom1, bond.atom2)
-    print("vec12: "+vec12)
-    print("eigval12: "+eigval12)
-    print("eigvec12: "+eigvec12)
+    print("vec12: "+str(vec12))
+    print("eigval12: "+str(eigval12))
+    print("eigvec12: "+str(eigvec12))
     f12 = seminario_sum(vec12, eigval12, eigvec12)
-    print("f12: "+f12)
+    print("f12: "+str(f12))
 
     vec21, eigval21, eigvec21 = sub_hessian(hessian, bond.atom2, bond.atom1)
-    print("vec21: "+vec21)
-    print("eigval21: "+eigval21)
-    print("eigvec21: "+eigvec21)
+    print("vec21: "+str(vec21))
+    print("eigval21: "+str(eigval21))
+    print("eigvec21: "+str(eigvec21))
     f21 = seminario_sum(vec21, eigval21, eigvec21)
-    print("f21: "+f21)
+    print("f21: "+str(f21))
 
     # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
@@ -400,6 +400,9 @@ vdwr - van der Waals radius''')
     par_group.add_argument(
         '--params', '-p', type=str, metavar='parameters.txt', default=None,
         help='Text file containing the parameters (bonds, angles) to be calculated.')
+    par_group.add_argument(
+        '--mm3', type=str, default=False,
+        help='Flag indicating that the force field type is MM3, used only for testing.')
     return parser
 
 
@@ -424,9 +427,15 @@ def main(args):
 
     assert (args.mol or args.pdb) and (args.log or args.fchk), "Both a mol2 structure file and a Gaussian log or Gaussian fchk (DFT Hessian) file are needed!"
 
+    if args.mm3:
+        ff_in = MM3(args.ff_in)
+        ff_in.import_ff()
+        print("mm3 ff imported")
+    else:
+        ff_in = AmberFF(args.ff_in)
+        ff_in.import_ff()
+        print("amber ff imported")
 
-    ff_in = AmberFF(args.ff_in)
-    ff_in.import_ff()
     params = []
     if args.params is None:
         params = ff_in.params
@@ -443,14 +452,18 @@ def main(args):
 
     if args.fchk:
         dft_coords, dft_hessian = parse_fchk(args.fchk)
+        print("fchk parsed")
     elif args.log:
         log = GaussLog(args.log)
+        print("glog object")
         structures = log.structures
+        print("got glog structures")
         #TODO: get coords by pulling from each atom
         dft_coords = np.array(log.structures[-1].coords)
         dft_hessian = log.structures[-1].hess
 
     min_hessian = invert_ts_curvature(dft_hessian)
+    print("hessian curvature inverted")
     
     struct = parmed.load_file(args.mol, structure=True) if args.mol else parmed.load_file(args.pdb, structure=True) 
     mol_coords = np.array(struct.coordinates)
