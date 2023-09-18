@@ -1,5 +1,5 @@
-import openbabel as ob
-import pybel as pb
+from openbabel import openbabel as ob
+from openbabel import pybel as pb
 import numpy as np
 import glob, os
 import multiprocessing as mp
