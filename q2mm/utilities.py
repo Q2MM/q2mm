@@ -23,7 +23,7 @@ def convert_atom_type(atom_type:str) -> str:
     q2mm_atom_type = atom_type
     if '.' in atom_type:
         q2mm_atom_type.replace(".", "")
-    if q2mm_atom_type[1].isupper():
+    if len(q2mm_atom_type) > 1 and q2mm_atom_type[1].isupper():
         q2mm_atom_type[1] = q2mm_atom_type[1].lower()
     return q2mm_atom_type
 
