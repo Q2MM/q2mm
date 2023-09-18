@@ -43,13 +43,18 @@ def replace_neg_eigenvalue(eigenvalues:np.ndarray, replace_with=1.0) -> np.ndarr
     neg_indices = np.argwhere([eval < 0 for eval in eigenvalues])
 
     if len(neg_indices) > 1:
-        print("more than one neg. eigenvalue: "+str(index_to_replace))
+        print("more than one neg. eigenvalue: "+str(neg_indices))
         index_to_replace = np.argmin(eigenvalues)
     else :
         index_to_replace = neg_indices[0]
     
     replaced_eigenvalues = eigenvalues
-    eigenvalues[index_to_replace] = replace_with #TODO: MF determine if we stick to this method, what it depends on, etc
+    
+    #TODO: MF - Discussed with PO, decide if this should be implemented as it is not in current Q2MM
+    # for neg_index in neg_indices:
+    #     if neg_index != index_to_replace:
+    #         replaced_eigenvalues[neg_index] = 0
+    replaced_eigenvalues[index_to_replace] = replace_with #TODO: MF determine if we stick to this method, what it depends on, etc
 
     return replaced_eigenvalues
 
