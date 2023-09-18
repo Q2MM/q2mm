@@ -471,9 +471,11 @@ def main(args):
     struct.coordinates = dft_coords#*0.529177249 # 0.529177249 is Bohr to A #TODO: MF - check which units Q2MM uses
 
     print("structure: "+str(struct))
+    print("bonds: "+str(struct.bonds))
+    print("angles: "+str(struct.angles))
 
     if params is not 'all':
-        print("params")
+        print("params iteration thru struct to ensure struct only contains relevant interactions")
         temp_struct = struct.copy(type(struct))
         temp_struct.bonds.clear()
         temp_struct.angles.clear()
@@ -484,8 +486,13 @@ def main(args):
                 print("bf")
                 for bond in struct.bonds:
                     possible_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
+                    print("possible matches: "+str(possible_matches))
+                    print("atom types: "+str(param.atom_types))
+
                     if param.atom_types in possible_matches:
+                        print("match found")
                         param.value = seminario_bond(bond, min_hessian, convert=args.fchk)
+                        print("new param value: "+str(param.value))
             if param.ptype is 'be':
                 print("be")
                 for bond in struct.bonds:
@@ -493,12 +500,14 @@ def main(args):
                     if param.atom_types in possible_matches:
                         temp_struct.bonds.append(bond)
                         param.value = bond.measure()
+                        print("new param value: "+str(param.value))
             if param.ptype is 'af':
                 print("af")
                 for angle in struct.angles:
                     possible_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
                     if param.atom_types in possible_matches:
                         param.value = seminario_angle(angle, min_hessian, convert=args.fchk)
+                        print("new param value: "+str(param.value))
             if param.ptype is 'ae':
                 print("ae")
                 for angle in struct.angles:
@@ -506,20 +515,24 @@ def main(args):
                     if param.atom_types in possible_matches:
                         temp_struct.angles.append(angle)
                         param.value = angle.measure() #TODO: MF - CHECK UNITS, does setting coords in struct set them for atoms? NOPE
+                        print("new param value: "+str(param.value))
     # NOTE: user must make sure mol2 structure is the same as gaussian log or fchk structure (just in IRC)
 
         struct = temp_struct
 
-    make_bonded_ff(struct, mol_coords, dft_hessian, struct.bonds)
+    print("Done parameter estimation, using make_x_ff methods")
 
-    make_angled_ff(struct, mol_coords, dft_hessian, struct.angles)
+    #make_bonded_ff(struct, mol_coords, dft_hessian, struct.bonds)
 
-    make_bonded_ff(struct, mol_coords, min_hessian, struct.bonds)
+    #make_angled_ff(struct, mol_coords, dft_hessian, struct.angles)
 
-    make_angled_ff(struct, mol_coords, min_hessian, struct.angles)
+    #make_bonded_ff(struct, mol_coords, min_hessian, struct.bonds)
+
+    #make_angled_ff(struct, mol_coords, min_hessian, struct.angles)
 
     # Write out new frcmod
     ff_in.export_ff(args.ff_out, params)
+    print("successfully exported ff")
 
 
 #endregion
