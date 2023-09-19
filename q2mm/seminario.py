@@ -578,6 +578,7 @@ def main(args):
                         [bond.atom1.type, bond.atom2.type]
                     ),
                 ):
+                    print("matched")
                     param.value = seminario_bond(bond, min_hessian, convert=args.fchk)
                     print("new param value: " + str(param.value))
         if param.ptype is "be":

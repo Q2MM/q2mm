@@ -94,6 +94,8 @@ def invert_ts_curvature(hessian_matrix: np.ndarray) -> np.ndarray:
         np.ndarray: _description_
     """
     eigenvalues, eigenvectors = decompose(hessian_matrix)
+    print("eigenvalues: "+str(eigenvalues))
+    print("eigenvectors: "+str(eigenvectors))
     inv_curv_hessian = reform_hessian(
         replace_neg_eigenvalue(eigenvalues, zer_out_neg=True), eigenvectors
     )
