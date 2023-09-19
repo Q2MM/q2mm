@@ -30,7 +30,7 @@ def decompose(matrix:np.ndarray) -> (np.ndarray, np.ndarray):
     eigenvalues, eigenvectors = np.linalg.eigh(matrix)
     return eigenvalues, eigenvectors
 
-def replace_neg_eigenvalue(eigenvalues:np.ndarray, replace_with=1.0) -> np.ndarray:
+def replace_neg_eigenvalue(eigenvalues:np.ndarray, replace_with=1.0, zer_out_neg=False) -> np.ndarray:
     """_summary_
 
     Args:
@@ -47,13 +47,15 @@ def replace_neg_eigenvalue(eigenvalues:np.ndarray, replace_with=1.0) -> np.ndarr
         index_to_replace = np.argmin(eigenvalues)
     else :
         index_to_replace = neg_indices[0]
-    
     replaced_eigenvalues = eigenvalues
     
     #TODO: MF - Discussed with PO, decide if this should be implemented as it is not in current Q2MM
     # for neg_index in neg_indices:
     #     if neg_index != index_to_replace:
     #         replaced_eigenvalues[neg_index] = 0
+    if zer_out_neg:
+        for neg_index in neg_indices:
+            replaced_eigenvalues[neg_index] = 0.00
     replaced_eigenvalues[index_to_replace] = replace_with #TODO: MF determine if we stick to this method, what it depends on, etc
 
     return replaced_eigenvalues
@@ -85,7 +87,7 @@ def invert_ts_curvature(hessian_matrix: np.ndarray) -> np.ndarray:
         np.ndarray: _description_
     """    
     eigenvalues, eigenvectors = decompose(hessian_matrix)
-    inv_curv_hessian = reform_hessian(replace_neg_eigenvalue(eigenvalues), eigenvectors)
+    inv_curv_hessian = reform_hessian(replace_neg_eigenvalue(eigenvalues, zer_out_neg=True), eigenvectors)
     
     return inv_curv_hessian
 
