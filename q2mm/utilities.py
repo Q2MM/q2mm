@@ -7,6 +7,7 @@ from __future__ import absolute_import
 from __future__ import division
 
 from argparse import RawTextHelpFormatter
+from collections import Counter
 from string import digits
 import logging
 from logging import config
@@ -50,5 +51,12 @@ def convert_atom_types(atom_type_pairs: list) -> list:
     ]
     return q2mm_atom_type_pairs
 
+def is_same_bond(atom_type_pair1:list, atom_type_pair2:list) -> bool:
+    if atom_type_pair1[0] == atom_type_pair2[0] and atom_type_pair1[1] == atom_type_pair2[1]:
+        return True
+    elif atom_type_pair1[1] == atom_type_pair2[0] and atom_type_pair1[0] == atom_type_pair2[1]:
+        return True
+    else:
+        return False
 
 # endregion Atom Type Conversion

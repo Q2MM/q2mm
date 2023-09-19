@@ -485,11 +485,7 @@ def main(args):
             if param.ptype is 'bf':
                 print("bf types: "+str(param.atom_types))
                 for bond in struct.bonds:
-                    # possible_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
-                    # print("possible matches: "+str(possible_matches))
-                    # converted_matches = utilities.convert_atom_types(possible_matches)
-                    # print(converted_matches)
-                    if Counter(param.atom_types) == Counter(utilities.convert_atom_type_pair([bond.atom1.type, bond.atom2.type])):
+                    if utilities.is_same_bond(param.atom_types, utilities.convert_atom_type_pair([bond.atom1.type, bond.atom2.type])):
                         param.value = seminario_bond(bond, min_hessian, convert=args.fchk)
                         print("new param value: "+str(param.value))
             if param.ptype is 'be':
