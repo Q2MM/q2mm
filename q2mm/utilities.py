@@ -19,18 +19,36 @@ import subprocess as sp
 import time
 import sys
 
-def convert_atom_type(atom_type:str) -> str:
-    q2mm_atom_type = atom_type
-    if '.' in atom_type:
-        q2mm_atom_type.replace(".", "")
-    if len(q2mm_atom_type) > 1 and q2mm_atom_type[1].isupper():
-        q2mm_atom_type[1] = q2mm_atom_type[1].lower()
+# region Atom Type Conversion
+
+
+def convert_atom_type(atom_type: str) -> str:
+    """_summary_
+
+    Args:
+        atom_type (str): _description_
+
+    Returns:
+        str: _description_
+    """
+    q2mm_atom_type = ''.join(filter(str.isalnum, atom_type))
+    q2mm_atom_type = q2mm_atom_type.upper()
+    # TODO: MF Add a check to verify it is included in atom.typ here, 
+    # exception should be caught, propagated, and handled here to avoid 
+    # silent failure within MacroModel upon FF export (or other silent or loud failures).
     return q2mm_atom_type
+
 
 def convert_atom_type_pair(atom_type_pair):
     q2mm_atom_type_pair = [convert_atom_type(atom_type) for atom_type in atom_type_pair]
     return q2mm_atom_type_pair
 
-def convert_atom_types(atom_type_pairs:list) -> list:
-    q2mm_atom_type_pairs = [convert_atom_type_pair(atom_type_pair) for atom_type_pair in atom_type_pairs]
+
+def convert_atom_types(atom_type_pairs: list) -> list:
+    q2mm_atom_type_pairs = [
+        convert_atom_type_pair(atom_type_pair) for atom_type_pair in atom_type_pairs
+    ]
     return q2mm_atom_type_pairs
+
+
+# endregion Atom Type Conversion
