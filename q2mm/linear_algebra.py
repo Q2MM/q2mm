@@ -67,7 +67,7 @@ def replace_neg_eigenvalue(
 
 # endregion Generalized
 
-# region Hessian-specific
+# region Hessian-specific (Hermitian)
 
 
 def reform_hessian(eigenvalues: np.ndarray, eigenvectors: np.ndarray) -> np.ndarray:
@@ -80,7 +80,7 @@ def reform_hessian(eigenvalues: np.ndarray, eigenvectors: np.ndarray) -> np.ndar
     Returns:
         np.ndarray: _description_
     """
-    reformed_hessian = np.diag(eigenvalues).dot(np.transpose(eigenvectors))
+    reformed_hessian = eigenvectors.dot(np.diag(eigenvalues).dot(eigenvectors.T))
     return reformed_hessian
 
 

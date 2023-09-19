@@ -70,3 +70,8 @@ class TestLinearAlgebra(unittest.TestCase):
             linear_algebra.replace_neg_eigenvalue(multi_neg_evals, zer_out_neg=True),
             err_msg="Replaced eigenvalues do not match. Failed to replace excess negative values with zero.",
         )
+
+    def test_reform_hessian(self):
+        evals, evecs = linear_algebra.decompose(example_sq3)
+        reformed_sq3 = linear_algebra.reform_hessian(evals, evecs)
+        np.testing.assert_allclose(example_sq3, reformed_sq3, err_msg="Hessian is not reformed properly.")
