@@ -29,13 +29,20 @@ from filetypes import GaussLog
 import utilities
 
 
-__all__ = ['make_angled_ff', 'make_bonded_ff', 'seminario_angle',
-            'seminario_bond', 'seminario_sum', 'sub_hessian']
-__all__ += ['parse_fchk']
+__all__ = [
+    "make_angled_ff",
+    "make_bonded_ff",
+    "seminario_angle",
+    "seminario_bond",
+    "seminario_sum",
+    "sub_hessian",
+]
+__all__ += ["parse_fchk"]
 
-#region forcefield
+# region forcefield
 
-def sub_hessian(hessian, atom1, atom2) :
+
+def sub_hessian(hessian, atom1, atom2):
     """
     Subsample the Hessian matrix that is formed between atom1 and atom2
     as well as calculating the vector from atom1 to atom2
@@ -61,11 +68,14 @@ def sub_hessian(hessian, atom1, atom2) :
     vec12 = np.asarray([atom1.xx - atom2.xx, atom1.xy - atom2.xy, atom1.xz - atom2.xz])
     vec12 = vec12 / np.linalg.norm(vec12)
 
-    submat = -hessian[3*atom1.idx:3*atom1.idx+3, 3*atom2.idx:3*atom2.idx+3]
+    submat = -hessian[
+        3 * atom1.idx : 3 * atom1.idx + 3, 3 * atom2.idx : 3 * atom2.idx + 3
+    ]
     eigval, eigvec = np.linalg.eig(submat)
     return vec12, eigval, eigvec
 
-def sub_hessian_new(hessian, atom1, atom2) :
+
+def sub_hessian_new(hessian, atom1, atom2):
     """
     Subsample the Hessian matrix that is formed between atom1 and atom2
     as well as calculating the vector from atom1 to atom2
@@ -91,12 +101,14 @@ def sub_hessian_new(hessian, atom1, atom2) :
     vec12 = np.asarray([atom1.x - atom2.x, atom1.y - atom2.y, atom1.z - atom2.z])
     vec12 = vec12 / np.linalg.norm(vec12)
 
-    submat = -hessian[3*atom1.index:3*atom1.index+3, 3*atom2.index:3*atom2.index+3]
+    submat = -hessian[
+        3 * atom1.index : 3 * atom1.index + 3, 3 * atom2.index : 3 * atom2.index + 3
+    ]
     eigval, eigvec = np.linalg.eig(submat)
     return vec12, eigval, eigvec
 
 
-def seminario_sum(vec, eigval, eigvec) :
+def seminario_sum(vec, eigval, eigvec):
     """
     Average the projections of the eigenvector on a specific unit vector
     according to Seminario
@@ -117,10 +129,11 @@ def seminario_sum(vec, eigval, eigvec) :
     """
     ssum = 0.0
     for i in range(3):
-        ssum += eigval[i] * np.abs(np.dot(eigvec[:,i], vec))
+        ssum += eigval[i] * np.abs(np.dot(eigvec[:, i], vec))
     return ssum
 
-def seminario_bond(bond, hessian, scaling=0.963, convert=False) :
+
+def seminario_bond(bond, hessian, scaling=0.963, convert=False):
     """
     Estimate the bond force constant using the Seminario method, i.e. by
     analysing the Hessian submatrix. Will average over atom1->atom2 and
@@ -137,26 +150,29 @@ def seminario_bond(bond, hessian, scaling=0.963, convert=False) :
     """
 
     vec12, eigval12, eigvec12 = sub_hessian(hessian, bond.atom1, bond.atom2)
-    print("vec12: "+str(vec12))
-    print("eigval12: "+str(eigval12))
-    print("eigvec12: "+str(eigvec12))
+    print("vec12: " + str(vec12))
+    print("eigval12: " + str(eigval12))
+    print("eigvec12: " + str(eigvec12))
     f12 = seminario_sum(vec12, eigval12, eigvec12)
-    print("f12: "+str(f12))
+    print("f12: " + str(f12))
 
     vec21, eigval21, eigvec21 = sub_hessian(hessian, bond.atom2, bond.atom1)
-    print("vec21: "+str(vec21))
-    print("eigval21: "+str(eigval21))
-    print("eigvec21: "+str(eigvec21))
+    print("vec21: " + str(vec21))
+    print("eigval21: " + str(eigval21))
+    print("eigvec21: " + str(eigvec21))
     f21 = seminario_sum(vec21, eigval21, eigvec21)
-    print("f21: "+str(f21))
+    print("f21: " + str(f21))
 
     # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
-    
-    if convert: return scaling * 2240.87 * 418.4 * 0.5 * (f12+f21)
-    else: return scaling * 0.5 * (f12+f21)
 
-def seminario_bond_new(atom1, atom2, hessian, scaling=0.963) :
+    if convert:
+        return scaling * 2240.87 * 418.4 * 0.5 * (f12 + f21)
+    else:
+        return scaling * 0.5 * (f12 + f21)
+
+
+def seminario_bond_new(atom1, atom2, hessian, scaling=0.963):
     """
     Estimate the bond force constant using the Seminario method, i.e. by
     analysing the Hessian submatrix. Will average over atom1->atom2 and
@@ -180,9 +196,10 @@ def seminario_bond_new(atom1, atom2, hessian, scaling=0.963) :
 
     # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
-    return scaling * 2240.87 * 418.4 * 0.5 * (f12+f21)
+    return scaling * 2240.87 * 418.4 * 0.5 * (f12 + f21)
 
-def make_bonded_ff(struct, xyz_orig, hess, bonds, scaling=0.963) :
+
+def make_bonded_ff(struct, xyz_orig, hess, bonds, scaling=0.963):
     """
     Make bonded force field parameters for selected bonds using the Seminario
     method.
@@ -203,7 +220,7 @@ def make_bonded_ff(struct, xyz_orig, hess, bonds, scaling=0.963) :
         the scaling factor for the Hessian
     """
 
-    for bond in bonds :
+    for bond in bonds:
         sel1, sel2 = bond.strip().split("-")
         atom1 = struct.view[sel1].atoms[0]
         atom2 = struct.view[sel2].atoms[0]
@@ -213,12 +230,22 @@ def make_bonded_ff(struct, xyz_orig, hess, bonds, scaling=0.963) :
     struct_orig.coordinates = xyz_orig
 
     print("Bond\tidx1\tidx2\tr(x-ray)\tr(opt) [nm]\tk [kJ/mol/nm2]")
-    for bond, bond_orig, bondmask in zip(struct.bonds, struct_orig.bonds, bonds) :
+    for bond, bond_orig, bondmask in zip(struct.bonds, struct_orig.bonds, bonds):
         force = seminario_bond(bond, hess, scaling)
-        print("%s\t%d\t%d\t%.4f\t%.4f\t%.4f"%(bondmask, bond.atom1.idx+1,
-            bond.atom2.idx+1, bond_orig.measure()*0.1, bond.measure()*0.1, force))
+        print(
+            "%s\t%d\t%d\t%.4f\t%.4f\t%.4f"
+            % (
+                bondmask,
+                bond.atom1.idx + 1,
+                bond.atom2.idx + 1,
+                bond_orig.measure() * 0.1,
+                bond.measure() * 0.1,
+                force,
+            )
+        )
 
-def seminario_angle(angle, hessian, scaling=0.963, convert=False) :
+
+def seminario_angle(angle, hessian, scaling=0.963, convert=False):
     """
     Estimate the angle force constant using the Seminario method, i.e. by
     analysing the Hessian submatrix.
@@ -249,15 +276,17 @@ def seminario_angle(angle, hessian, scaling=0.963, convert=False) :
     bond32 = parmed.Bond(angle.atom3, angle.atom2)
     len32 = bond32.measure()
 
-    f = 1.0 / (1.0/(sum1*len12*len12)
-              +1.0/(sum2*len32*len32))
+    f = 1.0 / (1.0 / (sum1 * len12 * len12) + 1.0 / (sum2 * len32 * len32))
 
     # 627.5095 is Hatree to kcal/mol
     # 4.184 is kcal/mol to kJ/mol
-    if convert: return scaling * 627.5095 * 4.184 * f
-    else: return scaling * f
+    if convert:
+        return scaling * 627.5095 * 4.184 * f
+    else:
+        return scaling * f
 
-def make_angled_ff(struct, xyz_orig, hess, angles, scaling=0.963) :
+
+def make_angled_ff(struct, xyz_orig, hess, angles, scaling=0.963):
     """
     Make angle force field parameters for selected angles using the Seminario
     method.
@@ -278,7 +307,7 @@ def make_angled_ff(struct, xyz_orig, hess, angles, scaling=0.963) :
         the scaling factor for the Hessian
     """
 
-    for angle in angles :
+    for angle in angles:
         sel1, sel2, sel3 = angle.strip().split("-")
         atom1 = struct.view[sel1].atoms[0]
         atom2 = struct.view[sel2].atoms[0]
@@ -289,15 +318,26 @@ def make_angled_ff(struct, xyz_orig, hess, angles, scaling=0.963) :
     struct_orig.coordinates = xyz_orig
 
     print("Angle\tidx1\tidx2\tidx3\ttheta(x-ray)\ttheta(opt)\tk [kJ/mol]")
-    for angle, angle_orig, anglemask in zip(struct.angles, struct_orig.angles, angles) :
+    for angle, angle_orig, anglemask in zip(struct.angles, struct_orig.angles, angles):
         force = seminario_angle(angle, hess, scaling)
-        print("%s\t%d\t%d\t%d\t%.4f\t%.4f\t%.4f"%(anglemask, angle.atom1.idx+1,
-            angle.atom2.idx+1, angle.atom3.idx+1,
-            angle_orig.measure(), angle.measure(), force))
-        
-#endregion
+        print(
+            "%s\t%d\t%d\t%d\t%.4f\t%.4f\t%.4f"
+            % (
+                anglemask,
+                angle.atom1.idx + 1,
+                angle.atom2.idx + 1,
+                angle.atom3.idx + 1,
+                angle_orig.measure(),
+                angle.measure(),
+                force,
+            )
+        )
 
-#region Gaussian
+
+# endregion
+
+# region Gaussian
+
 
 def parse_fchk(filename):
     """
@@ -316,10 +356,11 @@ def parse_fchk(filename):
     numpy.ndarray
         the Hessian matrix in the checkpoint file
     """
+
     def _parse_array(f, startline, endline):
         arr = []
         line = "None"
-        while line and not line.startswith(startline) :
+        while line and not line.startswith(startline):
             line = f.readline()
         while line and not line.startswith(endline):
             line = f.readline()
@@ -329,37 +370,40 @@ def parse_fchk(filename):
 
     crds = None
     hess = None
-    with open(filename, "r") as f :
+    with open(filename, "r") as f:
         # First the coordinates
-        crds = _parse_array(f, 'Current cartesian coordinates', 'Force Field')
+        crds = _parse_array(f, "Current cartesian coordinates", "Force Field")
         # Then the Hessian
-        hess = _parse_array(f, 'Cartesian Force Constants', 'Dipole Moment')
+        hess = _parse_array(f, "Cartesian Force Constants", "Dipole Moment")
 
     # Make the Hessian in square form
     i = 0
     n = len(crds)
     hess_sqr = np.zeros([n, n])
     for j in range(n):
-        for k in range(j+1):
-            hess_sqr[j,k] = hess[i]
-            hess_sqr[k,j] = hess[i]
+        for k in range(j + 1):
+            hess_sqr[j, k] = hess[i]
+            hess_sqr[k, j] = hess[i]
             i += 1
 
     natoms = int(n / 3)
-    return crds.reshape([natoms,3]), hess_sqr
+    return crds.reshape([natoms, 3]), hess_sqr
 
-#endregion
 
-#region Arguments
+# endregion
+
+# region Arguments
+
 
 def return_params_parser(add_help=True):
-    '''
+    """
     Returns an argparse.ArgumentParser object for the selection of
     parameters.
-    '''
+    """
     if add_help:
-        description=(__doc__ +
-                     '''
+        description = (
+            __doc__
+            + """
 PTYPES:
 ae   - equilibrium angles
 af   - angle force constants
@@ -371,47 +415,88 @@ imp2 - improper torsions (2nd MM3* column)
 sb   - stretch-bend force constants
 q    - bond dipoles
 vdwe - van der Waals epsilon
-vdwr - van der Waals radius''')
+vdwr - van der Waals radius"""
+        )
         parser = argparse.ArgumentParser(
-            formatter_class=argparse.RawTextHelpFormatter,
-            description=description)
+            formatter_class=argparse.RawTextHelpFormatter, description=description
+        )
     else:
         parser = argparse.ArgumentParser(add_help=False)
-    par_group = parser.add_argument_group('seminario')
+    par_group = parser.add_argument_group("seminario")
     par_group.add_argument(
-        '-o', '--ff-out', type=str, metavar='filename.seminario.frcmod', default='amber.seminario.frcmod',
-        help=('Use mol2 file and Gaussian Hessian to generate a new force field where\n'
-              'each force constant value is replaced\n'
-              'by its value estimated from the seminario calculation\n'
-              'of force constants in the structure.'))
+        "-o",
+        "--ff-out",
+        type=str,
+        metavar="filename.seminario.frcmod",
+        default="amber.seminario.frcmod",
+        help=(
+            "Use mol2 file and Gaussian Hessian to generate a new force field where\n"
+            "each force constant value is replaced\n"
+            "by its value estimated from the seminario calculation\n"
+            "of force constants in the structure."
+        ),
+    )
     par_group.add_argument(
-        '-i', '--ff-in', metavar='filename.frcmod', default='amber.frcmod',
-        help='Path to input frcmod.')
+        "-i",
+        "--ff-in",
+        metavar="filename.frcmod",
+        default="amber.frcmod",
+        help="Path to input frcmod.",
+    )
     par_group.add_argument(
-        '--mol', '-m', type=str, metavar='structure.mol2', default=None,
-        help='Read this mol2 file, units are in Angstrom.')
+        "--mol",
+        "-m",
+        type=str,
+        metavar="structure.mol2",
+        default=None,
+        help="Read this mol2 file, units are in Angstrom.",
+    )
     par_group.add_argument(
-        '--pdb', type=str, metavar='structure.pdb', default=None,
-        help='Read this pdb file, units are in Angstrom.')
+        "--pdb",
+        type=str,
+        metavar="structure.pdb",
+        default=None,
+        help="Read this pdb file, units are in Angstrom.",
+    )
     par_group.add_argument(
-        '--log', '-gl',  type=str, metavar='gaussian.log', default=None,
-        help='Gaussian Hessian is extracted from this .log file for seminario calculations. Units are in Bohr.')
+        "--log",
+        "-gl",
+        type=str,
+        metavar="gaussian.log",
+        default=None,
+        help="Gaussian Hessian is extracted from this .log file for seminario calculations. Units are in Bohr.",
+    )
     par_group.add_argument(
-        '--fchk', '-gf', type=str, metavar='gaussian.fchk', default=None,
-        help='Gaussian Hessian and structure are extracted from this .fchk file for seminario calculations. Units are in Bohr.')
+        "--fchk",
+        "-gf",
+        type=str,
+        metavar="gaussian.fchk",
+        default=None,
+        help="Gaussian Hessian and structure are extracted from this .fchk file for seminario calculations. Units are in Bohr.",
+    )
     par_group.add_argument(
-        '--params', '-p', type=str, metavar='parameters.txt', default=None,
-        help='Text file containing the parameters (bonds, angles) to be calculated.')
+        "--params",
+        "-p",
+        type=str,
+        metavar="parameters.txt",
+        default=None,
+        help="Text file containing the parameters (bonds, angles) to be calculated.",
+    )
     par_group.add_argument(
-        '--mm3', type=str, default=False,
-        help='Flag indicating that the force field type is MM3, used only for testing.')
+        "--mm3",
+        type=str,
+        default=False,
+        help="Flag indicating that the force field type is MM3, used only for testing.",
+    )
     return parser
 
 
-#endregion
+# endregion
 
-#region Stand-alone AMBER Seminario methods process
+# region Stand-alone AMBER Seminario methods process
 print("pre main")
+
+
 def main(args):
     print("in main")
     if sys.version_info > (3, 0):
@@ -427,7 +512,9 @@ def main(args):
 
     assert args.ff_in, "Input frcmod AMBER FF file is required!"
 
-    assert (args.mol or args.pdb) and (args.log or args.fchk), "Both a mol2 structure file and a Gaussian log or Gaussian fchk (DFT Hessian) file are needed!"
+    assert (args.mol or args.pdb) and (
+        args.log or args.fchk
+    ), "Both a mol2 structure file and a Gaussian log or Gaussian fchk (DFT Hessian) file are needed!"
 
     if args.mm3:
         ff_in = MM3(args.ff_in)
@@ -441,16 +528,11 @@ def main(args):
     params = []
     if args.params is None:
         params = ff_in.params
-        print("ff params "+str(ff_in.params))
-        print("params: "+str(params))
     else:
-        #TODO: MF - check which params in params input string are in ff params, if in, then add to params variable
-        with open(args.params, 'r') as param_file:
+        with open(args.params, "r") as param_file:
             lines = param_file.readlines()
             for line in lines:
                 params.append(line)
-
-
 
     if args.fchk:
         dft_coords, dft_hessian = parse_fchk(args.fchk)
@@ -460,55 +542,76 @@ def main(args):
         print("glog object")
         structures = log.structures
         print("got glog structures")
-        #TODO: get coords by pulling from each atom
+        # TODO: get coords by pulling from each atom
         dft_coords = np.array(log.structures[-1].coords)
         dft_hessian = log.structures[-1].hess
 
     min_hessian = invert_ts_curvature(dft_hessian)
-    print("hessian curvature inverted")
-    
-    struct = parmed.load_file(args.mol, structure=True) if args.mol else parmed.load_file(args.pdb, structure=True) 
+    print("hessian curvature inverted: " + str(min_hessian))
+
+    struct = (
+        parmed.load_file(args.mol, structure=True)
+        if args.mol
+        else parmed.load_file(args.pdb, structure=True)
+    )
     mol_coords = np.array(struct.coordinates)
-    #struct.coordinates is type(np.array) of shape n_atoms, 3
-    struct.coordinates = dft_coords#*0.529177249 # 0.529177249 is Bohr to A #TODO: MF - check which units Q2MM uses
+    # struct.coordinates is type(np.array) of shape n_atoms, 3
+    struct.coordinates = dft_coords  # *0.529177249 # 0.529177249 is Bohr to A #TODO: MF - check which units Q2MM uses
 
-    print("structure: "+str(struct))
+    print("structure: " + str(struct))
 
-    if params is not 'all':
-        print("params")
-        temp_struct = struct.copy(type(struct))
-        temp_struct.bonds.clear()
-        temp_struct.angles.clear()
-        for param in params:
-            print(str(param))
-            print(param.ptype)
-            if param.ptype is 'bf':
-                print("bf types: "+str(param.atom_types))
-                for bond in struct.bonds:
-                    if utilities.is_same_bond(param.atom_types, utilities.convert_atom_type_pair([bond.atom1.type, bond.atom2.type])):
-                        param.value = seminario_bond(bond, min_hessian, convert=args.fchk)
-                        print("new param value: "+str(param.value))
-            if param.ptype is 'be':
-                print("be")
-                for bond in struct.bonds:
-                    possible_matches = [[bond.atom1.type, bond.atom2.type], [bond.atom2.type, bond.atom1.type]]
-                    if param.atom_types in possible_matches:
-                        temp_struct.bonds.append(bond)
-                        param.value = bond.measure()
-            if param.ptype is 'af':
-                print("af")
-                for angle in struct.angles:
-                    possible_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
-                    if param.atom_types in possible_matches:
-                        param.value = seminario_angle(angle, min_hessian, convert=args.fchk)
-            if param.ptype is 'ae':
-                print("ae")
-                for angle in struct.angles:
-                    possible_matches = [[angle.atom1.type, angle.atom2.type, angle.atom3.type], [angle.atom3.type, angle.atom2.type, angle.atom1.type]]
-                    if param.atom_types in possible_matches:
-                        temp_struct.angles.append(angle)
-                        param.value = angle.measure() #TODO: MF - CHECK UNITS, does setting coords in struct set them for atoms? NOPE
-    # NOTE: user must make sure mol2 structure is the same as gaussian log or fchk structure (just in IRC)
+    temp_struct = struct.copy(type(struct))
+    temp_struct.bonds.clear()
+    temp_struct.angles.clear()
+    print(
+        "will now iterate across params to find matching structure and calculate new param value."
+    )
+    for param in params:
+        print(str(param))
+        print(param.ptype)
+        if param.ptype is "bf":
+            print("bf types: " + str(param.atom_types))
+            for bond in struct.bonds:
+                if utilities.is_same_bond(
+                    param.atom_types,
+                    utilities.convert_atom_type_pair(
+                        [bond.atom1.type, bond.atom2.type]
+                    ),
+                ):
+                    param.value = seminario_bond(bond, min_hessian, convert=args.fchk)
+                    print("new param value: " + str(param.value))
+        if param.ptype is "be":
+            print("be")
+            for bond in struct.bonds:
+                possible_matches = [
+                    [bond.atom1.type, bond.atom2.type],
+                    [bond.atom2.type, bond.atom1.type],
+                ]
+                if param.atom_types in possible_matches:
+                    temp_struct.bonds.append(bond)
+                    param.value = bond.measure()
+        if param.ptype is "af":
+            print("af")
+            for angle in struct.angles:
+                possible_matches = [
+                    [angle.atom1.type, angle.atom2.type, angle.atom3.type],
+                    [angle.atom3.type, angle.atom2.type, angle.atom1.type],
+                ]
+                if param.atom_types in possible_matches:
+                    param.value = seminario_angle(angle, min_hessian, convert=args.fchk)
+        if param.ptype is "ae":
+            print("ae")
+            for angle in struct.angles:
+                possible_matches = [
+                    [angle.atom1.type, angle.atom2.type, angle.atom3.type],
+                    [angle.atom3.type, angle.atom2.type, angle.atom1.type],
+                ]
+                if param.atom_types in possible_matches:
+                    temp_struct.angles.append(angle)
+                    param.value = (
+                        angle.measure()
+                    )  # TODO: MF - CHECK UNITS, does setting coords in struct set them for atoms? NOPE
+        # NOTE: user must make sure mol2 structure is the same as gaussian log or fchk structure (just in IRC)
 
         struct = temp_struct
 
@@ -524,52 +627,59 @@ def main(args):
     ff_in.export_ff(args.ff_out, params)
 
 
-#endregion
+# endregion
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.config.dictConfig(co.LOG_SETTINGS)
     main(sys.argv[1:])
 
-#region tools
+# region tools
 
-def seminario_ff() :
+
+def seminario_ff():
     """
     The entry point for the Seminario script.
 
     Setting up argument parser, load files and then estimate force field.
     """
 
-
-    argparser = argparse.ArgumentParser(description="Script to compute bond force constant with Seminario")
-    argparser.add_argument('-f', '--checkpoint', help="the formated checkpoint file")
-    argparser.add_argument('-s', '--struct', help="a structure file")
-    argparser.add_argument('-b', '--bonds', nargs="+", help="the bonds")
-    argparser.add_argument('-a', '--angles', nargs="+", help="the angles")
-    argparser.add_argument('--scaling', type=float, help="the frequency scaling factor", default=0.963)
-    argparser.add_argument('--saveopt', action='store_true', help="save the optimized coordinates to file", default=False)
+    argparser = argparse.ArgumentParser(
+        description="Script to compute bond force constant with Seminario"
+    )
+    argparser.add_argument("-f", "--checkpoint", help="the formated checkpoint file")
+    argparser.add_argument("-s", "--struct", help="a structure file")
+    argparser.add_argument("-b", "--bonds", nargs="+", help="the bonds")
+    argparser.add_argument("-a", "--angles", nargs="+", help="the angles")
+    argparser.add_argument(
+        "--scaling", type=float, help="the frequency scaling factor", default=0.963
+    )
+    argparser.add_argument(
+        "--saveopt",
+        action="store_true",
+        help="save the optimized coordinates to file",
+        default=False,
+    )
     args = argparser.parse_args()
 
-    if args.checkpoint is None or args.struct is None :
+    if args.checkpoint is None or args.struct is None:
         print("Nothing to be done. Use -h to see help. \n Exit.")
         return
 
     struct = parmed.load_file(args.struct, skip_bonds=True)
     xyz_opt, hess = parse_fchk(args.checkpoint)
     xyz_orig = np.array(struct.coordinates)
-    #struct.coordinates is type(np.array) of shape n_atoms, 3
-    struct.coordinates = xyz_opt*0.529177249 # 0.529177249 is Bohr to A
+    # struct.coordinates is type(np.array) of shape n_atoms, 3
+    struct.coordinates = xyz_opt * 0.529177249  # 0.529177249 is Bohr to A
 
-    if args.saveopt :
+    if args.saveopt:
         base, ext = os.path.splitext(args.struct)
-        struct.save(base+"_opt"+ext)
+        struct.save(base + "_opt" + ext)
 
     if args.bonds is not None:
-        make_bonded_ff(struct, xyz_orig, hess,
-                                    args.bonds, args.scaling)
+        make_bonded_ff(struct, xyz_orig, hess, args.bonds, args.scaling)
 
     if args.angles is not None:
-        make_angled_ff(struct, xyz_orig, hess,
-                                    args.angles, args.scaling)
+        make_angled_ff(struct, xyz_orig, hess, args.angles, args.scaling)
 
 
-#endregion
+# endregion
