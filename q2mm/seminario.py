@@ -118,7 +118,7 @@ def get_subhessian(hessian, atom1, atom2):
     ]
     submat_1 = np.hstack((submat_11, submat_12))
     submat_2 = np.hstack((submat_21, submat_22))
-    submat = np.vstack(submat_1, submat_2)
+    submat = np.vstack((submat_1, submat_2))
 
     return submat
 
