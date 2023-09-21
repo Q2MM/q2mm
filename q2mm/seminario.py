@@ -690,6 +690,7 @@ def main(args):
         print(param.ptype)
         if param.ptype is "bf":
             print("bf types: " + str(param.atom_types))
+            print("bonds: "+str(struct.bonds))
             for bond in struct.bonds:
                 print("converted types: "+str(utilities.convert_atom_type_pair(
                         [bond.atom1.type, bond.atom2.type]
