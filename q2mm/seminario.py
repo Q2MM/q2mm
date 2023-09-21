@@ -251,7 +251,7 @@ def po_bond(bond, hessian, scaling=0.963, convert=False):
     if convert:
         return scaling * 2240.87 * 418.4 * 0.5 * po_sum
     else:
-        return scaling * 0.5 * po_sum
+        return scaling * 0.5 * ab_sum
 
 def seminario_bond(bond, hessian, scaling=0.963, convert=False):
     """
