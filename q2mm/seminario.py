@@ -188,29 +188,29 @@ def sub_hessian_new(hessian, atom1, atom2):
     eigval, eigvec = np.linalg.eig(submat)
     return vec12, eigval, eigvec
 
-def po_sum(unit_vec, eigval, eigvec):
-    """
-    Average the projections of the eigenvector on a specific unit vector
-    according to Seminario
+# def po_sum(unit_vec, eigval, eigvec):
+#     """
+#     Average the projections of the eigenvector on a specific unit vector
+#     according to Seminario
 
-    Parameters
-    ----------
-    vec : numpy.ndarray
-        the unit vector
-    eigval : numpy.ndarray
-        the eigenvalues of a Hessian submatrix
-    eigvec : numpy.ndarray
-        the eigenvectors of a Hessian submatrix
+#     Parameters
+#     ----------
+#     vec : numpy.ndarray
+#         the unit vector
+#     eigval : numpy.ndarray
+#         the eigenvalues of a Hessian submatrix
+#     eigvec : numpy.ndarray
+#         the eigenvectors of a Hessian submatrix
 
-    Returns
-    -------
-    float :
-        the average projection
-    """
-    ssum = 0.0
-    for i in range(len(eigval)):
-        ssum += eigval[i] * np.abs(np.dot(eigvec[:, i], unit_vec))
-    return ssum
+#     Returns
+#     -------
+#     float :
+#         the average projection
+#     """
+#     ssum = 0.0
+#     for i in range(len(eigval)):
+#         ssum += eigval[i] * np.abs(np.dot(eigvec[:, i], unit_vec))
+#     return ssum
 
 
 def seminario_sum(vec, eigval, eigvec):
@@ -237,21 +237,37 @@ def seminario_sum(vec, eigval, eigvec):
         ssum += eigval[i] * np.abs(np.dot(eigvec[:, i], vec))
     return ssum
 
+# def po_bond(bond, hessian, scaling=0.963, convert=False):
+#     unit_vector_ab = create_unit_vector(bond.atom1, bond.atom2)
+#     subhessian = get_subhessian(hessian, bond.atom1, bond.atom2)
+#     eigval, eigvec = np.linalg.eig(subhessian)
+
+#     ab_sum = po_sum(unit_vector_ab, eigval, eigvec)
+
+
+#     # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
+#     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
+
+#     if convert:
+#         return scaling * 2240.87 * 418.4 * 0.5 * po_sum
+#     else:
+#         return scaling * 0.5 * ab_sum
+
 def po_bond(bond, hessian, scaling=0.963, convert=False):
     unit_vector_ab = create_unit_vector(bond.atom1, bond.atom2)
     subhessian = get_subhessian(hessian, bond.atom1, bond.atom2)
-    eigval, eigvec = np.linalg.eig(subhessian)
 
-    ab_sum = po_sum(unit_vector_ab, eigval, eigvec)
+    unit_vector_onto_subhess = np.dot(unit_vector_ab, subhessian)
+    product = np.dot(unit_vector_onto_subhess, unit_vector_ab.T)
 
 
     # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
 
     if convert:
-        return scaling * 2240.87 * 418.4 * 0.5 * po_sum
+        return scaling * 2240.87 * 418.4 * 0.5 * product
     else:
-        return scaling * 0.5 * ab_sum
+        return scaling * 0.5 * product
 
 def seminario_bond(bond, hessian, scaling=0.963, convert=False):
     """
