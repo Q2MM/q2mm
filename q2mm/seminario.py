@@ -741,15 +741,7 @@ def main(args):
                     )  # TODO: MF - CHECK UNITS, does setting coords in struct set them for atoms? NOPE
         # NOTE: user must make sure mol2 structure is the same as gaussian log or fchk structure (just in IRC)
 
-        struct = temp_struct
-
-    make_bonded_ff(struct, mol_coords, dft_hessian, struct.bonds)
-
-    make_angled_ff(struct, mol_coords, dft_hessian, struct.angles)
-
-    make_bonded_ff(struct, mol_coords, min_hessian, struct.bonds)
-
-    make_angled_ff(struct, mol_coords, min_hessian, struct.angles)
+    struct = temp_struct
 
     # Write out new frcmod
     ff_in.export_ff(args.ff_out, params)
