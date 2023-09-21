@@ -98,7 +98,7 @@ def create_unit_vector(atom1, atom2):
         the eigenvector of the submatrix
     """
     vec12 = np.asarray([atom1.xx - atom2.xx, atom1.xy - atom2.xy, atom1.xz - atom2.xz])
-    vec21 = -vec12
+    vec21 = np.asarray([atom2.xx - atom1.xx, atom2.xy - atom1.xy, atom2.xz - atom1.xz])
     unit_vec = np.hstack((vec12, vec21))
     unit_vec = unit_vec / np.linalg.norm(unit_vec)
     #eigval, eigvec = np.linalg.eig(submat)
