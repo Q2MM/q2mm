@@ -691,6 +691,9 @@ def main(args):
         if param.ptype is "bf":
             print("bf types: " + str(param.atom_types))
             for bond in struct.bonds:
+                print("converted types: "+str(utilities.convert_atom_type_pair(
+                        [bond.atom1.type, bond.atom2.type]
+                    )))
                 if utilities.is_same_bond(
                     param.atom_types,
                     utilities.convert_atom_type_pair(
