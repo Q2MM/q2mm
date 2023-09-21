@@ -74,6 +74,86 @@ def sub_hessian(hessian, atom1, atom2):
     eigval, eigvec = np.linalg.eig(submat)
     return vec12, eigval, eigvec
 
+def create_unit_vector(atom1, atom2):
+    """
+    Subsample the Hessian matrix that is formed between atom1 and atom2
+    as well as calculating the vector from atom1 to atom2
+
+    Parameters
+    ----------
+    hessian : numpy.ndarray
+        the Hessian matrix
+    atom1 : parmed.Atom
+        the first atom
+    atom2 : parmed.Atom
+        the second atom
+
+    Returns
+    -------
+    numpy.ndarray
+        the vector from atom1 to atom2
+    numpy.ndarray
+        the eigenvalues of the submatrix
+    numpy.ndarray
+        the eigenvector of the submatrix
+    """
+    vec12 = np.asarray([atom1.xx - atom2.xx, atom1.xy - atom2.xy, atom1.xz - atom2.xz])
+    vec12 = vec12 / np.linalg.norm(vec12)
+    vec21 = -vec12
+    #eigval, eigvec = np.linalg.eig(submat)
+    return vec12
+
+def get_subhessian(hessian, atom1, atom2):
+    submat_11 = -hessian[
+        3 * atom1.idx : 3 * atom1.idx + 3, 3 * atom1.idx : 3 * atom1.idx + 3
+    ]
+    submat_12 = -hessian[
+        3 * atom1.idx : 3 * atom1.idx + 3, 3 * atom2.idx : 3 * atom2.idx + 3
+    ]
+    submat_21 = -hessian[
+        3 * atom2.idx : 3 * atom2.idx + 3, 3 * atom1.idx : 3 * atom1.idx + 3
+    ]
+    submat_22 = -hessian[
+        3 * atom2.idx : 3 * atom2.idx + 3, 3 * atom2.idx : 3 * atom2.idx + 3
+    ]
+    submat_1 = np.hstack((submat_11, submat_12))
+    submat_2 = np.hstack((submat_21, submat_22))
+    submat = np.vstack(submat_1, submat_2)
+
+    return submat
+
+def create_unit_vectors(atom1, atom2, atom3):
+    """
+    Subsample the Hessian matrix that is formed between atom1 and atom2
+    as well as calculating the vector from atom1 to atom2
+
+    Parameters
+    ----------
+    hessian : numpy.ndarray
+        the Hessian matrix
+    atom1 : parmed.Atom
+        the first atom
+    atom2 : parmed.Atom
+        the second atom
+
+    Returns
+    -------
+    numpy.ndarray
+        the vector from atom1 to atom2
+    numpy.ndarray
+        the eigenvalues of the submatrix
+    numpy.ndarray
+        the eigenvector of the submatrix
+    """
+    vec12 = np.asarray([atom1.xx - atom2.xx, atom1.xy - atom2.xy, atom1.xz - atom2.xz])
+    vec12 = vec12 / np.linalg.norm(vec12)
+
+    submat = -hessian[
+        3 * atom1.idx : 3 * atom1.idx + 3, 3 * atom2.idx : 3 * atom2.idx + 3
+    ]
+    eigval, eigvec = np.linalg.eig(submat)
+    return vec12, eigval, eigvec
+
 
 def sub_hessian_new(hessian, atom1, atom2):
     """
@@ -107,6 +187,30 @@ def sub_hessian_new(hessian, atom1, atom2):
     eigval, eigvec = np.linalg.eig(submat)
     return vec12, eigval, eigvec
 
+def po_sum(unit_vec, eigval, eigvec):
+    """
+    Average the projections of the eigenvector on a specific unit vector
+    according to Seminario
+
+    Parameters
+    ----------
+    vec : numpy.ndarray
+        the unit vector
+    eigval : numpy.ndarray
+        the eigenvalues of a Hessian submatrix
+    eigvec : numpy.ndarray
+        the eigenvectors of a Hessian submatrix
+
+    Returns
+    -------
+    float :
+        the average projection
+    """
+    ssum = 0.0
+    for i in range(len(eigval)):
+        ssum += eigval[i] * np.abs(np.dot(eigvec[:, i], unit_vec))
+    return ssum
+
 
 def seminario_sum(vec, eigval, eigvec):
     """
@@ -132,6 +236,21 @@ def seminario_sum(vec, eigval, eigvec):
         ssum += eigval[i] * np.abs(np.dot(eigvec[:, i], vec))
     return ssum
 
+def po_bond(bond, hessian, scaling=0.963, convert=False):
+    unit_vector_ab = create_unit_vector(bond.atom1, bond.atom2)
+    subhessian = get_subhessian(hessian, bond.atom1, bond.atom2)
+    eigval, eigvec = np.linalg.eig(subhessian)
+
+    ab_sum = po_sum(unit_vector_ab, eigval, eigvec)
+
+
+    # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
+    # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
+
+    if convert:
+        return scaling * 2240.87 * 418.4 * 0.5 * po_sum
+    else:
+        return scaling * 0.5 * po_sum
 
 def seminario_bond(bond, hessian, scaling=0.963, convert=False):
     """
@@ -579,7 +698,11 @@ def main(args):
                     ),
                 ):
                     print("matched")
-                    param.value = seminario_bond(bond, min_hessian, convert=args.fchk)
+                    s_bond = seminario_bond(bond, min_hessian, convert=args.fchk)
+                    print("seminario bond: "+str(s_bond))
+                    p_bond = po_bond(bond, min_hessian, convert=args.fchk)
+                    print("po bond: "+str(p_bond))
+                    param.value = p_bond
                     print("new param value: " + str(param.value))
         if param.ptype is "be":
             print("be")
