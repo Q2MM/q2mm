@@ -100,8 +100,9 @@ def create_unit_vector(atom1, atom2):
     vec12 = np.asarray([atom1.xx - atom2.xx, atom1.xy - atom2.xy, atom1.xz - atom2.xz])
     vec12 = vec12 / np.linalg.norm(vec12)
     vec21 = -vec12
+    unit_vec = np.hstack((vec12, vec21))
     #eigval, eigvec = np.linalg.eig(submat)
-    return vec12
+    return unit_vec
 
 def get_subhessian(hessian, atom1, atom2):
     submat_11 = -hessian[
