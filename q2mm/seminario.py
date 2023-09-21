@@ -105,7 +105,7 @@ def create_unit_vector(atom1, atom2):
     return unit_vec
 
 def get_subhessian(hessian, atom1, atom2):
-    submat_11 = -hessian[
+    submat_11 = hessian[
         3 * atom1.idx : 3 * atom1.idx + 3, 3 * atom1.idx : 3 * atom1.idx + 3
     ]
     submat_12 = -hessian[
@@ -114,7 +114,7 @@ def get_subhessian(hessian, atom1, atom2):
     submat_21 = -hessian[
         3 * atom2.idx : 3 * atom2.idx + 3, 3 * atom1.idx : 3 * atom1.idx + 3
     ]
-    submat_22 = -hessian[
+    submat_22 = hessian[
         3 * atom2.idx : 3 * atom2.idx + 3, 3 * atom2.idx : 3 * atom2.idx + 3
     ]
     submat_1 = np.hstack((submat_11, submat_12))
@@ -146,14 +146,8 @@ def create_unit_vectors(atom1, atom2, atom3):
     numpy.ndarray
         the eigenvector of the submatrix
     """
-    vec12 = np.asarray([atom1.xx - atom2.xx, atom1.xy - atom2.xy, atom1.xz - atom2.xz])
-    vec12 = vec12 / np.linalg.norm(vec12)
 
-    submat = -hessian[
-        3 * atom1.idx : 3 * atom1.idx + 3, 3 * atom2.idx : 3 * atom2.idx + 3
-    ]
-    eigval, eigvec = np.linalg.eig(submat)
-    return vec12, eigval, eigvec
+    return unit_vector_13, unit_vector_31
 
 
 def sub_hessian_new(hessian, atom1, atom2):
@@ -265,9 +259,9 @@ def po_bond(bond, hessian, scaling=0.963, convert=False):
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
 
     if convert:
-        return scaling * 2240.87 * 418.4 * 0.5 * product
+        return scaling * 2240.87 * 418.4 * product
     else:
-        return scaling * 0.5 * product
+        return scaling * product
 
 def seminario_bond(bond, hessian, scaling=0.963, convert=False):
     """
