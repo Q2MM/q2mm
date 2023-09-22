@@ -1,9 +1,4 @@
 from openbabel import openbabel as ob
-from openbabel import pybel as pb
-import numpy as np
-import glob, os
-import multiprocessing as mp
-from multiprocessing import Pool
 
 
 def mae_to_mol2(infile,outfile):

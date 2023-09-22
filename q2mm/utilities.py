@@ -6,19 +6,6 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 
-from argparse import RawTextHelpFormatter
-from collections import Counter
-from string import digits
-import logging
-from logging import config
-import mmap
-import numpy as np
-import math
-import os
-import re
-import subprocess as sp
-import time
-import sys
 
 # region Atom Type Conversion
 
