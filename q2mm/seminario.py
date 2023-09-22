@@ -20,12 +20,11 @@ import numpy as np
 import parmed
 
 from linear_algebra import invert_ts_curvature
-from datatypes import MM3, AmberFF
 
 import logging
 import logging.config
 import constants as co
-from filetypes import GaussLog
+from schrod_indep_filetypes import GaussLog, MM3, AmberFF
 import utilities
 
 
@@ -105,7 +104,7 @@ def create_unit_vector(atom1, atom2):
     return unit_vec
 
 def get_subhessian(hessian, atom1, atom2):
-    submat_11 = hessian[
+    submat_11 = -hessian[
         3 * atom1.idx : 3 * atom1.idx + 3, 3 * atom1.idx : 3 * atom1.idx + 3
     ]
     submat_12 = -hessian[
@@ -114,7 +113,7 @@ def get_subhessian(hessian, atom1, atom2):
     submat_21 = -hessian[
         3 * atom2.idx : 3 * atom2.idx + 3, 3 * atom1.idx : 3 * atom1.idx + 3
     ]
-    submat_22 = hessian[
+    submat_22 = -hessian[
         3 * atom2.idx : 3 * atom2.idx + 3, 3 * atom2.idx : 3 * atom2.idx + 3
     ]
     submat_1 = np.hstack((submat_11, submat_12))
@@ -123,31 +122,31 @@ def get_subhessian(hessian, atom1, atom2):
 
     return submat
 
-def create_unit_vectors(atom1, atom2, atom3):
-    """
-    Subsample the Hessian matrix that is formed between atom1 and atom2
-    as well as calculating the vector from atom1 to atom2
+# def create_unit_vectors(atom1, atom2, atom3):
+#     """
+#     Subsample the Hessian matrix that is formed between atom1 and atom2
+#     as well as calculating the vector from atom1 to atom2
 
-    Parameters
-    ----------
-    hessian : numpy.ndarray
-        the Hessian matrix
-    atom1 : parmed.Atom
-        the first atom
-    atom2 : parmed.Atom
-        the second atom
+#     Parameters
+#     ----------
+#     hessian : numpy.ndarray
+#         the Hessian matrix
+#     atom1 : parmed.Atom
+#         the first atom
+#     atom2 : parmed.Atom
+#         the second atom
 
-    Returns
-    -------
-    numpy.ndarray
-        the vector from atom1 to atom2
-    numpy.ndarray
-        the eigenvalues of the submatrix
-    numpy.ndarray
-        the eigenvector of the submatrix
-    """
+#     Returns
+#     -------
+#     numpy.ndarray
+#         the vector from atom1 to atom2
+#     numpy.ndarray
+#         the eigenvalues of the submatrix
+#     numpy.ndarray
+#         the eigenvector of the submatrix
+#     """
 
-    return unit_vector_13, unit_vector_31
+#     return unit_vector_13, unit_vector_31
 
 
 def sub_hessian_new(hessian, atom1, atom2):
