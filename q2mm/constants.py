@@ -134,9 +134,65 @@ HARTREE_TO_J = 4.359744650e-18
 HARTREE_TO_KCALMOL = 627.51
 # mol**-1
 AVO = 6.022140857e23
-BOHR_TO_ANG = 0.5291772086
-# au to mdyn A**-1
+BOHR_TO_ANG = 0.5291772086  # 0.52917721092 according to some places, shouldn't make a difference though
+# AU Hartree Bohr**-2 to mdyn A**-1 Force Constant Bond
 AU_TO_MDYNA = 15.569141
+# AU Hartree Radian**-2 to mdyn Force Constant Angle MM3
+AU_TO_MDYN_ANGLE = 4.3598
+# kJ to dyne*cm, 1kJ = 10**10 DYNCM
+KJ_TO_DYNCM = 10**10
+# cm to Angstrom, 1cm = 10^7 Angstrom
+CM_TO_ANG = 10**8
+# kJ/(mol*Ang^2) to millidyne/Ang = KJ_TO_DYNCM * CM_TO_ANG / AVO
+KJMOLA2_TO_MDYNA = 1.0/(6.022140857e3)
+MDYNA_TO_KJMOLA2 = 6.022140857e2
+# kJ/(mol*Ang) to millidyne
+KJMOLA_TO_MDYN = 1.0/(6.022140857e2)
+MM3_STR = 601.99392
+
+# UNIT SYSTEMS
+AMBERFF = 'KCALMOLA' # force constant (kcal/mol) (A**-2), (kcal/mol); length in Angstrom
+MM3FF = 'MDYNA' # force constant (millidyne) (A**-1), (millidyne); length in Angstrom
+TINKERFF = 'NOT IMPLEMENTED' # TODO
+GAUSSIAN = 'AU' # atomic units, so energy (Hartree), length (Bohr), force constant (Hartree/Bohr**2), (Hartree/Bohr)
+KJMOLA = 'KJMOLA'
+
+
+# SCRIPTS
+NABC_HESSIAN = """#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "sff.h"
+FILE* nabout;
+
+int main(int argc, char* argv[] )
+{
+    nabout = stdout;
+
+    molecule m;
+    float x[4000], fret;
+
+    m = getpdb( argv[2]);
+    readparm(m, argv[1]);
+
+    PARMSTRUCT_T* prm = rdparm( argv[1] );
+    int natm = prm->Natom;
+
+    m = getpdb( argv[2] );
+
+    setxyz_from_mol( m, NULL, x );
+
+    mm_options( "cut=15., ntpr=1, nsnb=99999, diel = C, dielc = 80.40" );
+
+    // nothing frozen or constrained
+    int* frozen = parseMaskString( "@ZZZ", prm, xyz, 2 );
+    int* constrained = parseMaskString( "@ZZZ", prm, xyz, 2 );
+
+    mme_init_sff( prm, frozen, constrained, NULL, NULL );
+
+    int nm = nmode( x, prm->Nat3, mme2, 0, 0, 0.0, 0.0, 0 );
+    printf("nmode returns %d\n", nm);
+}"""
 
 # REGEX
 # COMMON
