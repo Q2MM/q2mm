@@ -155,7 +155,9 @@ class Loop(object):
                     20, '~~ CALCULATING FF DATA ~~'.rjust(79, '~'))
                 if len(cols) > 1:
                     self.args_ff = ' '.join(cols[1:]).split()
-                self.ff.data = calculate.main(self.args_ff)
+                calculate_args = ['-d', self.direc]
+                calculate_args.extend(self.args_ff)
+                self.ff.data = calculate.main(calculate_args)
                 
             if cols[0] == 'COMP':
             # Deprecated

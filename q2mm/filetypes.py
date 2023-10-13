@@ -90,7 +90,7 @@ class AmberHess(File):
     def hessian(self):
         if self._hessian is None:
             logger.log(10, 'READING: {}'.format(self.filename))
-            with open("./calc/"+self.filename, 'r') as f:
+            with open(self.path, 'r') as f:
                 lines = f.readlines()
             for i,line in enumerate(lines):
                 if i == 0:
@@ -132,7 +132,7 @@ class AmberEne(File):
             logger.log(10, 'READING: {}'.format(self.filename))
             self._structures = []
             flag = 0
-            with open('./calc/'+self.filename, 'r') as f:
+            with open(self.directory+'/calc/'+self.filename, 'r') as f:
                 sections = {'sp':1, 'minimization':2}
                 calc_section = 'sp'
                 count_previous = 0
@@ -186,7 +186,7 @@ class AmberGeo(File):
         if self._structures == None:
             logger.log(10, 'READING: {}'.format(self.filename))
             self._structures = []
-            with open("./calc/"+self.filename, 'r') as f:
+            with open(self.directory+"/calc/"+self.filename, 'r') as f:
                 sections = {'sp':1, 'minimization':2, 'hessian':2}
                 count_previous = 0
                 calc_section = 'sp'
@@ -391,7 +391,7 @@ exit
         bonds = []
         angles = []
         torsions = []
-        ref = open('./calc/'+self.name_geo,'r').readlines()
+        ref = open(self.directory+'/calc/'+self.name_geo,'r').readlines()
         count = 0
         for line in ref:
             # Bonds
@@ -427,7 +427,7 @@ exit
             geo += "dihedral @{} @{} @{} @{} out calc/gaus.torsions".format(a,b,c,d) + '\n'
         
         script = script.replace("AA",geo)
-        script_f = './calc/' + self.name + '.temp'
+        script_f = self.directory+'/calc/' + self.name + '.temp'
         with open(script_f, 'w') as f:
             f.write(script)
         sp.call("cpptraj -p calc/prmtop < {}".format(script_f), shell=True, stderr=log, stdin=log, stdout=log)
@@ -458,18 +458,18 @@ exit
                 i += 1
         summary += "END"
         # replace name_geo with summary
-        with open('./calc/'+self.name_geo,'w') as f:
+        with open(self.directory+'/calc/'+self.name_geo,'w') as f:
             f.write(summary)
         return
 
     def geometry(self,log):
         # Run Trajectory (Required for cpptraj)
-        with open("./calc/"+self.name_dyn, 'w') as f:
+        with open(self.directory+"/calc/"+self.name_dyn, 'w') as f:
             f.write(self.dyn_script)
         sp.call("sander -O -i calc/{} -o calc/traj.out -p calc/prmtop -c calc/gaus.{}.rst -x calc/gaus.{}.nc".format(self.name_dyn,self.name,self.name),shell=True)
         # Generate All geometry
         int_script = "bonds\nangles\ndihedrals\n"
-        with open('./calc/'+self.name_int, 'w') as f:
+        with open(self.directory+'/calc/'+self.name_int, 'w') as f:
             f.write(int_script)
         sp.call("cpptraj -p calc/prmtop < calc/{} > calc/{} \n".format(self.name_int,self.name_geo),shell=True)
         self.extract(log)
@@ -490,7 +490,7 @@ exit
             # Run leap
             sp.call("tleap -f {}".format(self.filename),shell=True, stderr=log, stdin=log, stdout=log) # parm7 rst7 files made
             # Run Min
-            with open("./calc/"+self.name_min, 'w') as f:
+            with open(self.directory+"/calc/"+self.name_min, 'w') as f:
                 f.write(self.min_script)
             sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/gaus.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
         if com_opts['geo']:
@@ -507,7 +507,7 @@ class AmberLeap(File):
         self._structures = None
         self.commands = None
         self.name = os.path.splitext(self.filename)[0]
-        self.name_log = 'amber.' + self.name + '.log'
+        self.name_log = 'amber.' + self.name + '.log' # nab output also goes here but gets renamed to .hes
         self.name_prm = 'amber.' + self.name + '.parm7' #topology
         self.name_rst = 'amber.' + self.name + '.rst7' # coordinate
         self.name_min = 'amber.' + self.name + '.min' # sander min input
@@ -587,6 +587,7 @@ class AmberLeap(File):
         if any(x in ['at', 'ato'] for x in self.commands):
             com_opts['tors'] = True
         return com_opts
+    
     def extract(self,log):
 #BUG: 'fixatomorder' is removed in Himani's version of q2mm_kk, this is correct
 # 'fixatomorder' command is removed because it causes mismatches between the line
@@ -610,7 +611,7 @@ exit
         bonds = []
         angles = []
         torsions = []
-        ref = open('./calc/'+self.name_geo,'r').readlines()
+        ref = open(self.directory+'/calc/'+self.name_geo,'r').readlines()
         self.geo = ref
         count = 0
         for line in ref:
@@ -646,7 +647,7 @@ exit
         for a,b,c,d in torsions:
             geo += "dihedral @{} @{} @{} @{} out calc/amber.torsions".format(a,b,c,d) + '\n'
         script = script.replace("AA",geo)
-        script_f = './calc/' + self.name + '.temp'
+        script_f = self.directory+'/calc/' + self.name + '.temp'
         with open(script_f, 'w') as f:
             f.write(script)
         sp.call("cpptraj -p calc/prmtop < {}".format(script_f), shell=True, stderr=log, stdin=log, stdout=log)
@@ -677,7 +678,7 @@ exit
                 i += 1
         summary += "END"
         # replace name_geo with summary
-        with open('./calc/'+self.name_geo,'w') as f:
+        with open(self.directory+'/calc/'+self.name_geo,'w') as f:
             f.write(summary)
         return
 
@@ -691,29 +692,39 @@ exit
         # nab input file
         # dielectric constant = 80.4 for water.
         # currently manual change required
-        script = """molecule m;
+        script = """#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "/opt/miniconda3/include/sff.h"
+FILE* nabout;
+
+nabout = stdout; 
+
+MOLECULE_T* m;
 float x[4000], fret;
 
 m = getpdb("{}.pdb");
-readparm(m, "./calc/prmtop");
+readparm(m, "{}/calc/prmtop");
 
 mm_options( "cut=15., ntpr=1, nsnb=99999, diel = C, dielc = 80.40" );
 mme_init( m, NULL, "::Z", x, NULL);
 setxyz_from_mol( m, NULL, x );
 
-nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name)
-        with open('./calc/'+self.name+'.nab','w') as f:
+nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name, self.directory)
+        with open(self.directory+'/calc/'+self.name+'.c','w') as f:
             f.write(script)
+        #TODO try catch this in case no gcc compiler installed?  Error should be clear and fatal though
         # nab compile
-        sp.call("nab calc/{}.nab".format(self.name),shell=True)
+        sp.call("gcc "+self.directory+"/calc/{}.c".format(self.name),shell=True)
         # nab run
-        sp.call("./calc/{}".format(self.name),shell=True,stderr=log, stdin=log, stdout=log)
+        sp.call(self.directory+"/calc/{}".format(self.name),shell=True,stderr=log, stdin=log, stdout=log)
         # hessian.mat formed
         # rename to .hess
-        sp.call("mv ./calc/hessian.mat ./calc/{}".format(self.name_hes),shell = True)
+        sp.call("mv "+self.directory+"/calc/hessian.mat "+self.directory+"/calc/{}".format(self.name_hes),shell = True)
         return
     def geo_extract(self):
-    
+        """Extracts amber geometry information from .geo file AND hessian information from amber.leap-name.hes (hessian.mat)
+        """    
         bonds = []
         angles = []
         torsions = []
@@ -758,12 +769,12 @@ nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name)
         
     def geometry(self,log):
         # Run Trajectory (Required for cpptraj)
-        with open("./calc/"+self.name_dyn, 'w') as f:
+        with open(self.directory+"/calc/"+self.name_dyn, 'w') as f:
             f.write(self.dyn_script)
         sp.call("sander -O -i calc/{} -o calc/traj.out -p calc/prmtop -c calc/amber.{}.rst -x calc/amber.{}.nc".format(self.name_dyn,self.name,self.name),shell=True)
         # Generate All geometry
         int_script = "bonds\nangles\ndihedrals\n"
-        with open('./calc/'+self.name_int, 'w') as f:
+        with open(self.directory+'/calc/'+self.name_int, 'w') as f:
             f.write(int_script)
         sp.call("cpptraj -p calc/prmtop < calc/{} > calc/{}".format(self.name_int,self.name_geo),shell=True)
         self.extract(log)
@@ -784,7 +795,7 @@ nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name)
             # Run Min
             self.min_script = self.min_script.replace("aa","700")
             self.min_script = self.min_script.replace("bb","5")
-            with open("./calc/"+self.name_min, 'w') as f:
+            with open(self.directory+"/calc/"+self.name_min, 'w') as f:
                 f.write(self.min_script)
             sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
         elif com_opts['sp']:
@@ -794,13 +805,13 @@ nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name)
             # Run Min
             self.min_script = self.min_script.replace("aa","0")
             self.min_script = self.min_script.replace("bb","0")
-            with open("./calc/"+self.name_min, 'w') as f:
+            with open(self.directory+"/calc/"+self.name_min, 'w') as f:
                 f.write(self.min_script)
             sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
         # check if energy calculation failed
         restart = 1
         while(restart==1):
-            with open("./calc/"+self.name_ene,'r') as f:
+            with open(self.directory+"/calc/"+self.name_ene,'r') as f:
                 fline = f.readlines()
                 for line in fline:
                     if "restarting should resolve the error" in line:
@@ -815,7 +826,7 @@ nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name)
             self.hessian(log)
             # if geo file is already present 
             # may not have geo file if hessian is only ran
-            if os.path.isfile('./calc/'+self.name_geo):
+            if os.path.isfile(self.directory+'/calc/'+self.name_geo):
                 self.geo_extract()
         os.chdir(current_directory)
 
@@ -2177,7 +2188,7 @@ class SchrodingerFile(File):
     """
     Parent class used for all Schrodinger files.
     """
-    def conv_sch_str(self, sch_struct:sch_str):
+    def conv_sch_str(self, sch_struct):
         """
         Converts a schrodinger.structure object to my own structure object.
         Sort of pointless. Probably remove soon.
@@ -3048,7 +3059,7 @@ class MacroModel(File):
         return self._structures
     def read_line_for_bond(self, line):
         match = co.RE_BOND.match(line)
-        #TODO: MF find if atom_nums are atomic or index, where index bc need for sub_hessian seminario
+        #YES, atom_nums does refer to the atom index from the mae file
         if match:
             atom_nums = [int(x) for x in [match.group(1), match.group(2)]]
             value = float(match.group(3))
@@ -3306,7 +3317,7 @@ class Structure(object):
                     if -20. < angle_1 < 20. or 160. < angle_1 < 200. or \
                             -20. < angle_2 < 20. or 160. < angle_2 < 200.:
                         logger.log(
-                            1, '>>> angle_1 or angle_2 is too close to 0 or 180!')
+                            1, '>>> angle_1 or angle_2 is too close to 0 or 180!') #TODO BUT WHY IS THIS PROBLEM??
                         pass
                     else:
                         data.append(datum)
