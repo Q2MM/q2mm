@@ -5,9 +5,13 @@ Contains basic utility methods for use in Q2MM.
 from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
+import copy
+import numpy as np
+
+import parmed
 
 
-# region Atom Type Conversion
+# region Atom Type Handling
 
 
 def convert_atom_type(atom_type: str) -> str:
@@ -39,14 +43,48 @@ def convert_atom_types(atom_type_pairs: list) -> list:
     return q2mm_atom_type_pairs
 
 
-def is_same_bond(atom_type_pair1: list, atom_type_pair2: list) -> bool:
-    return (
-        atom_type_pair1[0] == atom_type_pair2[0]
-        and atom_type_pair1[1] == atom_type_pair2[1]
-    ) or (
-        atom_type_pair1[1] == atom_type_pair2[0]
-        and atom_type_pair1[0] == atom_type_pair2[1]
+def measure_bond(coords1: np.ndarray, coords2: np.ndarray) -> float:
+    """Returns bond length between 2 sets of coordinates.
+
+    Args:
+        coords1 (np.ndarray): atom1 coordinates [x, y, z]
+        coords2 (np.ndarray): atom2 coordinates [x, y, z]
+
+    Returns:
+        float: measured bond length
+    """
+    vector = coords2 - coords1
+    return np.sqrt(
+        vector.dot(vector)
+    )  # Used over np.linalg.norm due to speed advantage
+
+
+def measure_angle(
+    coords1: np.ndarray, coords2: np.ndarray, coords3: np.ndarray
+) -> float:
+    """Returns angle between 3 sets of coordinates in degrees.
+
+    Args:
+        coords1 (np.ndarray): atom1 coordinates [x, y, z]
+        coords2 (np.ndarray): atom2 coordinates [x, y, z]
+        coords3 (np.ndarray): atom3 coordinates [x, y, z]
+
+    Returns:
+        float: Angle between coords1, coords2, coords3 in degrees
+    """
+    vector21 = coords1 - coords2
+    vector23 = coords3 - coords2
+    cos_angle = np.dot(vector21, vector23) / (
+        np.sqrt(vector21.dot(vector21)) * np.sqrt(vector23.dot(vector23))
     )
+    angle = np.arccos(cos_angle)
+    return np.degrees(angle)
 
 
-# endregion Atom Type Conversion
+def is_same_type_DOF(atom_types1: list, atom_types2: list) -> bool:
+    reverse_1 = copy.deepcopy(atom_types1)
+    reverse_1.reverse()
+    return atom_types1 == atom_types2 or reverse_1 == atom_types2
+
+
+# endregion Atom Type Handling

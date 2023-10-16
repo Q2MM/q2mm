@@ -42,7 +42,8 @@ LOG_SETTINGS = {
                 'loop': {'level': 5, 'propagate': True},
                 'opt': {'level': 5, 'propagate': True},
                 'parameters': {'level': 20, 'propagate': True},
-                'simplex': {'level': 5, 'propagate': True}
+                'simplex': {'level': 5, 'propagate': True},
+                'seminario': {'level': 20, 'propagate': True}
                 },
 
     #  debug logger
