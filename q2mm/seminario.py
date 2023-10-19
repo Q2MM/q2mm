@@ -27,6 +27,7 @@ from __future__ import division, print_function, absolute_import
 import argparse
 from collections import Counter
 import copy
+import glob
 import os
 import sys
 from typing import List
@@ -45,6 +46,7 @@ from schrod_indep_filetypes import (
     GaussLog,
     MM3,
     AmberFF,
+    JaguarIn,
     Mol2,
     Param,
     Structure,
@@ -435,7 +437,15 @@ def return_params_parser(add_help=True):
         type=str,
         nargs="+",
         metavar="gaussian.log",
-        help="Gaussian Hessian is extracted from this .log file for seminario calculations. Units are in Bohr.",
+        help="Gaussian Hessian is extracted from this .log file for seminario calculations. Units are in AU.",
+    )
+    io_group.add_argument(
+        "--jag-in",
+        "-ji",
+        type=str,
+        nargs="+",
+        metavar="jaguar.in",
+        help="Jaguar Hessian is extracted from this .in file for seminario calculations. Units are in kJ/mol and Angstrom.",
     )
     # io_group.add_argument(
     #     "--fchk",
@@ -695,6 +705,17 @@ def seminario(
     estimated_ff = copy.deepcopy(force_field)
     structs = structures
 
+    # In the case of MM3, user may have equivalent atom types such as HX referring to
+    # H1, H2, or H3.  Outside of seminario, this is simply handled by MacroModel, but
+    # here we need to ensure that any atom types with an equivalent generalized type
+    # such as H1 --> HX are changed to their generalized type so that they can be
+    # matched to parameters in the MM3 FF correctly without user having to manually
+    # change all atom types just for seminario. Could also be useful in future schrod-
+    # independent refactoring of Q2MM.
+    # if force_field is MM3:
+    #     for struct in structs:
+    #         struct.generalize_to_ff_atom_types(force_field.atom_type_equivalencies, force_field.atom_types)
+
     ang_to_bohr = hessian_units == co.GAUSSIAN
 
     """ # Last Gaussian Eigenvalue Analysis Check TODO move this to unit testing
@@ -751,13 +772,10 @@ def main(args):
         args.ff_in
     ), "Input force field file is required! Please also verify compatibility/sufficiency of parameters."
 
-    assert (
-        args.mol or args.pdb
-    ) and args.log, "Both a mol2 structure file and a Gaussian log (DFT Cartesian Hessian) file are needed!"
+    assert (args.mol or args.pdb) and (
+        args.log or args.jag_in
+    ), "Both a mol2 structure file and a Gaussian log or Jaguar in (DFT Cartesian Hessian) file are needed!"
 
-    assert len(args.mol) == len(
-        args.log
-    ), "Gaussian log input must have 1:1 correspondence with the mol2 structures."
 
     if args.ff_in[-4:] == ".fld":
         ff_in = MM3(args.ff_in)
@@ -769,6 +787,34 @@ def main(args):
         logger.log(logging.INFO, "amber ff imported: {}".format(ff_in.path))
     else:
         raise NotImplemented()
+    
+    if '*' in args.mol[0]:
+        args.mol = sorted(glob.glob(args.jag_in[0]))
+
+    mol2s: List[Mol2] = [Mol2(mol_path) for mol_path in args.mol]
+    logger.log(
+        logging.INFO,
+        "{}/{} Mol2 structure files imported.".format(len(mol2s), len(args.mol)),
+    )
+    structs: List[Structure] = []
+    for mol2 in mol2s:
+        structs.extend(mol2.structures)
+    logger.log(
+        logging.INFO, "{} Structures imported from mol2 files.".format(len(structs))
+    )
+    
+    if args.log:
+        if '*' in args.log[0]:
+            args.log = sorted(glob.glob(args.log[0]))
+        assert len(structs) == len(
+            args.log
+        ), "Gaussian log input must have 1:1 correspondence with the mol2 structures."
+    elif args.jag_in:
+        if '*' in args.jag_in[0]:
+            args.jag_in = sorted(glob.glob(args.jag_in[0]))
+        assert len(structs) == len(
+            args.jag_in
+        ), "Jaguar in input must have 1:1 correspondence with the mol2 structures."
 
     if (
         args.log
@@ -794,18 +840,32 @@ def main(args):
             logging.INFO,
             "{}/{} Hessians imported.".format(len(hessians), len(args.log)),
         )
+    elif (
+        args.jag_in
+    ):  # Hess should be in kJ/molA, not mass-weighted.
+        # NOTE: If Hessian gets mass-weighted, then the resulting force constants must be un-massweighted.
+        # The code for this is left in but commented out for now in case a reason arrives to mass-weight.
+        logs: List[JaguarIn] = [JaguarIn(log) for log in args.jag_in]
+        logger.log(
+            logging.INFO,
+            "{}/{} Jaguar in files imported.".format(len(logs), len(args.jag_in)),
+        )
+        hessians: List[np.ndarray] = []
+        for i in range(len(logs)):
+            log = logs[i]
+            hessian = log.get_hessian(len(structs[i].atoms))
+            # mass_weight_hessian(mw_hessian, log.structures[-1].atoms)
+            if args.invert:
+                hessian = invert_ts_curvature(hessian)
+                logger.log(
+                    logging.INFO, "Inverted Hessian from {}...".format(log.filename)
+                )
+            hessians.append(copy.deepcopy(hessian))
+        logger.log(
+            logging.INFO,
+            "{}/{} Hessians imported.".format(len(hessians), len(args.jag_in)),
+        )
 
-    mol2s: List[Mol2] = [Mol2(mol_path) for mol_path in args.mol]
-    logger.log(
-        logging.INFO,
-        "{}/{} Mol2 structure files imported.".format(len(mol2s), len(args.mol)),
-    )
-    structs: List[Structure] = []
-    for mol2 in mol2s:
-        structs.extend(mol2.structures)
-    logger.log(
-        logging.INFO, "{} Structures imported from mol2 files.".format(len(structs))
-    )
 
     assert len(structs) == len(
         hessians

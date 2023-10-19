@@ -153,6 +153,28 @@ class Atom(object):
     def exact_mass(self, value):
         self._exact_mass = value
 
+    @property
+    def is_dummy(self):
+        """
+        Return True if self is a dummy atom, else return False.
+
+        Returns
+        -------
+        bool
+        """
+        # I think 61 is the default dummy atom type in a Schrodinger atom.typ
+        # file.
+        # Okay, so maybe it's not. Anyway, Tony added an atom type 205 for
+        # dummies. It'd be really great if we all used the same atom.typ file
+        # someday.
+        # Could add in a check for the atom_type number. I removed it.
+        if self.atom_type_name == 'Du' or \
+                self.element == 'X' or \
+                self.atomic_num == -2:
+            return True
+        else:
+            return False
+
 
 class DOF(object):
     """
@@ -241,7 +263,7 @@ class Bond(DOF):
         comment: str = None,
         value: float = None,
         ff_row: int = None,
-        order: int = None,
+        order: str = None,
     ):
         """Bond object containing the bare bones properties necessary.
 
@@ -350,6 +372,12 @@ class Structure(object):
         if self._torsions is None:
             self._torsions = self.identify_torsions()
         return self._torsions
+    
+    def generalize_to_ff_atom_types(self, equivalency_dict:dict, substr_atom_types:list):
+        for atom in self.atoms:
+            if atom.atom_type_name not in substr_atom_types and atom.atom_type_name in equivalency_dict.keys():
+                atom.atom_type_name = equivalency_dict[atom.atom_type_name]
+
 
     # region Methods which ought to be refactored or might be unused but I'm too busy/scared to mess with yet
 
@@ -827,7 +855,7 @@ class Mol2(File):
             bonds.append(
                 Bond(
                     atom_nums=[a_index, b_index],
-                    order=int(bond_split[3]),
+                    order=bond_split[3],
                     value=utilities.measure_bond(
                         structure.atoms[a_index - 1].coords,
                         structure.atoms[b_index - 1].coords,
@@ -1652,6 +1680,83 @@ class GaussLog(File):
                             )
         return structures
 
+class JaguarIn(File):
+    """
+    Used to retrieve data from Jaguar .in files. Hessian units assumed to be kJ/(mol*Angstrom^2)
+    """
+    def __init__(self, path):
+        super(JaguarIn, self).__init__(path)
+        self._structures = None
+        self._hessian = None
+        self._empty_atoms = None
+        self._lines = None
+    
+    def get_hessian(self, num_atoms:int):
+        """
+        Reads the Hessian from a Jaguar .in.
+
+        Automatically removes Hessian elements corresponding to dummy atoms.
+        ^ That is removed for now to minimize schrodinger dependence bc current
+        use cases don't have dummy atoms or empty atoms, but this should be handled
+        at some point in case dummy atoms used in a case.
+        """
+        if self._hessian is None:
+            num = num_atoms
+
+            assert num != 0, \
+                'Zero atoms found when loading Hessian from {}!'.format(
+                self.path)
+            hessian = np.zeros([num * 3, num * 3], dtype=float)
+            logger.log(5, '  -- Created {} Hessian matrix (including dummy '
+                       'atoms).'.format(hessian.shape))
+            with open(self.path, 'r') as f:
+                section_hess = False
+                for line in f:
+                    if section_hess and line.startswith('&'):
+                        section_hess = False
+                        hessian += np.tril(hessian, -1).T
+                    if section_hess:
+                        cols = line.split()
+                        if len(cols) == 1:
+                            hess_col = int(cols[0])
+                        elif len(cols) > 1:
+                            hess_row = int(cols[0])
+                            for i, hess_ele in enumerate(cols[1:]):
+                                hessian[hess_row - 1, i + hess_col - 1] = \
+                                    float(hess_ele)
+                    if '&hess' in line:
+                        section_hess = True
+
+            logger.log(1, '>>> hessian:\n{}'.format(hessian))
+            logger.log(5, '  -- Created {} Hessian matrix (w/o dummy '
+                       'atoms).'.format(hessian.shape))
+            self._hessian = hessian * co.HESSIAN_CONVERSION
+            logger.log(1, '>>> hessian.shape: {}'.format(hessian.shape))
+        return self._hessian
+    
+    def gen_lines(self):
+        """
+        Attempts to figure out the lines of itself.
+
+        Since it'd be difficult, the written version will be missing much
+        of the data in the original. Maybe there's something in the
+        Schrodinger API for that.
+
+        However, I do want this to include the ability to write out an
+        atomic section with the ESP data that we'd want.
+        """
+        lines = []
+        mae_name = None
+        lines.append('MAEFILE: {}'.format(mae_name))
+        lines.append('&gen')
+        lines.append('&')
+        lines.append('&zmat')
+        # Just use the 1st structure. I don't imagine a Jaguar input file
+        # ever containing more than one structure.
+        struct = self.structures[0]
+        lines.extend(struct.format_coords(format='gauss'))
+        lines.append('&')
+        return lines
 
 # Row of mm3.fld where comments start.
 COM_POS_START = 96
@@ -2388,7 +2493,7 @@ class MM3(FF):
 
     units = co.MM3FF
 
-    __slots__ = ["smiles", "sub_names", "_atom_types", "_lines"]
+    __slots__ = ["smiles", "sub_names", "_atom_types", "_lines", "atom_type_equivalencies"]
 
     def __init__(self, path=None, data=None, method=None, params:List[Param]=None, score=None):
         super(MM3, self).__init__(path, data, method, params, score)
@@ -2396,6 +2501,7 @@ class MM3(FF):
         self.sub_names = []
         self._atom_types = None
         self._lines = None
+        self.atom_type_equivalencies = dict()
 
     def copy_attributes(self, ff):
         """
@@ -2410,7 +2516,7 @@ class MM3(FF):
         ff.sub_names = self.sub_names
         ff._atom_types = self._atom_types
         ff._lines = self._lines
-
+    
     @property
     def atom_types(self):
         """
@@ -2485,7 +2591,18 @@ class MM3(FF):
             section_sub = False
             section_smiles = False
             section_vdw = False
+            section_atm_eqv = False #atom type equivalencies section
             for i, line in enumerate(f):
+                if section_atm_eqv:
+                    if line.startswith(" C") and len(self.atom_type_equivalencies.items()) > 0:
+                        section_atm_eqv = False
+                        continue
+                    elif not line.startswith(" C") and not line.startswith("-5"):
+                        equivalency = [typ.strip() for typ in line.split()[1:]]
+                        for typ in equivalency[1:]:
+                            self.atom_type_equivalencies[typ] = equivalency[0]
+                        continue
+
                 # These lines are for parameters.
                 if not section_sub and sub_search in line and line.startswith(" C"):
                     matched = re.match("\sC\s+({})\s+".format(co.RE_SUB), line)
@@ -2863,6 +2980,9 @@ class MM3(FF):
                 # The Van der Waals are stored in annoying way.
                 if line.startswith("-6"):
                     section_vdw = True
+                    continue
+                if "New Atom Type Equivalencies" in line:
+                    section_atm_eqv = True
                     continue
         logger.log(15, "  -- Read {} parameters.".format(len(self.params)))
 
@@ -3379,3 +3499,344 @@ def mass_weight_eigenvectors(evecs, atoms, reverse=False):
                 evecs[i, j] /= changes[j]
             else:
                 evecs[i, j] *= changes[j]
+
+class MacroModel(File):
+    """
+    Extracts data from MacroModel .mmo files.
+    """
+    def __init__(self, path):
+        super(MacroModel, self).__init__(path)
+        self._structures = None
+    @property
+    def structures(self):
+        if self._structures is None:
+            logger.log(10, 'READING: {}'.format(self.filename))
+            self._structures = []
+            with open(self.path, 'r') as f:
+                count_current = 0
+                count_input = 0
+                count_structure = 0
+                count_previous = 0
+                section = None
+                for line in f:
+                # This would probably be better as a function in the structure
+                # class but I wanted this as upstream as possible so I didn't
+                # have to worry about other coding issues. The MMO file lists
+                # the bonds, angles, and torsions in some order that I am unsure
+                # of. It seems consistent with the same filename but with two
+                # files with the exact same structure the ordering is off. This
+                # reorders the lists before being added to the structure class.
+                    if 'Input filename' in line:
+                        count_input += 1
+                    if 'Input Structure Name' in line:
+                        count_structure += 1
+                    count_previous = count_current
+                    # Sometimes only one of the above ("Input filename" and
+                    # "Input Structure Name") is used, sometimes both are used.
+                    # count_current will make sure you catch both.
+                    count_current = max(count_input, count_structure)
+                    # If these don't match, then we reached the end of a
+                    # structure.
+                    if count_current != count_previous:
+                        bonds = []
+                        angles = []
+                        torsions = []
+                        current_structure = Structure()
+                        self._structures.append(current_structure)
+                    # For each structure we come across, look for sections that
+                    # we are interested in: those pertaining to bonds, angles,
+                    # and torsions. Of course more could be added. We set the
+                    # section to None to mark the end of a section, and we leave
+                    # it None for parts of the file we don't care about.
+                    if 'BOND LENGTHS AND STRETCH ENERGIES' in line:
+                        section = 'bond'
+                    if 'ANGLES, BEND AND STRETCH BEND ENERGIES' in line:
+                        section = 'angle'
+                    if 'BEND-BEND ANGLES AND ENERGIES' in line:
+                        section = None
+                    if 'DIHEDRAL ANGLES AND TORSIONAL ENERGIES' in line:
+                        section = 'torsion'
+                    if 'DIHEDRAL ANGLES AND TORSIONAL CROSS-TERMS' in line:
+                        section = None
+                    if section == 'bond':
+                        bond = self.read_line_for_bond(line)
+                        if bond is not None:
+                            #current_structure.bonds.append(bond)
+                            bonds.append(bond)
+                    if section == 'angle':
+                        angle = self.read_line_for_angle(line)
+                        if angle is not None:
+                            #current_structure.angles.append(angle)
+                            angles.append(angle)
+                    if section == 'torsion':
+                        torsion = self.read_line_for_torsion(line)
+                        if torsion is not None:
+                            #current_structure.torsions.append(torsion)
+                            torsions.append(torsion)
+                    if 'Connection Table' in line:
+                        # Sort the bonds, angles, and torsions before the start
+                        # of a new structure
+                        if bonds:
+                            bonds.sort(key = lambda x: (x.atom_nums[0], x.atom_nums[1]))
+                            current_structure.bonds.extend(bonds)
+                        if angles:
+                            angles.sort(key = lambda x: (x.atom_nums[1], x.atom_nums[0], x.atom_nums[2]))
+                            current_structure.angles.extend(angles)
+                        if torsions:
+                            torsions.sort(key = lambda x: (x.atom_nums[1], x.atom_nums[2], x.atom_nums[0], x.atom_nums[3]))
+                            current_structure.torsions.extend(torsions)
+            logger.log(5, '  -- Imported {} structure(s).'.format(
+                    len(self._structures)))
+        return self._structures
+    def read_line_for_bond(self, line):
+        match = co.RE_BOND.match(line)
+        #TODO: MF find if atom_nums are atomic or index, where index bc need for sub_hessian seminario
+        if match:
+            atom_nums = [int(x) for x in [match.group(1), match.group(2)]]
+            value = float(match.group(3))
+            comment = match.group(4).strip()
+            ff_row = int(match.group(5))
+            return Bond(atom_nums=atom_nums, comment=comment, value=value,
+                        ff_row=ff_row)
+        else:
+            return None
+    def read_line_for_angle(self, line):
+        match = co.RE_ANGLE.match(line)
+        if match:
+            atom_nums = [int(x) for x in [match.group(1), match.group(2),
+                                  match.group(3)]]
+            # Reorder the terminal atoms so that the lower index atom is first.
+            if atom_nums[0] > atom_nums[2]:
+                atom_nums = [atom_nums[2],atom_nums[1],atom_nums[0]]
+            value = float(match.group(4))
+            comment = match.group(5).strip()
+            ff_row = int(match.group(6))
+            return Angle(atom_nums=atom_nums, comment=comment, value=value,
+                         ff_row=ff_row)
+        else:
+            return None
+    def read_line_for_torsion(self, line):
+        match = co.RE_TORSION.match(line)
+        if match:
+            atom_nums = [int(x) for x in [match.group(1), match.group(2),
+                                  match.group(3), match.group(4)]]
+            if atom_nums[1] > atom_nums[2]:
+                atom_nums = [atom_nums[3],
+                             atom_nums[2],
+                             atom_nums[1],
+                             atom_nums[0]]
+            value = float(match.group(5))
+            comment = match.group(6).strip()
+            ff_row = int(match.group(7))
+            return Torsion(atom_nums=atom_nums, comment=comment, value=value,
+                           ff_row=ff_row)
+        else:
+            return None
+
+# This could use some documentation. Looks pretty though.
+def geo_from_points(*args):
+    x1 = args[0][0]
+    y1 = args[0][1]
+    z1 = args[0][2]
+    x2 = args[1][0]
+    y2 = args[1][1]
+    z2 = args[1][2]
+    if len(args) == 2:
+        bond =  np.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
+        return float(bond)
+    x3 = args[2][0]
+    y3 = args[2][1]
+    z3 = args[2][2]
+    if len(args) == 3:
+        dist_21 =  np.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
+        dist_23 =  np.sqrt((x2 - x3)**2 + (y2 - y3)**2 + (z2 - z3)**2)
+        dist_13 =  np.sqrt((x1 - x3)**2 + (y1 - y3)**2 + (z1 - z3)**2)
+        angle =  np.acos((dist_21**2 + dist_23**2 - dist_13**2) /
+                          (2*dist_21*dist_23))
+        angle =  np.degrees(angle)
+        return float(angle)
+    x4 = args[3][0]
+    y4 = args[3][1]
+    z4 = args[3][2]
+    if len(args) == 4:
+        vect_21 = [x2 - x1, y2 - y1, z2 - z1]
+        vect_32 = [x3 - x2, y3 - y2, z3 - z2]
+        vect_43 = [x4 - x3, y4 - y3, z4 - z3]
+        x_ab = np.cross(vect_21,vect_32)
+        x_bc = np.cross(vect_32,vect_43)
+        norm_ab = x_ab/( np.sqrt(x_ab[0]**2 + x_ab[1]**2 + x_ab[2]**2))
+        norm_bc = x_bc/( np.sqrt(x_bc[0]**2 + x_bc[1]**2 + x_bc[2]**2))
+        mag_ab =  np.sqrt(norm_ab[0]**2 + norm_ab[1]**2 + norm_ab[2]**2)
+        mag_bc =  np.sqrt(norm_bc[0]**2 + norm_bc[1]**2 + norm_bc[2]**2)
+        angle =  np.acos(np.dot(norm_ab, norm_bc)/(mag_ab * mag_bc))
+        torsion = angle * (180/ np.pi)
+        return torsion
+
+class MacroModelLog(File):
+    """
+    Used to retrieve data from MacroModel log files.
+    """
+    def __init__(self, path):
+        super(MacroModelLog, self).__init__(path)
+        self._hessian = None
+        self._structures = None
+    @property
+    def hessian(self):
+        if self._hessian is None:
+            logger.log(10, 'READING: {}'.format(self.filename))
+            with open(self.path, 'r') as f:
+                lines = f.read()
+            num_atoms = int(re.search('Read\s+(\d+)\s+atoms.', lines).group(1))
+            logger.log(5, '  -- Read {} atoms.'.format(num_atoms))
+
+            hessian = np.zeros([num_atoms * 3, num_atoms * 3], dtype=float)
+            logger.log(5, '  -- Creating {} Hessian matrix.'.format(hessian.shape))
+            words = lines.split()
+            section_hessian = False
+            start_row = False
+            start_col = False
+            for i, word in enumerate(words):
+                # 1. Start of Hessian section.
+                if word == 'Mass-weighted':
+                    section_hessian = True
+                    continue
+                # 5. End of Hessian. Add last row of Hessian and break.
+                if word == 'Eigenvalues:':
+                    for col_num, element in zip(col_nums, elements):
+                        hessian[row_num - 1, col_num - 1] = element
+                    section_hessian = False
+                    break
+                # 4. End of a Hessian row. Add to matrix and reset.
+                if section_hessian and start_col and word == 'Element':
+                    for col_num, element in zip(col_nums, elements):
+                        hessian[row_num - 1, col_num - 1] = element
+                    start_col = False
+                    start_row = True
+                    row_num = int(words[i + 1])
+                    col_nums = []
+                    elements = []
+                    continue
+                # 2. Start of a Hessian row.
+                if section_hessian and word == 'Element':
+                    row_num = int(words[i + 1])
+                    col_nums = []
+                    elements = []
+                    start_row = True
+                    continue
+                # 3. Okay, made it through the row number. Now look for columns
+                #    and elements.
+                if section_hessian and start_row and word == ':':
+                    start_row = False
+                    start_col = True
+                    continue
+                if section_hessian and start_col and '.' not in word and \
+                        word != 'NaN':
+                    col_nums.append(int(word))
+                    continue
+                if section_hessian and start_col and '.' in word or \
+                        word == 'NaN':
+                    elements.append(float(word))
+                    continue
+            self._hessian = hessian
+            logger.log(5, '  -- Creating {} Hessian matrix.'.format(hessian.shape))
+        return self._hessian
+
+    @property
+    def structures(self):
+        if self._structures is None:
+            logger.log(10, 'READING: {}'.format(self.filename))
+            self._structures = []
+            with open(self.path, 'r') as f:
+                count_current = 0
+                count_input = 0
+                count_structure = 0
+                count_previous = 0
+                atoms = []
+                bonds = []
+                section = None
+                for line in f:
+                    if 'm_atom' in line:
+                        section = 'atom'
+                    elif 'm_bond' in line:
+                        section = 'bond'
+                    elif ':::' in line and 'ready' not in section:
+                        section = section + 'ready'
+                    elif ':::' in line and 'ready' in section:
+                        section = None
+                    elif section is 'atom ready':
+                        #read in atoms to list
+                        continue
+                    elif section is 'bond ready':
+                        #read in bond atom numbers, populate later with atoms
+                        continue
+                    else:
+                        continue
+                # This would probably be better as a function in the structure
+                # class but I wanted this as upstream as possible so I didn't
+                # have to worry about other coding issues. The MMO file lists
+                # the bonds, angles, and torsions in some order that I am unsure
+                # of. It seems consistent with the same filename but with two
+                # files with the exact same structure the ordering is off. This
+                # reorders the lists before being added to the structure class.
+                    if 'Input filename' in line:
+                        count_input += 1
+                    if 'Input Structure Name' in line:
+                        count_structure += 1
+                    count_previous = count_current
+                    # Sometimes only one of the above ("Input filename" and
+                    # "Input Structure Name") is used, sometimes both are used.
+                    # count_current will make sure you catch both.
+                    count_current = max(count_input, count_structure)
+                    # If these don't match, then we reached the end of a
+                    # structure.
+                    if count_current != count_previous:
+                        bonds = []
+                        angles = []
+                        torsions = []
+                        current_structure = Structure()
+                        self._structures.append(current_structure)
+                    # For each structure we come across, look for sections that
+                    # we are interested in: those pertaining to bonds, angles,
+                    # and torsions. Of course more could be added. We set the
+                    # section to None to mark the end of a section, and we leave
+                    # it None for parts of the file we don't care about.
+                    if 'BOND LENGTHS AND STRETCH ENERGIES' in line:
+                        section = 'bond'
+                    if 'ANGLES, BEND AND STRETCH BEND ENERGIES' in line:
+                        section = 'angle'
+                    if 'BEND-BEND ANGLES AND ENERGIES' in line:
+                        section = None
+                    if 'DIHEDRAL ANGLES AND TORSIONAL ENERGIES' in line:
+                        section = 'torsion'
+                    if 'DIHEDRAL ANGLES AND TORSIONAL CROSS-TERMS' in line:
+                        section = None
+                    if section == 'bond':
+                        bond = self.read_line_for_bond(line)
+                        if bond is not None:
+                            #current_structure.bonds.append(bond)
+                            bonds.append(bond)
+                    if section == 'angle':
+                        angle = self.read_line_for_angle(line)
+                        if angle is not None:
+                            #current_structure.angles.append(angle)
+                            angles.append(angle)
+                    if section == 'torsion':
+                        torsion = self.read_line_for_torsion(line)
+                        if torsion is not None:
+                            #current_structure.torsions.append(torsion)
+                            torsions.append(torsion)
+                    if 'Connection Table' in line:
+                        # Sort the bonds, angles, and torsions before the start
+                        # of a new structure
+                        if bonds:
+                            bonds.sort(key = lambda x: (x.atom_nums[0], x.atom_nums[1]))
+                            current_structure.bonds.extend(bonds)
+                        if angles:
+                            angles.sort(key = lambda x: (x.atom_nums[1], x.atom_nums[0], x.atom_nums[2]))
+                            current_structure.angles.extend(angles)
+                        if torsions:
+                            torsions.sort(key = lambda x: (x.atom_nums[1], x.atom_nums[2], x.atom_nums[0], x.atom_nums[3]))
+                            current_structure.torsions.extend(torsions)
+            logger.log(5, '  -- Imported {} structure(s).'.format(
+                    len(self._structures)))
+        return self._structures
