@@ -43,7 +43,8 @@ LOG_SETTINGS = {
                 'opt': {'level': 5, 'propagate': True},
                 'parameters': {'level': 20, 'propagate': True},
                 'simplex': {'level': 5, 'propagate': True},
-                'seminario': {'level': 20, 'propagate': True}
+                'seminario': {'level': 20, 'propagate': True},
+                'schrod_indep_filetypes': {'level': 20, 'propagate': True},
                 },
 
     #  debug logger
@@ -149,6 +150,7 @@ KJMOLA2_TO_MDYNA = 1.0/(6.022140857e3)
 MDYNA_TO_KJMOLA2 = 6.022140857e2
 # kJ/(mol*Ang) to millidyne
 KJMOLA_TO_MDYN = 1.0/(6.022140857e2)
+# MDYNA to KJMOLA according to MM3
 MM3_STR = 601.99392
 
 # UNIT SYSTEMS
