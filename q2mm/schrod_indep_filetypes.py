@@ -330,7 +330,7 @@ class Structure(object):
         # these fields and the rest are optional defaulted to None, good for error-protection
         # and just generally cleaner, more intuitive. An empty structure is never itself used,
         # so why have it as an option which simply complicates error-checking and tracking.
-        self._atoms: List[Atom] = []
+        self._atoms: List[Atom] = None
         self._bonds: List[Bond] = None
         self._angles: List[Angle] = None
         self._torsions: List[Torsion] = None
@@ -344,6 +344,13 @@ class Structure(object):
         Returns atomic coordinates as a list of lists.
         """
         return [atom.coords for atom in self._atoms]
+    
+    @property
+    def num_atoms(self):
+        if self._atoms is None or self._atoms == []:
+            return self.guess_atoms()
+        else:
+            return len(self.atoms)
 
     @property
     def atoms(self):
@@ -351,32 +358,49 @@ class Structure(object):
             raise Exception(
                 "structure._atoms is not defined, this must be done on creation."
             )
+        if self._atoms is None:
+            self._atoms : List[Atom] = []
         return self._atoms
 
     @property
     def bonds(self):
-        if self._bonds is None:
+        if self._bonds == []:
             raise Exception(
                 "structure._bonds is not defined, this must be done on creation."
             )
+        if self._bonds is None:
+            self._bonds : List[Bond] = []
         return self._bonds
 
     @property
     def angles(self):
-        if self._angles is None:
+        if self._angles == []:
             self._angles = self.identify_angles()
+        if self._angles is None:
+            self._angles:List[Angle] = []
         return self._angles
 
     @property
     def torsions(self):
-        if self._torsions is None:
+        if self._torsions == []:
             self._torsions = self.identify_torsions()
+        if self._torsions is None:
+            self._torsions:List[Torsion] = []
         return self._torsions
     
     def generalize_to_ff_atom_types(self, equivalency_dict:dict, substr_atom_types:list):
         for atom in self.atoms:
             if atom.atom_type_name not in substr_atom_types and atom.atom_type_name in equivalency_dict.keys():
                 atom.atom_type_name = equivalency_dict[atom.atom_type_name]
+
+    def guess_atoms(self) -> int:
+        max_atom_index = 0
+        for bond in self.bonds:
+            max_in_bond = np.max(bond.atom_nums)
+            if max_in_bond > max_atom_index:
+                max_atom_index = max_in_bond
+        return max_atom_index
+
 
 
     # region Methods which ought to be refactored or might be unused but I'm too busy/scared to mess with yet
@@ -3538,8 +3562,8 @@ class MacroModel(File):
         super(MacroModel, self).__init__(path)
         self._structures = None
     @property
-    def structures(self):
-        if self._structures is None:
+    def structures(self): #TODO make this read atoms for consistency and bc need num atoms for hessian read
+        if self._structures is None or self._structures == []:
             logger.log(10, 'READING: {}'.format(self.filename))
             self._structures = []
             with open(self.path, 'r') as f:
@@ -3571,7 +3595,7 @@ class MacroModel(File):
                         bonds = []
                         angles = []
                         torsions = []
-                        current_structure = Structure()
+                        current_structure = Structure(self.filename)
                         self._structures.append(current_structure)
                     # For each structure we come across, look for sections that
                     # we are interested in: those pertaining to bonds, angles,
@@ -3662,6 +3686,7 @@ class MacroModel(File):
                            ff_row=ff_row)
         else:
             return None
+        
 
 # This could use some documentation. Looks pretty though.
 def geo_from_points(*args):
@@ -3823,7 +3848,7 @@ class MacroModelLog(File):
                         bonds = []
                         angles = []
                         torsions = []
-                        current_structure = Structure()
+                        current_structure = Structure(self.filename)
                         self._structures.append(current_structure)
                     # For each structure we come across, look for sections that
                     # we are interested in: those pertaining to bonds, angles,

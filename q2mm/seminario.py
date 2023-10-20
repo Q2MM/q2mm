@@ -527,7 +527,6 @@ def estimate_bf_param(
     match_count = 0
     match_vals = []
     for struct, hessian in zip(structs, hessians):
-        type_dict = struct.get_DOF_atom_types_dict()
         for bond in struct.bonds:
             if param.ff_row == bond.ff_row:
                 match_count += 1
@@ -585,7 +584,6 @@ def estimate_af_param(
     match_count = 0
     match_vals = []
     for struct, hessian in zip(structs, hessians):
-        type_dict = struct.get_DOF_atom_types_dict()
         for angle in struct.angles:
             if param.ff_row == angle.ff_row:
                 match_count += 1
@@ -629,7 +627,6 @@ def average_ae_param(param: Param, structs: List[Structure]) -> float:
     match_count = 0
     match_vals = []
     for struct in structs:
-        type_dict = struct.get_DOF_atom_types_dict()
         for angle in struct.angles:
             if param.ff_row == angle.ff_row:
                 match_count += 1
@@ -665,7 +662,6 @@ def average_be_param(param: Param, structs: List[Structure]) -> float:
     match_count = 0
     match_vals = []
     for struct in structs:
-        type_dict = struct.get_DOF_atom_types_dict()
         for bond in struct.bonds:
             if param.ff_row == bond.ff_row:
                 match_count += 1
@@ -795,10 +791,10 @@ def main(args):
     else:
         raise NotImplemented()
 
-    if "*" in args.mol[0]:
+    if args.mol and "*" in args.mol[0]:
         args.mol = sorted(glob.glob(args.mol[0]))
 
-    if "*" in args.mmo[0]:
+    if args.mmo and "*" in args.mmo[0]:
         args.mol = sorted(glob.glob(args.mmo[0]))
 
     structs: List[Structure] = []
@@ -874,7 +870,7 @@ def main(args):
         hessians: List[np.ndarray] = []
         for i in range(len(logs)):
             log = logs[i]
-            hessian = log.get_hessian(len(structs[i].atoms))
+            hessian = log.get_hessian(structs[i].num_atoms)
             # mass_weight_hessian(mw_hessian, log.structures[-1].atoms)
             if args.invert:
                 hessian = invert_ts_curvature(hessian)
