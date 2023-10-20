@@ -727,8 +727,8 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
                 typ='p',
                 src_1=name_fld,
                 src_2=name_txt,
-                idx_1=param.mm3_row,
-                idx_2=param.mm3_col)])
+                idx_1=param.ff_row,
+                idx_2=param.ff_col)])
     # JAGUAR ENERGIES
     filenames_s = coms['je']
     # idx_1 is the number used to group sets of relative energies.

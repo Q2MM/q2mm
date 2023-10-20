@@ -17,6 +17,7 @@ import sys
 
 import constants as co
 from datatypes import AmberFF, MM3
+import filetypes
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
@@ -111,8 +112,8 @@ def trim_params_by_file(params, filename):
     # Keep only the parameters that are specified in the file.
     for param in params:
         for temp_param in temp_params:
-            if param.mm3_row == temp_param[0] and \
-                    param.mm3_col == temp_param[1]:
+            if param.ff_row == temp_param[0] and \
+                    param.ff_col == temp_param[1]:
                 # Update the allow negative information.
                 param._allowed_range = temp_param[2]
                 param.value_in_range(param.value)
@@ -175,7 +176,7 @@ def read_param_file(filename):
             line = line.partition('!')[0] # ! counts as comments too.
             cols = line.split()
             if cols:
-                mm3_row, mm3_col = int(cols[0]), int(cols[1])
+                ff_row, ff_col = int(cols[0]), int(cols[1])
                 # Check if you allow negative values.
                 if 'neg' in cols[2:]:
                     allowed_range = [-float('inf'), 0.]
@@ -190,7 +191,7 @@ def read_param_file(filename):
                 else:
                     allowed_range = None
                 # Add information to the temporary list.
-                temp_params.append((mm3_row, mm3_col, allowed_range))
+                temp_params.append((ff_row, ff_col, allowed_range))
     return temp_params
 
 def gather_values(mmos):
@@ -287,7 +288,7 @@ def main(args):
         ghs = []
         if opts.mmo:
             for filename in opts.mmo:
-#TODO                mmos.append(filetypes.MacroModel(filename))
+                mmos.append(filetypes.MacroModel(filename))
                 # TODO: MF Perhaps calculate Seminario here and output files as go
                 # must average force constants NOT structure values
                 bond_dic, angle_dic, torsion_dic = gather_values(mmos) #BUG: shouldn't this be one indent back, out of for-loop? shouldn't affect output, just performance
@@ -297,7 +298,7 @@ def main(args):
         if opts.check:
             all_rows = bond_dic.keys() + angle_dic.keys() + torsion_dic.keys()
             for param in params:
-                if not param.mm3_row in all_rows:
+                if not param.ff_row in all_rows:
                     print("{} doesn't appear to be in use.".format(param))
 
         if opts.average:
@@ -314,10 +315,10 @@ def main(args):
                 print(">> STD {}: {}".format(ff_row,np.std(values)))
             # Update parameter values.
             for param in params:
-                if param.ptype in ['be', 'ae'] and param.mm3_row in bond_avg:
-                    param.value = bond_avg[param.mm3_row]
-                if param.ptype in ['be', 'ae'] and param.mm3_row in angle_avg:
-                    param.value = angle_avg[param.mm3_row]
+                if param.ptype in ['be', 'ae'] and param.ff_row in bond_avg:
+                    param.value = bond_avg[param.ff_row]
+                if param.ptype in ['be', 'ae'] and param.ff_row in angle_avg:
+                    param.value = angle_avg[param.ff_row]
             # Export the updated parameters.
             ff.export_ff(opts.average, params)
         
@@ -327,16 +328,16 @@ def main(args):
             # if param.ptype in ['df', 'q']:
             if param.allowed_range:
                 print('{} {} {} {}'.format(
-                        param.mm3_row, param.mm3_col, param.allowed_range[0],
+                        param.ff_row, param.ff_col, param.allowed_range[0],
                         param.allowed_range[1]))
             else:
-                print('{} {}'.format(param.mm3_row, param.mm3_col))
+                print('{} {}'.format(param.ff_row, param.ff_col))
     if opts.printtether:
         for param in params:
             print(' ' '{:22s}'
                   ' ' '{:22.4f}'
                   ' ' '{:22.4f}'.format(
-                      'p_mm3_{}-{}'.format(param.mm3_row, param.mm3_col),
+                      'p_mm3_{}-{}'.format(param.ff_row, param.ff_col),
                       # These should be floats without me making it one here.
                       co.WEIGHTS['p'],
                       param.value))

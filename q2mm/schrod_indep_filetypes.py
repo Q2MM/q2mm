@@ -694,6 +694,36 @@ class Structure(object):
                 atom.atom_type_name for atom in self.get_atoms_in_DOF(angle)
             ]
         return dof_atom_type_dict
+    
+    def get_eqbm_geom_values(self):
+        '''
+        Gather bonds and angles from structures. Adapted from parameters.py code.
+
+        Ex.:
+          bond_dic = {1857: [2.2233, 2.2156, 2.5123],
+                      1858: [1.3601, 1.3535, 1.3532]
+                     }
+        '''
+
+        bond_dic = {}
+        angle_dic = {}
+        torsion_dic = {}
+        for bond in self.bonds:
+            if bond.ff_row in bond_dic:
+                bond_dic[bond.ff_row].append(bond.value)
+            else:
+                bond_dic[bond.ff_row] = [bond.value]
+        for angle in self.angles:
+            if angle.ff_row in angle_dic:
+                angle_dic[angle.ff_row].append(angle.value)
+            else:
+                angle_dic[angle.ff_row] = [angle.value]
+        for torsion in self.torsions:
+            if torsion.ff_row in torsion_dic:
+                torsion_dic[torsion.ff_row].append(torsion.value)
+            else:
+                torsion_dic[torsion.ff_row] = [torsion.value]
+        return bond_dic, angle_dic, torsion_dic
 
 
 class File(object):
@@ -1992,21 +2022,21 @@ class Param(object):
 
 # Need a general index scheme/method/property to compare the equalness of two
 # parameters, rather than having to rely on some expression that compares
-# mm3_row and mm3_col.
+# ff_row and ff_col.
 # MF - I agree, a __equal__ would be nice, but its use would require a refactor so I recommend for future.
 class ParamMM3(Param):
     """
     Adds information to Param that is specific to MM3* parameters. TODO
     """
 
-    __slots__ = ["atom_labels", "atom_types", "mm3_col", "mm3_row", "mm3_label"]
+    __slots__ = ["atom_labels", "atom_types", "ff_col", "ff_row", "mm3_label"]
 
     def __init__(
         self,
         atom_labels=None,
         atom_types=None,
-        mm3_col=None,
-        mm3_row=None,
+        ff_col=None,
+        ff_row=None,
         mm3_label=None,
         d1=None,
         d2=None,
@@ -2015,19 +2045,19 @@ class ParamMM3(Param):
     ):
         self.atom_labels = atom_labels
         self.atom_types = atom_types
-        self.mm3_col = mm3_col
-        self.mm3_row = mm3_row
+        self.ff_col = ff_col
+        self.ff_row = ff_row
         self.mm3_label = mm3_label
         super(ParamMM3, self).__init__(ptype=ptype, value=value)
 
     def __repr__(self):
         return "{}[{}][{},{}]({})".format(
-            self.__class__.__name__, self.ptype, self.mm3_row, self.mm3_col, self.value
+            self.__class__.__name__, self.ptype, self.ff_row, self.ff_col, self.value
         )
 
     def __str__(self):
         return "{}[{}][{},{}]({})".format(
-            self.__class__.__name__, self.ptype, self.mm3_row, self.mm3_col, self.value
+            self.__class__.__name__, self.ptype, self.ff_row, self.ff_col, self.value
         )
 
     def convert_and_set(self, value):
@@ -2039,14 +2069,14 @@ class ParAMBER(Param):
     Adds information to Param that is specific to AMBER parameters. TODO
     """
 
-    __slots__ = ["atom_labels", "atom_types", "mm3_col", "mm3_row", "mm3_label"]
+    __slots__ = ["atom_labels", "atom_types", "ff_col", "ff_row", "mm3_label"]
 
     def __init__(
         self,
         atom_labels=None,
         atom_types=None,
-        mm3_col=None,
-        mm3_row=None,
+        ff_col=None,
+        ff_row=None,
         mm3_label=None,
         d1=None,
         d2=None,
@@ -2055,19 +2085,19 @@ class ParAMBER(Param):
     ):
         self.atom_labels = atom_labels
         self.atom_types = atom_types
-        self.mm3_col = mm3_col
-        self.mm3_row = mm3_row
+        self.ff_col = ff_col
+        self.ff_row = ff_row
         self.mm3_label = mm3_label
         super(ParAMBER, self).__init__(ptype=ptype, value=value)
 
     def __repr__(self):
         return "{}[{}][{},{}]({})".format(
-            self.__class__.__name__, self.ptype, self.mm3_row, self.mm3_col, self.value
+            self.__class__.__name__, self.ptype, self.ff_row, self.ff_col, self.value
         )
 
     def __str__(self):
         return "{}[{}][{},{}]({})".format(
-            self.__class__.__name__, self.ptype, self.mm3_row, self.mm3_col, self.value
+            self.__class__.__name__, self.ptype, self.ff_row, self.ff_col, self.value
         )
 
     def convert_and_set(self, value):
@@ -2293,15 +2323,15 @@ class AmberFF(FF):
                                 ParAMBER(
                                     atom_types=at,
                                     ptype="bf",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     value=float(BB[0]),
                                 ),
                                 ParAMBER(
                                     atom_types=at,
                                     ptype="be",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     value=float(BB[1]),
                                 ),
                             )
@@ -2319,15 +2349,15 @@ class AmberFF(FF):
                                 ParAMBER(
                                     atom_types=at,
                                     ptype="af",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     value=float(BB[0]),
                                 ),
                                 ParAMBER(
                                     atom_types=at,
                                     ptype="ae",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     value=float(BB[1]),
                                 ),
                             )
@@ -2347,8 +2377,8 @@ class AmberFF(FF):
                             ParAMBER(
                                 atom_types=at,
                                 ptype="df",
-                                mm3_col=1,
-                                mm3_row=i + 1,
+                                ff_col=1,
+                                ff_row=i + 1,
                                 value=float(BB[1]),
                             )
                         )
@@ -2366,8 +2396,8 @@ class AmberFF(FF):
                             ParAMBER(
                                 atom_types=at,
                                 ptype="imp1",
-                                mm3_col=1,
-                                mm3_row=i + 1,
+                                ff_col=1,
+                                ff_row=i + 1,
                                 value=float(BB[0]),
                             )
                         )
@@ -2393,8 +2423,8 @@ class AmberFF(FF):
                             ParAMBER(
                                 atom_types=at,
                                 ptype="vdw",
-                                mm3_col=1,
-                                mm3_row=i + 1,
+                                ff_col=1,
+                                ff_row=i + 1,
                                 value=float(split[2]),
                             )
                         )
@@ -2412,14 +2442,14 @@ class AmberFF(FF):
             lines = self.lines
         for param in params:
             logger.log(1, ">>> param: {} param.value: {}".format(param, param.value))
-            line = lines[param.mm3_row - 1]
+            line = lines[param.ff_row - 1]
             if abs(param.value) > 1999.0:
                 logger.warning("Value of {} is too high! Skipping write.".format(param))
             else:
                 atoms = ""
                 const = ""
                 space3 = " " * 3
-                col = int(param.mm3_col - 1)
+                col = int(param.ff_col - 1)
                 value = "{:7.4f}".format(param.value)
                 tempsplit = line.split("-")
                 leng = len(tempsplit)
@@ -2466,7 +2496,7 @@ class AmberFF(FF):
                             + " ".join(BB[4:])
                         )
 
-                lines[param.mm3_row - 1] = atoms + const + "\n"
+                lines[param.ff_row - 1] = atoms + const + "\n"
         with open(path, "w") as f:
             f.writelines(lines)
         logger.log(10, "WROTE: {}".format(path))
@@ -2656,15 +2686,15 @@ class MM3(FF):
                             ParamMM3(
                                 atom_types=atm,
                                 ptype="vdwr",
-                                mm3_col=1,
-                                mm3_row=i + 1,
+                                ff_col=1,
+                                ff_row=i + 1,
                                 value=float(rad),
                             ),
                             ParamMM3(
                                 atom_types=atm,
                                 ptype="vdwe",
-                                mm3_col=2,
-                                mm3_row=i + 1,
+                                ff_col=2,
+                                ff_row=i + 1,
                                 value=float(eps),
                             ),
                         )
@@ -2694,8 +2724,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="be",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[0],
                                 ),
@@ -2703,8 +2733,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="bf",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[1],
                                 ),
@@ -2716,8 +2746,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="q",
-                                    mm3_col=3,
-                                    mm3_row=i + 1,
+                                    ff_col=3,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[2],
                                 )
@@ -2751,8 +2781,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="ae",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[0],
                                 ),
@@ -2760,8 +2790,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="af",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[1],
                                 ),
@@ -2795,8 +2825,8 @@ class MM3(FF):
                                 atom_labels=atm_lbls,
                                 atom_types=atm_typs,
                                 ptype="sb",
-                                mm3_col=1,
-                                mm3_row=i + 1,
+                                ff_col=1,
+                                ff_row=i + 1,
                                 mm3_label=line[:2],
                                 value=parm_cols[0],
                             )
@@ -2828,8 +2858,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="df",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[0],
                                 ),
@@ -2837,8 +2867,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="df",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[1],
                                 ),
@@ -2846,8 +2876,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="df",
-                                    mm3_col=3,
-                                    mm3_row=i + 1,
+                                    ff_col=3,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[2],
                                 ),
@@ -2873,8 +2903,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="df",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[0],
                                 ),
@@ -2882,8 +2912,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="df",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[1],
                                 ),
@@ -2891,8 +2921,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="df",
-                                    mm3_col=3,
-                                    mm3_row=i + 1,
+                                    ff_col=3,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[2],
                                 ),
@@ -2925,8 +2955,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="imp1",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[0],
                                 ),
@@ -2934,8 +2964,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="imp2",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[1],
                                 ),
@@ -2960,8 +2990,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="vdwr",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[0],
                                 ),
@@ -2969,8 +2999,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="vdwfc",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     mm3_label=line[:2],
                                     value=parm_cols[1],
                                 ),
@@ -3051,13 +3081,13 @@ class MM3(FF):
                 #     self.params.extend((
                 #             ParamMM3(atom_types = atm,
                 #                      ptype = 'vdwr',
-                #                      mm3_col = 1,
-                #                      mm3_row = i + 1,
+                #                      ff_col = 1,
+                #                      ff_row = i + 1,
                 #                      value = float(rad)),
                 #             ParamMM3(atom_types = atm,
                 #                      ptype = 'vdwe',
-                #                      mm3_col = 2,
-                #                      mm3_row = i + 1,
+                #                      ff_col = 2,
+                #                      ff_row = i + 1,
                 #                      value = float(eps))))
                 #     continue
                 if "OPT" in line or section_sub:
@@ -3083,8 +3113,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="be",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     mm3_label=cols[0],
                                     value=float(cols[3]),
                                 ),
@@ -3092,8 +3122,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="bf",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     mm3_label=cols[0],
                                     value=float(cols[4]),
                                 ),
@@ -3105,8 +3135,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="q",
-                                    mm3_col=3,
-                                    mm3_row=i + 1,
+                                    ff_col=3,
+                                    ff_row=i + 1,
                                     mm3_label=cols[0],
                                     value=float(cols[5]),
                                 )
@@ -3142,8 +3172,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="ae",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     mm3_label=cols[0],
                                     value=float(cols[4]),
                                 ),
@@ -3151,8 +3181,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="af",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     mm3_label=cols[0],
                                     value=float(cols[5]),
                                 ),
@@ -3183,8 +3213,8 @@ class MM3(FF):
                     #         ParamMM3(atom_labels = atm_lbls,
                     #                  atom_types = atm_typs,
                     #                  ptype = 'sb',
-                    #                  mm3_col = 1,
-                    #                  mm3_row = i + 1,
+                    #                  ff_col = 1,
+                    #                  ff_row = i + 1,
                     #                  mm3_label = line[:2],
                     #                  value = parm_cols[0]))
                     #     continue
@@ -3216,8 +3246,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="df",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     mm3_label=cols[0],
                                     value=float(cols[5]),
                                 ),
@@ -3225,8 +3255,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="df",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     mm3_label=cols[0],
                                     value=float(cols[6]),
                                 ),
@@ -3234,8 +3264,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="df",
-                                    mm3_col=3,
-                                    mm3_row=i + 1,
+                                    ff_col=3,
+                                    ff_row=i + 1,
                                     mm3_label=cols[0],
                                     value=float(cols[7]),
                                 ),
@@ -3256,22 +3286,22 @@ class MM3(FF):
                     #         ParamMM3(atom_labels = atm_lbls,
                     #                  atom_types = atm_typs,
                     #                  ptype = 'df',
-                    #                  mm3_col = 1,
-                    #                  mm3_row = i + 1,
+                    #                  ff_col = 1,
+                    #                  ff_row = i + 1,
                     #                  mm3_label = cols[0],
                     #                  value = parm_cols[0]),
                     #         ParamMM3(atom_labels = atm_lbls,
                     #                  atom_types = atm_typs,
                     #                  ptype = 'df',
-                    #                  mm3_col = 2,
-                    #                  mm3_row = i + 1,
+                    #                  ff_col = 2,
+                    #                  ff_row = i + 1,
                     #                  mm3_label = cols[0],
                     #                  value = parm_cols[1]),
                     #         ParamMM3(atom_labels = atm_lbls,
                     #                  atom_types = atm_typs,
                     #                  ptype = 'df',
-                    #                  mm3_col = 3,
-                    #                  mm3_row = i + 1,
+                    #                  ff_col = 3,
+                    #                  ff_row = i + 1,
                     #                  mm3_label = cols[0],
                     #                  value = parm_cols[2])))
                     #     continue"""
@@ -3303,8 +3333,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="imp1",
-                                    mm3_col=1,
-                                    mm3_row=i + 1,
+                                    ff_col=1,
+                                    ff_row=i + 1,
                                     mm3_label=cols[0],
                                     value=float(cols[5]),
                                 ),
@@ -3312,8 +3342,8 @@ class MM3(FF):
                                     atom_labels=atm_lbls,
                                     atom_types=atm_typs,
                                     ptype="imp2",
-                                    mm3_col=2,
-                                    mm3_row=i + 1,
+                                    ff_col=2,
+                                    ff_row=i + 1,
                                     mm3_label=cols[0],
                                     value=float(cols[6]),
                                 ),
@@ -3347,7 +3377,7 @@ class MM3(FF):
             lines = self.lines
         for param in params:
             logger.log(1, ">>> param: {} param.value: {}".format(param, param.value))
-            line = lines[param.mm3_row - 1]
+            line = lines[param.ff_row - 1]
             # There are some problems with this. Probably an optimization
             # technique gave you these crazy parameter values. Ideally, this
             # entire trial FF should be discarded.
@@ -3356,16 +3386,16 @@ class MM3(FF):
             # optimization techniques appropriately.
             if abs(param.value) > 999.0:
                 logger.warning("Value of {} is too high! Skipping write.".format(param))
-            elif param.mm3_col == 1:
-                lines[param.mm3_row - 1] = (
+            elif param.ff_col == 1:
+                lines[param.ff_row - 1] = (
                     line[:P_1_START] + "{:10.4f}".format(param.value) + line[P_1_END:]
                 )
-            elif param.mm3_col == 2:
-                lines[param.mm3_row - 1] = (
+            elif param.ff_col == 2:
+                lines[param.ff_row - 1] = (
                     line[:P_2_START] + "{:10.4f}".format(param.value) + line[P_2_END:]
                 )
-            elif param.mm3_col == 3:
-                lines[param.mm3_row - 1] = (
+            elif param.ff_col == 3:
+                lines[param.ff_row - 1] = (
                     line[:P_3_START] + "{:10.4f}".format(param.value) + line[P_3_END:]
                 )
         with open(path, "w") as f:

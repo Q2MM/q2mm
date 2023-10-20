@@ -254,8 +254,8 @@ def extract_ff_by_params(ffs, params):
     ----------
     ffs : list of `datatypes.FF` (or subclass)
     """
-    rows = [x.mm3_row for x in params]
-    cols = [x.mm3_col for x in params]
+    rows = [x.ff_row for x in params]
+    cols = [x.ff_col for x in params]
     keep = []
     for ff in ffs:
         row, col = [int(x) for x in re.split('\[|\]', ff.method)[3].split(',')]

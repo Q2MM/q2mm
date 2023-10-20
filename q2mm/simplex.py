@@ -173,19 +173,19 @@ class Simplex(opt.Optimizer):
 
             # Reduce number of parameters.
             # Will need an option that's not MM3* specific in the future.
-            ff_rows = [x.mm3_row for x in params]
-            ff_cols = [x.mm3_col for x in params]
+            ff_rows = [x.ff_row for x in params]
+            ff_cols = [x.ff_col for x in params]
             for ff in self.new_ffs:
                 new_params = []
                 for param in ff.params:
-                    if param.mm3_row in ff_rows and param.mm3_col in ff_cols:
+                    if param.ff_row in ff_rows and param.ff_col in ff_cols:
                         new_params.append(param)
                 ff.params = new_params
             # Make a copy of your original FF that has less parameters.
             ff_copy = copy.deepcopy(self.ff)
             new_params = []
             for param in ff.params:
-                if param.mm3_row in ff_rows and param.mm3_col in ff_cols:
+                if param.ff_row in ff_rows and param.ff_col in ff_cols:
                     new_params.append(param)
             ff_copy.params = new_params
         else:
@@ -471,7 +471,7 @@ def restore_simp_ff(new_ff, old_ff):
         for i, param_o in enumerate(old_ff.params):
             for param_n in new_params:
                 # Should replace this with a general index scheme.
-                if param_o.mm3_row == param_n.mm3_row and \
-                        param_o.mm3_col == param_n.mm3_col:
+                if param_o.ff_row == param_n.ff_row and \
+                        param_o.ff_col == param_n.ff_col:
                     new_ff.params[i] = copy.deepcopy(param_n)
     return new_ff

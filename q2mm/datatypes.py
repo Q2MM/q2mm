@@ -166,28 +166,28 @@ class Param(object):
 
 # Need a general index scheme/method/property to compare the equalness of two
 # parameters, rather than having to rely on some expression that compares
-# mm3_row and mm3_col.
+# ff_row and ff_col.
 class ParamMM3(Param):
     '''
     Adds information to Param that is specific to MM3* parameters.
     '''
-    __slots__ = ['atom_labels', 'atom_types', 'mm3_col', 'mm3_row', 'mm3_label']
-    def __init__(self, atom_labels=None, atom_types=None, mm3_col=None,
-                 mm3_row=None, mm3_label=None,
+    __slots__ = ['atom_labels', 'atom_types', 'ff_col', 'ff_row', 'ff_label']
+    def __init__(self, atom_labels=None, atom_types=None, ff_col=None,
+                 ff_row=None, ff_label=None,
                  d1=None, d2=None, ptype=None, value=None):
         self.atom_labels = atom_labels
         self.atom_types = atom_types
-        self.mm3_col = mm3_col
-        self.mm3_row = mm3_row
-        self.mm3_label = mm3_label
+        self.ff_col = ff_col
+        self.ff_row = ff_row
+        self.ff_label = ff_label
         super(ParamMM3, self).__init__(ptype=ptype, value=value)
     def __repr__(self):
         return '{}[{}][{},{}]({})'.format(
-            self.__class__.__name__, self.ptype, self.mm3_row, self.mm3_col,
+            self.__class__.__name__, self.ptype, self.ff_row, self.ff_col,
             self.value)
     def __str__(self):
         return '{}[{}][{},{}]({})'.format(
-            self.__class__.__name__, self.ptype, self.mm3_row, self.mm3_col,
+            self.__class__.__name__, self.ptype, self.ff_row, self.ff_col,
             self.value)
 
 class Datum(object):
@@ -362,13 +362,13 @@ class AmberFF(FF):
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                     ptype = "bf",
-                                    mm3_col = 1,
-                                    mm3_row = i+1,
+                                    ff_col = 1,
+                                    ff_row = i+1,
                                     value = float(BB[0])),
                             ParamMM3(atom_types = at,
                                     ptype = "be",
-                                    mm3_col = 2,
-                                    mm3_row = i+1,
+                                    ff_col = 2,
+                                    ff_row = i+1,
                                     value = float(BB[1]))))
                     # ANGLE
                     if "DIHE" in line and count == 3:
@@ -381,13 +381,13 @@ class AmberFF(FF):
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                     ptype = 'af',
-                                    mm3_col = 1,
-                                    mm3_row = i + 1,
+                                    ff_col = 1,
+                                    ff_row = i + 1,
                                     value = float(BB[0])),
                             ParamMM3(atom_types = at,
                                     ptype = 'ae',
-                                    mm3_col = 2,
-                                    mm3_row = i + 1,
+                                    ff_col = 2,
+                                    ff_row = i + 1,
                                     value = float(BB[1]))))
                     # Dihedral
                     if "IMPR" in line and count == 4:
@@ -403,8 +403,8 @@ class AmberFF(FF):
                         self.params.append(
                         ParamMM3(atom_types = at,
                                 ptype = 'df',
-                                mm3_col = 1,
-                                mm3_row = i + 1,
+                                ff_col = 1,
+                                ff_row = i + 1,
                                 value = float(BB[1])))
 
                         
@@ -422,8 +422,8 @@ class AmberFF(FF):
                         self.params.append(
                         ParamMM3(atom_types = at,
                                 ptype = 'imp1',
-                                mm3_col = 1,
-                                mm3_row = i + 1,
+                                ff_col = 1,
+                                ff_row = i + 1,
                                 value = float(BB[0])))
                         
                     
@@ -447,8 +447,8 @@ class AmberFF(FF):
                         self.params.append(
                             ParamMM3(atom_types = at,
                                     ptype = 'vdw',
-                                    mm3_col = 1,
-                                    mm3_row = i + 1,
+                                    ff_col = 1,
+                                    ff_row = i + 1,
                                     value = float(split[2])))
         logger.log(15, '  -- Read {} parameters.'.format(len(self.params)))
     def export_ff(self, path=None, params=None, lines=None):
@@ -464,7 +464,7 @@ class AmberFF(FF):
         for param in params:
             logger.log(1, '>>> param: {} param.value: {}'.format(
                     param, param.value))
-            line = lines[param.mm3_row - 1]
+            line = lines[param.ff_row - 1]
             if abs(param.value) > 1999.:
                 logger.warning(
                     'Value of {} is too high! Skipping write.'.format(param))
@@ -472,7 +472,7 @@ class AmberFF(FF):
                 atoms = ""
                 const = ""
                 space3 = " " * 3
-                col = int(param.mm3_col-1)
+                col = int(param.ff_col-1)
                 value = '{:7.4f}'.format(param.value)
                 tempsplit = line.split("-") 
                 leng = len(tempsplit)
@@ -511,7 +511,7 @@ class AmberFF(FF):
                         BB[1] = value
                         const = ''.join([format(el,">12") for el in BB[1:4]]) + space3 + ' '.join(BB[4:])
                     
-                lines[param.mm3_row - 1] = (atoms+const+'\n')
+                lines[param.ff_row - 1] = (atoms+const+'\n')
         with open(path, 'w') as f:
             f.writelines(lines)
         logger.log(10, 'WROTE: {}'.format(path))
@@ -589,21 +589,21 @@ class TinkerFF(FF):
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                      ptype = 'bf',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
+                                     ff_col = 1,
+                                     ff_row = i + 1,
                                      value = float(split[3])),
                             ParamMM3(atom_types = at,
                                      ptype = 'be',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
+                                     ff_col = 2,
+                                     ff_row = i + 1,
                                      value = float(split[4]))))
                     if split[0] in dipoles:
                         at = [split[1], split[2]]
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                      ptype = 'q',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
+                                     ff_col = 1,
+                                     ff_row = i + 1,
                                      value = float(split[3])),
                             #I think this second value is the position of the
                             #dipole along the bond. I've only seen 0.5 which
@@ -611,8 +611,8 @@ class TinkerFF(FF):
                             #of the bond.
                             ParamMM3(atom_types = at,
                                      ptype = 'q_p',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
+                                     ff_col = 2,
+                                     ff_row = i + 1,
                                      value = float(split[4]))))
                     if split[0] in pibonds:
                         at = [split[1], split[2]]
@@ -623,13 +623,13 @@ class TinkerFF(FF):
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                      ptype = 'pi_b',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
+                                     ff_col = 1,
+                                     ff_row = i + 1,
                                      value = float(split[3])),
                             ParamMM3(atom_types = at,
                                      ptype = 'pi_t',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
+                                     ff_col = 2,
+                                     ff_row = i + 1,
                                      value = float(split[4]))))
                     if split[0] in angles:
                         at = [split[1], split[2], split[3]]
@@ -639,58 +639,58 @@ class TinkerFF(FF):
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                     ptype = 'af',
-                                    mm3_col = 1,
-                                    mm3_row = i + 1,
+                                    ff_col = 1,
+                                    ff_row = i + 1,
                                     value = float(split[4])),
                             ParamMM3(atom_types = at,
                                     ptype = 'ae',
-                                    mm3_col = 2,
-                                    mm3_row = i + 1,
+                                    ff_col = 2,
+                                    ff_row = i + 1,
                                     value = float(split[5]))))
                         if len(split) == 8:
                             self.params.extend((
                                 ParamMM3(atom_types = at,
                                         ptype = 'ae',
-                                        mm3_col = 3,
-                                        mm3_row = i + 1,
+                                        ff_col = 3,
+                                        ff_row = i + 1,
                                         value = float(split[6])),
                                 ParamMM3(atom_types = at,
                                         ptype = 'ae',
-                                        mm3_col = 4,
-                                        mm3_row = i + 1,
+                                        ff_col = 4,
+                                        ff_row = i + 1,
                                         value = float(split[7]))))
                         elif len(split) == 7:
                             self.params.extend((
                                 ParamMM3(atom_types = at,
                                         ptype = 'ae',
-                                        mm3_col = 3,
-                                        mm3_row = i + 1,
+                                        ff_col = 3,
+                                        ff_row = i + 1,
                                         value = float(split[6]))))
                     if split[0] in torsions:
                         at = [split[1], split[2], split[3], split[4]]
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                     ptype = 'df',
-                                    mm3_col = 1,
-                                    mm3_row = i + 1,
+                                    ff_col = 1,
+                                    ff_row = i + 1,
                                     value = float(split[5])),
                             ParamMM3(atom_types = at,
                                     ptype = 'df',
-                                    mm3_col = 2,
-                                    mm3_row = i + 1,
+                                    ff_col = 2,
+                                    ff_row = i + 1,
                                     value = float(split[8])),
                             ParamMM3(atom_types = at,
                                     ptype = 'df',
-                                    mm3_col = 3,
-                                    mm3_row = i + 1,
+                                    ff_col = 3,
+                                    ff_row = i + 1,
                                     value = float(split[11]))))
                     if 'opbend' == split[0]:
                         at = [split[1], split[2], split[3], split[4]]
                         self.params.append(
                             ParamMM3(atom_types = at,
                                     ptype = 'op_b',
-                                    mm3_col = 1,
-                                    mm3_row = i + 1,
+                                    ff_col = 1,
+                                    ff_row = i + 1,
                                     value = float(split[5])))
                     if 'vdw' == split[0]:
                     #The first float is the vdw radius, the second has to do
@@ -701,8 +701,8 @@ class TinkerFF(FF):
                         self.params.append(
                             ParamMM3(atom_types = at,
                                     ptype = 'vdw',
-                                    mm3_col = 1,
-                                    mm3_row = i + 1,
+                                    ff_col = 1,
+                                    ff_row = i + 1,
                                     value = float(split[2])))
         logger.log(15, '  -- Read {} parameters.'.format(len(self.params)))
     def export_ff(self, path=None, params=None, lines=None):
@@ -718,12 +718,12 @@ class TinkerFF(FF):
         for param in params:
             logger.log(1, '>>> param: {} param.value: {}'.format(
                     param, param.value))
-            line = lines[param.mm3_row - 1]
+            line = lines[param.ff_row - 1]
             if abs(param.value) > 999.:
                 logger.warning(
                     'Value of {} is too high! Skipping write.'.format(param))
             else:
-                col = int(param.mm3_col-1)
+                col = int(param.ff_col-1)
                 linesplit = line.split()
                 value = '{:7.3f}'.format(param.value)
                 par = format(linesplit[0],"<10")
@@ -751,7 +751,7 @@ class TinkerFF(FF):
                     atoms = format(split[1]) + space5 * 3
                     linesplit[2+col] = value
                     const = "".join([format(el,">12") for el in linesplit[2:]])
-                lines[param.mm3_row - 1] = (par+atoms+const+'\n')
+                lines[param.ff_row - 1] = (par+atoms+const+'\n')
         with open(path, 'w') as f:
             f.writelines(lines)
         logger.log(10, 'WROTE: {}'.format(path))
@@ -826,21 +826,21 @@ class TinkerMM3A(FF):
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                      ptype = 'bf',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
+                                     ff_col = 1,
+                                     ff_row = i + 1,
                                      value = float(split[3])),
                             ParamMM3(atom_types = at,
                                      ptype = 'be',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
+                                     ff_col = 2,
+                                     ff_row = i + 1,
                                      value = float(split[4]))))
                     if split[0] in dipoles:
                         at = [split[1], split[2]]
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                      ptype = 'q',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
+                                     ff_col = 1,
+                                     ff_row = i + 1,
                                      value = float(split[3])),
                             #I think this second value is the position of the
                             #dipole along the bond. I've only seen 0.5 which
@@ -848,8 +848,8 @@ class TinkerMM3A(FF):
                             #of the bond.
                             ParamMM3(atom_types = at,
                                      ptype = 'q_p',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
+                                     ff_col = 2,
+                                     ff_row = i + 1,
                                      value = float(split[4]))))
                     if split[0] in pibonds:
                         at = [split[1], split[2]]
@@ -860,13 +860,13 @@ class TinkerMM3A(FF):
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                      ptype = 'pi_b',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
+                                     ff_col = 1,
+                                     ff_row = i + 1,
                                      value = float(split[3])),
                             ParamMM3(atom_types = at,
                                      ptype = 'pi_t',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
+                                     ff_col = 2,
+                                     ff_row = i + 1,
                                      value = float(split[4]))))
                     if split[0] in angles:
                         at = [split[1], split[2], split[3]]
@@ -876,58 +876,58 @@ class TinkerMM3A(FF):
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                     ptype = 'af',
-                                    mm3_col = 1,
-                                    mm3_row = i + 1,
+                                    ff_col = 1,
+                                    ff_row = i + 1,
                                     value = float(split[4])),
                             ParamMM3(atom_types = at,
                                     ptype = 'ae',
-                                    mm3_col = 2,
-                                    mm3_row = i + 1,
+                                    ff_col = 2,
+                                    ff_row = i + 1,
                                     value = float(split[5]))))
                         if len(split) == 8:
                             self.params.extend((
                                 ParamMM3(atom_types = at,
                                         ptype = 'ae',
-                                        mm3_col = 3,
-                                        mm3_row = i + 1,
+                                        ff_col = 3,
+                                        ff_row = i + 1,
                                         value = float(split[6])),
                                 ParamMM3(atom_types = at,
                                         ptype = 'ae',
-                                        mm3_col = 4,
-                                        mm3_row = i + 1,
+                                        ff_col = 4,
+                                        ff_row = i + 1,
                                         value = float(split[7]))))
                         elif len(split) == 7:
                             self.params.extend((
                                 ParamMM3(atom_types = at,
                                         ptype = 'ae',
-                                        mm3_col = 3,
-                                        mm3_row = i + 1,
+                                        ff_col = 3,
+                                        ff_row = i + 1,
                                         value = float(split[6]))))
                     if split[0] in torsions:
                         at = [split[1], split[2], split[3], split[4]]
                         self.params.extend((
                             ParamMM3(atom_types = at,
                                     ptype = 'df',
-                                    mm3_col = 1,
-                                    mm3_row = i + 1,
+                                    ff_col = 1,
+                                    ff_row = i + 1,
                                     value = float(split[5])),
                             ParamMM3(atom_types = at,
                                     ptype = 'df',
-                                    mm3_col = 2,
-                                    mm3_row = i + 1,
+                                    ff_col = 2,
+                                    ff_row = i + 1,
                                     value = float(split[8])),
                             ParamMM3(atom_types = at,
                                     ptype = 'df',
-                                    mm3_col = 3,
-                                    mm3_row = i + 1,
+                                    ff_col = 3,
+                                    ff_row = i + 1,
                                     value = float(split[11]))))
                     if 'opbend' == split[0]:
                         at = [split[1], split[2], split[3], split[4]]
                         self.params.append(
                             ParamMM3(atom_types = at,
                                     ptype = 'op_b',
-                                    mm3_col = 1,
-                                    mm3_row = i + 1,
+                                    ff_col = 1,
+                                    ff_row = i + 1,
                                     value = float(split[5])))
                     if 'vdw' == split[0]:
                     #The first float is the vdw radius, the second has to do
@@ -938,8 +938,8 @@ class TinkerMM3A(FF):
                         self.params.append(
                             ParamMM3(atom_types = at,
                                     ptype = 'vdw',
-                                    mm3_col = 1,
-                                    mm3_row = i + 1,
+                                    ff_col = 1,
+                                    ff_row = i + 1,
                                     value = float(split[2])))
         logger.log(15, '  -- Read {} parameters.'.format(len(self.params)))
     def export_ff(self, path=None, params=None, lines=None):
@@ -955,7 +955,7 @@ class TinkerMM3A(FF):
         for param in params:
             logger.log(1, '>>> param: {} param.value: {}'.format(
                     param, param.value))
-            line = lines[param.mm3_row - 1]
+            line = lines[param.ff_row - 1]
             if abs(param.value) > 999.:
                 logger.warning(
                     'Value of {} is too high! Skipping write.'.format(param))
@@ -964,7 +964,7 @@ class TinkerMM3A(FF):
             # correctly. This includes the position of the columns and a space
             # at the end of every line.
             else:
-                col = int(param.mm3_col-1)
+                col = int(param.ff_col-1)
                 pos = 12*(col + 1)
                 linesplit = line.split()
                 value = '{:7.4f}'.format(param.value)
@@ -1012,8 +1012,8 @@ class TinkerMM3A(FF):
                     n5 = len(value)
                     const[pos-n5:pos] = value
 #                    linesplit[5+col] = value
-#                lines[param.mm3_row - 1] = ("\t".join(linesplit)+"\n")
-                lines[param.mm3_row - 1] = (par+atoms+const+'\n')
+#                lines[param.ff_row - 1] = ("\t".join(linesplit)+"\n")
+                lines[param.ff_row - 1] = (par+atoms+const+'\n')
         with open(path, 'w') as f:
             f.writelines(lines)
         logger.log(10, 'WROTE: {}'.format(path))
@@ -1173,13 +1173,13 @@ class MM3(FF):
                     self.params.extend((
                             ParamMM3(atom_types = atm,
                                      ptype = 'vdwr',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
+                                     ff_col = 1,
+                                     ff_row = i + 1,
                                      value = float(rad)),
                             ParamMM3(atom_types = atm,
                                      ptype = 'vdwe',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
+                                     ff_col = 2,
+                                     ff_row = i + 1,
                                      value = float(eps))))
                     continue
                 if 'OPT' in line or section_sub:
@@ -1203,25 +1203,25 @@ class MM3(FF):
                                 ParamMM3(atom_labels = atm_lbls,
                                          atom_types = atm_typs,
                                          ptype = 'be',
-                                         mm3_col = 1,
-                                         mm3_row = i + 1,
-                                         mm3_label = line[:2],
+                                         ff_col = 1,
+                                         ff_row = i + 1,
+                                         ff_label = line[:2],
                                          value = parm_cols[0]),
                                 ParamMM3(atom_labels = atm_lbls,
                                          atom_types = atm_typs,
                                          ptype = 'bf',
-                                         mm3_col = 2,
-                                         mm3_row = i + 1,
-                                         mm3_label = line[:2],
+                                         ff_col = 2,
+                                         ff_row = i + 1,
+                                         ff_label = line[:2],
                                          value = parm_cols[1])))
                         try:
                             self.params.append(
                                 ParamMM3(atom_labels = atm_lbls,
                                          atom_types = atm_typs,
                                          ptype = 'q',
-                                         mm3_col = 3,
-                                         mm3_row = i + 1,
-                                         mm3_label = line[:2],
+                                         ff_col = 3,
+                                         ff_row = i + 1,
+                                         ff_label = line[:2],
                                          value = parm_cols[2]))
                         # Some bonds parameters don't use bond dipoles.
                         except IndexError:
@@ -1251,16 +1251,16 @@ class MM3(FF):
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'ae',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 1,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[0]),
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'af',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 2,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[1])))
                         continue
                     # Stretch-bends.
@@ -1287,9 +1287,9 @@ class MM3(FF):
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'sb',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 1,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[0]))
                         continue
                     # Torsions.
@@ -1316,23 +1316,23 @@ class MM3(FF):
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'df',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 1,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[0]),
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'df',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 2,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[1]),
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'df',
-                                     mm3_col = 3,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 3,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[2])))
                         continue
                     # Higher order torsions.
@@ -1349,23 +1349,23 @@ class MM3(FF):
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'df',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 1,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[0]),
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'df',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 2,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[1]),
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'df',
-                                     mm3_col = 3,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 3,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[2])))
                         continue
                     # Improper torsions.
@@ -1392,16 +1392,16 @@ class MM3(FF):
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'imp1',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 1,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[0]),
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'imp2',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
-                                     mm3_label = line[:2],
+                                     ff_col = 2,
+                                     ff_row = i + 1,
+                                     ff_label = line[:2],
                                      value = parm_cols[1])))
                         continue
                     # Bonds.
@@ -1419,16 +1419,16 @@ class MM3(FF):
                                 ParamMM3(atom_labels = atm_lbls,
                                          atom_types = atm_typs,
                                          ptype = 'vdwr',
-                                         mm3_col = 1,
-                                         mm3_row = i + 1,
-                                         mm3_label = line[:2],
+                                         ff_col = 1,
+                                         ff_row = i + 1,
+                                         ff_label = line[:2],
                                          value = parm_cols[0]),
                                 ParamMM3(atom_labels = atm_lbls,
                                          atom_types = atm_typs,
                                          ptype = 'vdwfc',
-                                         mm3_col = 2,
-                                         mm3_row = i + 1,
-                                         mm3_label = line[:2],
+                                         ff_col = 2,
+                                         ff_row = i + 1,
+                                         ff_label = line[:2],
                                          value = parm_cols[1])))
                         continue
                 # The Van der Waals are stored in annoying way.
@@ -1500,13 +1500,13 @@ class MM3(FF):
                 #     self.params.extend((
                 #             ParamMM3(atom_types = atm,
                 #                      ptype = 'vdwr',
-                #                      mm3_col = 1,
-                #                      mm3_row = i + 1,
+                #                      ff_col = 1,
+                #                      ff_row = i + 1,
                 #                      value = float(rad)),
                 #             ParamMM3(atom_types = atm,
                 #                      ptype = 'vdwe',
-                #                      mm3_col = 2,
-                #                      mm3_row = i + 1,
+                #                      ff_col = 2,
+                #                      ff_row = i + 1,
                 #                      value = float(eps))))
                 #     continue
                 if 'OPT' in line or section_sub:
@@ -1529,25 +1529,25 @@ class MM3(FF):
                                 ParamMM3(atom_labels = atm_lbls,
                                          atom_types = atm_typs,
                                          ptype = 'be',
-                                         mm3_col = 1,
-                                         mm3_row = i + 1,
-                                         mm3_label = cols[0],
+                                         ff_col = 1,
+                                         ff_row = i + 1,
+                                         ff_label = cols[0],
                                          value = float(cols[3])),
                                 ParamMM3(atom_labels = atm_lbls,
                                          atom_types = atm_typs,
                                          ptype = 'bf',
-                                         mm3_col = 2,
-                                         mm3_row = i + 1,
-                                         mm3_label = cols[0],
+                                         ff_col = 2,
+                                         ff_row = i + 1,
+                                         ff_label = cols[0],
                                          value = float(cols[4]))))
                         try:
                             self.params.append(
                                 ParamMM3(atom_labels = atm_lbls,
                                          atom_types = atm_typs,
                                          ptype = 'q',
-                                         mm3_col = 3,
-                                         mm3_row = i + 1,
-                                         mm3_label = cols[0],
+                                         ff_col = 3,
+                                         ff_row = i + 1,
+                                         ff_label = cols[0],
                                          value = float(cols[5])))
                         # Some bonds parameters don't use bond dipoles.
                         except IndexError:
@@ -1577,16 +1577,16 @@ class MM3(FF):
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'ae',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
-                                     mm3_label = cols[0],
+                                     ff_col = 1,
+                                     ff_row = i + 1,
+                                     ff_label = cols[0],
                                      value = float(cols[4])),
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'af',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
-                                     mm3_label = cols[0],
+                                     ff_col = 2,
+                                     ff_row = i + 1,
+                                     ff_label = cols[0],
                                      value = float(cols[5]))))
                         continue
                     # Stretch-bends.
@@ -1613,9 +1613,9 @@ class MM3(FF):
                     #         ParamMM3(atom_labels = atm_lbls,
                     #                  atom_types = atm_typs,
                     #                  ptype = 'sb',
-                    #                  mm3_col = 1,
-                    #                  mm3_row = i + 1,
-                    #                  mm3_label = line[:2],
+                    #                  ff_col = 1,
+                    #                  ff_row = i + 1,
+                    #                  ff_label = line[:2],
                     #                  value = parm_cols[0]))
                     #     continue
                     # Torsions.
@@ -1642,23 +1642,23 @@ class MM3(FF):
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'df',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
-                                     mm3_label = cols[0],
+                                     ff_col = 1,
+                                     ff_row = i + 1,
+                                     ff_label = cols[0],
                                      value = float(cols[5])),
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'df',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
-                                     mm3_label = cols[0],
+                                     ff_col = 2,
+                                     ff_row = i + 1,
+                                     ff_label = cols[0],
                                      value = float(cols[6])),
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'df',
-                                     mm3_col = 3,
-                                     mm3_row = i + 1,
-                                     mm3_label = cols[0],
+                                     ff_col = 3,
+                                     ff_row = i + 1,
+                                     ff_label = cols[0],
                                      value = float(cols[7]))))
                         continue
                     # Higher order torsions.
@@ -1675,23 +1675,23 @@ class MM3(FF):
                     #         ParamMM3(atom_labels = atm_lbls,
                     #                  atom_types = atm_typs,
                     #                  ptype = 'df',
-                    #                  mm3_col = 1,
-                    #                  mm3_row = i + 1,
-                    #                  mm3_label = cols[0],
+                    #                  ff_col = 1,
+                    #                  ff_row = i + 1,
+                    #                  ff_label = cols[0],
                     #                  value = parm_cols[0]),
                     #         ParamMM3(atom_labels = atm_lbls,
                     #                  atom_types = atm_typs,
                     #                  ptype = 'df',
-                    #                  mm3_col = 2,
-                    #                  mm3_row = i + 1,
-                    #                  mm3_label = cols[0],
+                    #                  ff_col = 2,
+                    #                  ff_row = i + 1,
+                    #                  ff_label = cols[0],
                     #                  value = parm_cols[1]),
                     #         ParamMM3(atom_labels = atm_lbls,
                     #                  atom_types = atm_typs,
                     #                  ptype = 'df',
-                    #                  mm3_col = 3,
-                    #                  mm3_row = i + 1,
-                    #                  mm3_label = cols[0],
+                    #                  ff_col = 3,
+                    #                  ff_row = i + 1,
+                    #                  ff_label = cols[0],
                     #                  value = parm_cols[2])))
                     #     continue
                     # Improper torsions.
@@ -1718,16 +1718,16 @@ class MM3(FF):
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'imp1',
-                                     mm3_col = 1,
-                                     mm3_row = i + 1,
-                                     mm3_label = cols[0],
+                                     ff_col = 1,
+                                     ff_row = i + 1,
+                                     ff_label = cols[0],
                                      value = float(cols[5])),
                             ParamMM3(atom_labels = atm_lbls,
                                      atom_types = atm_typs,
                                      ptype = 'imp2',
-                                     mm3_col = 2,
-                                     mm3_row = i + 1,
-                                     mm3_label = cols[0],
+                                     ff_col = 2,
+                                     ff_row = i + 1,
+                                     ff_label = cols[0],
                                      value = float(cols[6]))))
                         continue
                 # The Van der Waals are stored in annoying way.
@@ -1757,7 +1757,7 @@ class MM3(FF):
         for param in params:
             logger.log(1, '>>> param: {} param.value: {}'.format(
                     param, param.value))
-            line = lines[param.mm3_row - 1]
+            line = lines[param.ff_row - 1]
             # There are some problems with this. Probably an optimization
             # technique gave you these crazy parameter values. Ideally, this
             # entire trial FF should be discarded.
@@ -1767,16 +1767,16 @@ class MM3(FF):
             if abs(param.value) > 999.:
                 logger.warning(
                     'Value of {} is too high! Skipping write.'.format(param))
-            elif param.mm3_col == 1:
-                lines[param.mm3_row - 1] = (line[:P_1_START] +
+            elif param.ff_col == 1:
+                lines[param.ff_row - 1] = (line[:P_1_START] +
                                             '{:10.4f}'.format(param.value) +
                                             line[P_1_END:])
-            elif param.mm3_col == 2:
-                lines[param.mm3_row - 1] = (line[:P_2_START] +
+            elif param.ff_col == 2:
+                lines[param.ff_row - 1] = (line[:P_2_START] +
                                             '{:10.4f}'.format(param.value) +
                                             line[P_2_END:])
-            elif param.mm3_col == 3:
-                lines[param.mm3_row - 1] = (line[:P_3_START] +
+            elif param.ff_col == 3:
+                lines[param.ff_row - 1] = (line[:P_3_START] +
                                             '{:10.4f}'.format(param.value) +
                                             line[P_3_END:])
         with open(path, 'w') as f:
@@ -1790,38 +1790,38 @@ class MM3(FF):
         for param in params:
             pass
 
-def match_mm3_label(mm3_label):
+def match_mm3_label(ff_label):
     """
     Makes sure the MM3* label is recognized.
 
     The label is the 1st 2 characters in the line containing the parameter
     in a Schrodinger mm3.fld file.
     """
-    return re.match('[\s5a-z][1-5]', mm3_label)
-def match_mm3_vdw(mm3_label):
+    return re.match('[\s5a-z][1-5]', ff_label)
+def match_mm3_vdw(ff_label):
     """Matches MM3* label for bonds."""
-    return re.match('[\sa-z]6', mm3_label)
-def match_mm3_bond(mm3_label):
+    return re.match('[\sa-z]6', ff_label)
+def match_mm3_bond(ff_label):
     """Matches MM3* label for bonds."""
-    return re.match('[\sa-z]1', mm3_label)
-def match_mm3_angle(mm3_label):
+    return re.match('[\sa-z]1', ff_label)
+def match_mm3_angle(ff_label):
     """Matches MM3* label for angles."""
-    return re.match('[\sa-z]2', mm3_label)
-def match_mm3_stretch_bend(mm3_label):
+    return re.match('[\sa-z]2', ff_label)
+def match_mm3_stretch_bend(ff_label):
     """Matches MM3* label for stretch-bends."""
-    return re.match('[\sa-z]3', mm3_label)
-def match_mm3_torsion(mm3_label):
+    return re.match('[\sa-z]3', ff_label)
+def match_mm3_torsion(ff_label):
     """Matches MM3* label for all orders of torsional parameters."""
-    return re.match('[\sa-z]4|54', mm3_label)
-def match_mm3_lower_torsion(mm3_label):
+    return re.match('[\sa-z]4|54', ff_label)
+def match_mm3_lower_torsion(ff_label):
     """Matches MM3* label for torsions (1st through 3rd order)."""
-    return re.match('[\sa-z]4', mm3_label)
-def match_mm3_higher_torsion(mm3_label):
+    return re.match('[\sa-z]4', ff_label)
+def match_mm3_higher_torsion(ff_label):
     """Matches MM3* label for torsions (4th through 6th order)."""
-    return re.match('54', mm3_label)
-def match_mm3_improper(mm3_label):
+    return re.match('54', ff_label)
+def match_mm3_improper(ff_label):
     """Matches MM3* label for improper torsions."""
-    return re.match('[\sa-z]5', mm3_label)
+    return re.match('[\sa-z]5', ff_label)
 
 def mass_weight_hessian(hess, atoms, reverse=False):
     """

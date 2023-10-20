@@ -47,6 +47,7 @@ from schrod_indep_filetypes import (
     MM3,
     AmberFF,
     JaguarIn,
+    MacroModel,
     Mol2,
     Param,
     Structure,
@@ -432,6 +433,13 @@ def return_params_parser(add_help=True):
         help="Read these mol2 files, units are in Angstrom.",
     )
     io_group.add_argument(
+        "--mmo",
+        type=str,
+        nargs="+",
+        metavar="structure.mmo",
+        help="Read these mmo files, units are in Angstrom.",
+    )
+    io_group.add_argument(
         "--log",
         "-gl",
         type=str,
@@ -521,7 +529,7 @@ def estimate_bf_param(
     for struct, hessian in zip(structs, hessians):
         type_dict = struct.get_DOF_atom_types_dict()
         for bond in struct.bonds:
-            if utilities.is_same_type_DOF(param.atom_types, type_dict[bond]):
+            if param.ff_row == bond.ff_row:
                 match_count += 1
                 s_bond = seminario_bond(
                     atoms=struct.get_atoms_in_DOF(bond),
@@ -579,7 +587,7 @@ def estimate_af_param(
     for struct, hessian in zip(structs, hessians):
         type_dict = struct.get_DOF_atom_types_dict()
         for angle in struct.angles:
-            if utilities.is_same_type_DOF(param.atom_types, type_dict[angle]):
+            if param.ff_row == angle.ff_row:
                 match_count += 1
                 s_angle = seminario_angle(
                     struct.get_atoms_in_DOF(angle), hessian, ang_to_bohr=ang_to_bohr
@@ -623,7 +631,7 @@ def average_ae_param(param: Param, structs: List[Structure]) -> float:
     for struct in structs:
         type_dict = struct.get_DOF_atom_types_dict()
         for angle in struct.angles:
-            if utilities.is_same_type_DOF(param.atom_types, type_dict[angle]):
+            if param.ff_row == angle.ff_row:
                 match_count += 1
                 match_vals.append(angle.value)
     if match_count <= 0:
@@ -659,7 +667,7 @@ def average_be_param(param: Param, structs: List[Structure]) -> float:
     for struct in structs:
         type_dict = struct.get_DOF_atom_types_dict()
         for bond in struct.bonds:
-            if utilities.is_same_type_DOF(param.atom_types, type_dict[bond]):
+            if param.ff_row == bond.ff_row:
                 match_count += 1
                 match_vals.append(bond.value)
     if match_count <= 0:
@@ -772,10 +780,9 @@ def main(args):
         args.ff_in
     ), "Input force field file is required! Please also verify compatibility/sufficiency of parameters."
 
-    assert (args.mol or args.pdb) and (
+    assert (args.mol or args.mmo) and (
         args.log or args.jag_in
     ), "Both a mol2 structure file and a Gaussian log or Jaguar in (DFT Cartesian Hessian) file are needed!"
-
 
     if args.ff_in[-4:] == ".fld":
         ff_in = MM3(args.ff_in)
@@ -787,30 +794,46 @@ def main(args):
         logger.log(logging.INFO, "amber ff imported: {}".format(ff_in.path))
     else:
         raise NotImplemented()
-    
-    if '*' in args.mol[0]:
-        args.mol = sorted(glob.glob(args.jag_in[0]))
 
-    mol2s: List[Mol2] = [Mol2(mol_path) for mol_path in args.mol]
-    logger.log(
-        logging.INFO,
-        "{}/{} Mol2 structure files imported.".format(len(mol2s), len(args.mol)),
-    )
+    if "*" in args.mol[0]:
+        args.mol = sorted(glob.glob(args.mol[0]))
+
+    if "*" in args.mmo[0]:
+        args.mol = sorted(glob.glob(args.mmo[0]))
+
     structs: List[Structure] = []
-    for mol2 in mol2s:
-        structs.extend(mol2.structures)
+
+    if args.mol:
+        struct_files: List[Mol2] = [Mol2(mol_path) for mol_path in args.mol]
+        logger.log(
+            logging.INFO,
+            "{}/{} Mol2 structure files imported.".format(
+                len(struct_files), len(args.mol)
+            ),
+        )
+    elif args.mmo:
+        struct_files: List[MacroModel] = [MacroModel(mmo_path) for mmo_path in args.mmo]
+        logger.log(
+            logging.INFO,
+            "{}/{} MMO structure files imported.".format(
+                len(struct_files), len(args.mmo)
+            ),
+        )
+
+    for struct in struct_files:
+        structs.extend(struct.structures)
     logger.log(
         logging.INFO, "{} Structures imported from mol2 files.".format(len(structs))
     )
-    
+
     if args.log:
-        if '*' in args.log[0]:
+        if "*" in args.log[0]:
             args.log = sorted(glob.glob(args.log[0]))
         assert len(structs) == len(
             args.log
         ), "Gaussian log input must have 1:1 correspondence with the mol2 structures."
     elif args.jag_in:
-        if '*' in args.jag_in[0]:
+        if "*" in args.jag_in[0]:
             args.jag_in = sorted(glob.glob(args.jag_in[0]))
         assert len(structs) == len(
             args.jag_in
@@ -840,9 +863,7 @@ def main(args):
             logging.INFO,
             "{}/{} Hessians imported.".format(len(hessians), len(args.log)),
         )
-    elif (
-        args.jag_in
-    ):  # Hess should be in kJ/molA, not mass-weighted.
+    elif args.jag_in:  # Hess should be in kJ/molA, not mass-weighted.
         # NOTE: If Hessian gets mass-weighted, then the resulting force constants must be un-massweighted.
         # The code for this is left in but commented out for now in case a reason arrives to mass-weight.
         logs: List[JaguarIn] = [JaguarIn(log) for log in args.jag_in]
@@ -865,7 +886,6 @@ def main(args):
             logging.INFO,
             "{}/{} Hessians imported.".format(len(hessians), len(args.jag_in)),
         )
-
 
     assert len(structs) == len(
         hessians
