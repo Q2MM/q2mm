@@ -532,7 +532,7 @@ def estimate_bf_param(
     match_vals = []
     for struct, hessian in zip(structs, hessians):
         for bond in struct.bonds:
-            if param.ff_row == bond.ff_row + 1: # TODO I have no clue why there is a mismatch here, it clearly comes from past IO, but literally WHY??
+            if param.ff_row == bond.ff_row: # TODO I have no clue why there is a mismatch here, it clearly comes from past IO, but literally WHY??
                                                 # It looks like it's just an artifact of 1-basing Param ff_row and 0-basing bond ff_row when taking it from lines
                                                 # This should be investigated and fixed or explained in full otherwise it will absolutely continue
                                                 # to be a stumbling block when maintaining, improving, learning this code... Creates weird mismatches and I hate it
@@ -592,7 +592,7 @@ def estimate_af_param(
     match_vals = []
     for struct, hessian in zip(structs, hessians):
         for angle in struct.angles:
-            if param.ff_row == angle.ff_row + 1:
+            if param.ff_row == angle.ff_row:
                 match_count += 1
                 s_angle = seminario_angle(
                     struct.get_atoms_in_DOF(angle), hessian, ang_to_bohr=ang_to_bohr
@@ -635,7 +635,7 @@ def average_ae_param(param: Param, structs: List[Structure]) -> float:
     match_vals = []
     for struct in structs:
         for angle in struct.angles:
-            if param.ff_row == angle.ff_row + 1:
+            if param.ff_row == angle.ff_row:
                 match_count += 1
                 match_vals.append(angle.value)
     if match_count <= 0:
@@ -670,7 +670,7 @@ def average_be_param(param: Param, structs: List[Structure]) -> float:
     match_vals = []
     for struct in structs:
         for bond in struct.bonds:
-            if param.ff_row == bond.ff_row + 1:
+            if param.ff_row == bond.ff_row:
                 match_count += 1
                 match_vals.append(bond.value)
     if match_count <= 0:
