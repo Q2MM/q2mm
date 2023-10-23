@@ -284,6 +284,10 @@ def seminario_bond(atoms: list, hessian, scaling=0.963, ang_to_bohr=False) -> fl
     # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
 
+    if f12 <=0 or f21 <=0:
+        logger.log(logging.WARNING, "Estimated force constant between atoms: {}, {} <= 0, with raw kJ/molA estimates: {} {}!\nSetting to 0.0 instead.".format(atoms[0].index, atoms[1].index, f12, f21))
+        return 0.0
+
     return scaling * 0.5 * (f12 + f21)
 
 
@@ -528,7 +532,10 @@ def estimate_bf_param(
     match_vals = []
     for struct, hessian in zip(structs, hessians):
         for bond in struct.bonds:
-            if param.ff_row == bond.ff_row:
+            if param.ff_row == bond.ff_row + 1: # TODO I have no clue why there is a mismatch here, it clearly comes from past IO, but literally WHY??
+                                                # It looks like it's just an artifact of 1-basing Param ff_row and 0-basing bond ff_row when taking it from lines
+                                                # This should be investigated and fixed or explained in full otherwise it will absolutely continue
+                                                # to be a stumbling block when maintaining, improving, learning this code... Creates weird mismatches and I hate it
                 match_count += 1
                 s_bond = seminario_bond(
                     atoms=struct.get_atoms_in_DOF(bond),
@@ -585,7 +592,7 @@ def estimate_af_param(
     match_vals = []
     for struct, hessian in zip(structs, hessians):
         for angle in struct.angles:
-            if param.ff_row == angle.ff_row:
+            if param.ff_row == angle.ff_row + 1:
                 match_count += 1
                 s_angle = seminario_angle(
                     struct.get_atoms_in_DOF(angle), hessian, ang_to_bohr=ang_to_bohr
