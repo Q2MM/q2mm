@@ -635,7 +635,7 @@ def average_ae_param(param: Param, structs: List[Structure]) -> float:
     match_vals = []
     for struct in structs:
         for angle in struct.angles:
-            if param.ff_row == angle.ff_row:
+            if param.ff_row == angle.ff_row + 1:
                 match_count += 1
                 match_vals.append(angle.value)
     if match_count <= 0:
@@ -670,7 +670,7 @@ def average_be_param(param: Param, structs: List[Structure]) -> float:
     match_vals = []
     for struct in structs:
         for bond in struct.bonds:
-            if param.ff_row == bond.ff_row:
+            if param.ff_row == bond.ff_row + 1:
                 match_count += 1
                 match_vals.append(bond.value)
     if match_count <= 0:
