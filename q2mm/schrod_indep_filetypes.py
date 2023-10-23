@@ -354,36 +354,36 @@ class Structure(object):
 
     @property
     def atoms(self):
-        if self._atoms == []:
-            raise Exception(
-                "structure._atoms is not defined, this must be done on creation."
-            )
+        # if self._atoms == []:
+        #     raise Exception(
+        #         "structure._atoms is not defined, this must be done on creation."
+        #     )
         if self._atoms is None:
             self._atoms : List[Atom] = []
         return self._atoms
 
     @property
     def bonds(self):
-        if self._bonds == []:
-            raise Exception(
-                "structure._bonds is not defined, this must be done on creation."
-            )
+        # if self._bonds == []:
+        #     raise Exception(
+        #         "structure._bonds is not defined, this must be done on creation."
+        #     )
         if self._bonds is None:
             self._bonds : List[Bond] = []
         return self._bonds
 
     @property
     def angles(self):
-        if self._angles == []:
-            self._angles = self.identify_angles()
+        # if self._angles == []:
+        #     self._angles = self.identify_angles() TODO move this to Mol2.structures None property if
         if self._angles is None:
             self._angles:List[Angle] = []
         return self._angles
 
     @property
     def torsions(self):
-        if self._torsions == []:
-            self._torsions = self.identify_torsions()
+        # if self._torsions == []:
+        #     self._torsions = self.identify_torsions()
         if self._torsions is None:
             self._torsions:List[Torsion] = []
         return self._torsions
@@ -3580,6 +3580,31 @@ class MacroModel(File):
                 # of. It seems consistent with the same filename but with two
                 # files with the exact same structure the ordering is off. This
                 # reorders the lists before being added to the structure class.
+                    if 'Atomic Charges, Coordinates and Connectivity' in line:
+                        section = 'atoms'
+                        continue
+                    if section == 'atoms':
+                        if '(' in line:
+                            split = [item.strip() for item in line.split()]
+                            atom_num = split[2][:-1] # same as index
+                            atom = Atom(atom_type_name=split[0], index=int(atom_num), x=float(split[5]), y=float(split[6]), z=float(split[7]))
+                            atoms.append(atom)
+                        if 'Total' in line:
+                            section = None
+                            # Sort the bonds, angles, and torsions before the start
+                            # of a new structure
+                            if bonds:
+                                bonds.sort(key = lambda x: (x.atom_nums[0], x.atom_nums[1]))
+                                current_structure.bonds.extend(bonds)
+                            if angles:
+                                angles.sort(key = lambda x: (x.atom_nums[1], x.atom_nums[0], x.atom_nums[2]))
+                                current_structure.angles.extend(angles)
+                            if torsions:
+                                torsions.sort(key = lambda x: (x.atom_nums[1], x.atom_nums[2], x.atom_nums[0], x.atom_nums[3]))
+                                current_structure.torsions.extend(torsions)
+                            if atoms:
+                                atoms.sort(key=lambda x: x.index)
+                                current_structure.atoms.extend(atoms)
                     if 'Input filename' in line:
                         count_input += 1
                     if 'Input Structure Name' in line:
@@ -3595,6 +3620,7 @@ class MacroModel(File):
                         bonds = []
                         angles = []
                         torsions = []
+                        atoms = []
                         current_structure = Structure(self.filename)
                         self._structures.append(current_structure)
                     # For each structure we come across, look for sections that
@@ -3627,18 +3653,6 @@ class MacroModel(File):
                         if torsion is not None:
                             #current_structure.torsions.append(torsion)
                             torsions.append(torsion)
-                    if 'Connection Table' in line:
-                        # Sort the bonds, angles, and torsions before the start
-                        # of a new structure
-                        if bonds:
-                            bonds.sort(key = lambda x: (x.atom_nums[0], x.atom_nums[1]))
-                            current_structure.bonds.extend(bonds)
-                        if angles:
-                            angles.sort(key = lambda x: (x.atom_nums[1], x.atom_nums[0], x.atom_nums[2]))
-                            current_structure.angles.extend(angles)
-                        if torsions:
-                            torsions.sort(key = lambda x: (x.atom_nums[1], x.atom_nums[2], x.atom_nums[0], x.atom_nums[3]))
-                            current_structure.torsions.extend(torsions)
             logger.log(5, '  -- Imported {} structure(s).'.format(
                     len(self._structures)))
         return self._structures
