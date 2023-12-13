@@ -64,20 +64,8 @@ class Simplex(opt.Optimizer):
     def best_ff(self):
         # Typically, self.new_ffs would include the original FF, self.ff,
         # but this can be changed by massive contractions.
-        if self.new_ffs:
-            self.new_ffs = sorted(self.new_ffs, key=lambda x: x.score)
-            # I think this is necessary after massive contraction.
-            # Massive contraction can potentially make eveything worse.
-            # No, it can't!!! The best FF is always retained! /Per-Ola
-            # Yep, he's right. /Eric
-            if self.new_ffs[0].score < self.ff.score:
-                best_ff = self.new_ffs[0]
-                best_ff = restore_simp_ff(best_ff, self.ff)
-                return best_ff
-            else:
-                return self.ff
-        else:
-            return self.ff
+        return sorted(self.new_ffs, key=lambda x: x.score)
+
     @opt.catch_run_errors
     def run(self, r_data=None):
         """
