@@ -20,6 +20,7 @@ import datatypes
 import gradient
 import opt
 import parameters
+from q2mm.swarm_opt import Swarm_Optimizer
 import simplex
 
 logging.config.dictConfig(co.LOG_SETTINGS)
@@ -381,6 +382,14 @@ class Loop(object):
                     else:
                         raise Exception("'{}' : Not Recognized".format(col))
                 self.ff = simp.run(r_data=self.ref_data)
+            if cols[0] == 'HYBR':
+                swarm = Swarm_Optimizer(
+                    direc=self.direc,
+                    ff=self.ff,
+                    ff_lines=self.ff.lines,
+                    args_ff=self.args_ff,
+                    args_ref= self.args_ref)
+                self.ff = swarm.run(r_data=self.ref_data)
             if cols[0] == 'WGHT':
                 data_type = cols[1]
                 co.WEIGHTS[data_type] = float(cols[2])
