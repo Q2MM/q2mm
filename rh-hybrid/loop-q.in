@@ -1,0 +1,13 @@
+DIR /home/mfarrugi/repos/q2mm/rh-hybrid
+FFLD read rh_hyd_enamide_start_hybrid.fld
+PARM param_q.txt
+RDAT -jqh enoneN2.mae
+CDAT -mqh enoneN2.mae
+COMP -p
+LOOP 0.01
+GRAD
+SIMP
+END
+FFLD write rh_end_hybrid_q.fld
+CDAT
+COMP -o opt_end_hybrid_q.txt 

@@ -1,0 +1,13 @@
+DIR /home/mfarrugi/repos/q2mm/rh-hybrid
+FFLD read rh_end_hybrid_q.fld
+PARM param_eig.txt
+RDAT -geigz enone1N2-3b.log enone2N2-2b.log enone3N2-8b.log enone4N2-6b.log enone5N2-5b.log enone7N2_2b.log enone13N2_2b.log enone14N2_3b.log enone15N2_2b.log enone16N2_3b.log
+CDAT -mgeig enone1N2-3c_chelpg.mae,enone1N2-3b.log enone2N2-2c_chelpg.mae,enone2N2-2b.log enone3N2-8c_chelpg.mae,enone3N2-8b.log enone4N2-6c_chelpg.mae,enone4N2-6b.log enone5N2-5c_chelpg.mae,enone5N2-5b.log enone7N2_2c_chelpg.mae,enone7N2_2b.log enone13N2_2c_chelpg.mae,enone13N2_2b.log enone14N2_3c_chelpg.mae,enone14N2_3b.log enone15N2_2c_chelpg.mae,enone15N2_2b.log enone16N2_3c_chelpg.mae,enone16N2_3b.log 
+COMP -p
+LOOP 0.001
+GRAD
+SIMP
+END
+FFLD write rh_end_hybrid_eig.fld
+CDAT
+COMP -o opt_end_hybrid_eig.txt 

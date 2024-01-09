@@ -16,8 +16,9 @@ import numpy as np
 import sys
 
 import constants as co
-from datatypes import AmberFF, MM3
-import filetypes
+from schrod_indep_filetypes import MM3, AmberFF, MacroModel
+# from datatypes import AmberFF, MM3
+# import filetypes
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
@@ -282,13 +283,13 @@ def main(args):
     logger.log(20, '  -- Total number of chosen parameters: {}'.format(
             len(params)))
     # Load MacroModel .mmo files if desired.
-    if opts.mmo or opts.average or opts.check or opts.seminario:
+    if opts.mmo or opts.average or opts.check:
         mmos = []
         maes = []
         ghs = []
         if opts.mmo:
             for filename in opts.mmo:
-                mmos.append(filetypes.MacroModel(filename))
+                mmos.append(MacroModel(filename))
                 # TODO: MF Perhaps calculate Seminario here and output files as go
                 # must average force constants NOT structure values
                 bond_dic, angle_dic, torsion_dic = gather_values(mmos) #BUG: shouldn't this be one indent back, out of for-loop? shouldn't affect output, just performance
