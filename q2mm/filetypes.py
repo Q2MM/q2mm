@@ -2557,10 +2557,10 @@ class Mae(SchrodingerFile):
                         self.path, ' '.join(commands)))
             else:
                 com_opts['freq'] = True
-        if any(x in ['mb', 'ma', 'mt', 'meo', 'meao'] for x in self.commands):
+        if any(x in ['mb', 'ma', 'mt', 'meo', 'meao'] for x in self.commands): # does do a 500-step mini if opt
             com_opts['opt'] = True
             com_opts['opt_mmo'] = True
-        elif any(x in ['mb', 'ma', 'mt'] for x in self.commands):
+        elif any(x in ['mb', 'ma', 'mt'] for x in self.commands): 
             com_opts['opt'] = True
         if any(x in ['mt', 'jt'] for x in self.commands):
             com_opts['tors'] = True
