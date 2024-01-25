@@ -1435,6 +1435,9 @@ class MM3(FF):
                 if line.startswith('-6'):
                     section_vdw = True
                     continue
+                if section_vdw and line.startswith('-2'):
+                    section_vdw = False
+                    continue
         logger.log(15, '  -- Read {} parameters.'.format(len(self.params)))
     def alternate_import_ff(self, path=None, sub_search='OPT'):
         """
