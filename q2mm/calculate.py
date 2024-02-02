@@ -36,6 +36,7 @@ import compare
 import datatypes
 import filetypes
 import parameters
+import sch_util
 
 # Commands where we need to load the force field.
 COM_LOAD_FF    = ['ma', 'mb', 'mt',
@@ -1059,7 +1060,8 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
         int4 = []
         if os.path.isfile("calc/geo.npy"):
             hes_geo = None
-            if np.__version__ >= '1.16.4':
+            # if np.lib.NumpyVersion(np.__version__) >= '1.16.3':
+            if np.__version__ == '1.16.4':
                 hes_geo = np.load("calc/geo.npy",allow_pickle=True)
             else:
                 hes_geo = np.load("calc/geo.npy")

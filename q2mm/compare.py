@@ -43,10 +43,6 @@ def main(args):
 #    if opts.output or opts.print:
 #        pretty_data_comp(r_data, c_data, output=opts.output, doprint=opts.print)
     logger.log(1, '>>> score: {}'.format(score))
-def tor_atoms(da):
-    daa = da.lbl.split('-')
-    daa[0] = daa[0].split('_')[-1]
-    return daa
 
 def trim_data(dict1,dict2):
     """
