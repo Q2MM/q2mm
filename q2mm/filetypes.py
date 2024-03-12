@@ -2386,8 +2386,7 @@ class JaguarOut(File):
                                 co.RE_FLOAT), line)
                         if match != None:
                             current_atom = Atom()
-                            current_atom.element = match.group(1).translate(
-                                None, digits)
+                            current_atom.element = match.group(1).translate(str.maketrans('','', digits))
                             current_atom.x = float(match.group(2))
                             current_atom.y = float(match.group(3))
                             current_atom.z = float(match.group(4))
