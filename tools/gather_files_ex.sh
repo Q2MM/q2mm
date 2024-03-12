@@ -1,0 +1,1 @@
+for i in *.in; do echo $i,${i%01.in}out >> force_files.txt; done

@@ -19,7 +19,7 @@ import datatypes
 import opt as opt
 import parameters
 import schrod_indep_filetypes
-from hybrid_optimizer import PSO_GA
+from hybrid_optimizer import PSO_GA, Bounds_Handler
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
@@ -35,7 +35,9 @@ class Swarm_Optimizer(opt.Optimizer):
         args_ff=None,
         args_ref=None,
         bias_to_current=True,
-        loose_bounds = False
+        loose_bounds = False,
+        ref_data=None,
+        tight_spread=True
     ):
         super(Swarm_Optimizer, self).__init__(direc, ff, ff_lines, args_ff, args_ref)
 
@@ -43,41 +45,40 @@ class Swarm_Optimizer(opt.Optimizer):
         upper_bounds = []
         deviations = []
         for param in self.ff.params:
-            match (param.ptype):
-                case 'af':
-                    lower_bounds.append(0.)
-                    upper_bounds.append(10.)
-                    deviations.append(0.25)
-                case 'bf':
-                    lower_bounds.append(-0.1)
-                    upper_bounds.append(25.)
-                    deviations.append(0.5)
-                case 'ae':
-                    lower_bounds.append(0.)
-                    upper_bounds.append(180.)
-                    deviations.append(np.inf)
-                case 'be':
-                    lower_bounds.append(0.)
-                    upper_bounds.append(6.)
-                    deviations.append(np.inf)
-                case 'df':
-                    lower_bounds.append(-5.)
-                    upper_bounds.append(5.)
-                    deviations.append(np.inf)
-                case 'q':
-                    lower_bounds.append(-6.)
-                    upper_bounds.append(6.)
-                    deviations.append(np.inf)
-                case 'imp1'| 'imp2':
-                    lower_bounds.append(0.)
-                    upper_bounds.append(50.)
-                    deviations.append(np.inf)
-                case 'sb':
-                    lower_bounds.append(0.)
-                    upper_bounds.append(50.)
-                    deviations.append(np.inf)
-                case _ :
-                    raise("Parameter type not supported: "+param.ptype)
+            if param.ptype == 'af':
+                lower_bounds.append(0.1)
+                upper_bounds.append(7.)
+                deviations.append(0.125) if tight_spread else deviations.append(1.)
+            elif param.ptype == 'bf':
+                lower_bounds.append(0.1)
+                upper_bounds.append(7.)
+                deviations.append(0.125) if tight_spread else deviations.append(1.)
+            elif param.ptype == 'ae':
+                lower_bounds.append(0.)
+                upper_bounds.append(180.)
+                deviations.append(15.)
+            elif param.ptype == 'be':
+                lower_bounds.append(0.)
+                upper_bounds.append(6.)
+                deviations.append(.5) #TODO reassess
+            elif param.ptype == 'df':
+                lower_bounds.append(-5.)
+                upper_bounds.append(5.)
+                deviations.append(np.inf)
+            elif param.ptype == 'q': #TODO MF - this may be removed bc charges will now always be parameterized with mjESP or mgESP in a linear fashion following P-ON 2024 work
+                lower_bounds.append(-10.)
+                upper_bounds.append(10.)
+                deviations.append(2.) if param.value != 0 else deviations.append(10.)
+            elif param.ptype == 'imp1'| param.ptype == 'imp2':
+                lower_bounds.append(0.)
+                upper_bounds.append(50.)
+                deviations.append(np.inf)
+            elif param.ptype == 'sb':
+                lower_bounds.append(0.)
+                upper_bounds.append(50.)
+                deviations.append(np.inf)
+            else:
+                raise("Parameter type not supported: "+param.ptype)
 
         ff_params = [param.value for param in self.ff.params]
 
@@ -89,26 +90,36 @@ class Swarm_Optimizer(opt.Optimizer):
             "taper_GA": True,
             "taper_mutation": True,
             "skew_social": True,
-            "max_iter": 1000,
+            "max_iter": 10000,
             "initial_guesses": ff_params if bias_to_current else None,
             "guess_deviation": deviations,
-            "guess_ratio": 0.3,
-            "mutation_strategy": "DE/rand/1",
+            "guess_ratio": 0.7 if tight_spread else 0.3,
+            "mutation_strategy": "DE/best/1",
         }
-        if self.r_data is None:
-            self.r_data = opt.return_ref_data(self.args_ref)
+        #
+        if ref_data is None:
+            self.ref_data = opt.return_ref_data(self.args_ref)
+        else:
+            self.ref_data = ref_data
+        self.r_dict = compare.data_by_type(self.ref_data)
 
-        self.r_dict = compare.data_by_type(self.r_data)
+        self.hybrid_opt = PSO_GA(self.calculate_and_score, len(self.ff.params), config=self.opt_config, func_args=self.r_dict, verbose=True, bounds_strategy=Bounds_Handler.REFLECTIVE)
 
-    def calculate_and_score(parameter_set, ref_dict) -> float:
+    def calculate_and_score(self, parameter_set, ref_dict) -> float:
 
-        data = calculate.main(parameter_set)
+        #write out changes to fld file!!
+        for param, new_val in zip(self.ff.params, parameter_set):
+            param.value = new_val
+        self.ff.export_ff()
+        data = calculate.main(self.args_ff) #TODO this should be the og arguments to calculate, not the value of the parameters
         # deprecated
         # self.ff.score = compare.compare_data(r_data, data)
         c_dict = compare.data_by_type(data)
         r_dict = ref_dict
         r_dict, c_dict = compare.trim_data(r_dict, c_dict)
         score = compare.compare_data(r_dict, c_dict)
+        self.ff.score = score
+        logger.log(logging.INFO, "Score: "+str(score))
         return score
 
     # Don't worry that self.ff isn't included in self.new_ffs.
@@ -119,7 +130,7 @@ class Swarm_Optimizer(opt.Optimizer):
         return sorted(self.new_ffs, key=lambda x: x.score)[0]
 
     @opt.catch_run_errors
-    def run(self, restart=None):
+    def run(self, convergence_precision=None, ref_data=None, restart=None):
         """
         Once all attributes are setup as you so desire, run this method to
         optimize the parameters.
@@ -129,7 +140,6 @@ class Swarm_Optimizer(opt.Optimizer):
         `datatypes.FF` (or subclass)
             Contains the best parameters.
         """
-        self.hybrid_opt = PSO_GA(self.calculate_and_score, len(self.ff.params), config=self.opt_config, func_args=self.r_dict)
 
         # calculate initial FF results
         data = calculate.main(self.args_ff)
@@ -141,7 +151,7 @@ class Swarm_Optimizer(opt.Optimizer):
         logger.log(20, "INIT FF SCORE: {}".format(self.ff.score))
         opt.pretty_ff_results(self.ff, level=20)
 
-        self.best_ff_params, self.best_ff_score = self.hybrid_opt.run(precision=None, N=self._max_cycles_wo_change)
+        self.best_ff_params, self.best_ff_score = self.hybrid_opt.run(precision=convergence_precision, max_iter=100)
 
         #replace initial ff params with best params
         assert len(self.best_ff_params) == len(self.ff.params)

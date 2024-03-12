@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 
 import argparse
+from glob import glob
 import logging
 import logging.config
 import numpy as np
@@ -155,7 +156,7 @@ def main(args):
         if any(x in COM_MACROMODEL for x in commands_for_filename):
             if os.path.splitext(filename)[1] == '.mae':
                 inps[filename] = filetypes.Mae(
-                    os.path.join(opts.directory, filename))
+                    os.path.join(opts.directory, filename)) #TODO fix directory in opts
                 inps[filename].commands = commands_for_filename
                 inps[filename].write_com(sometext=opts.append)
             #Has to be here even though this is a Gaussian Job.
@@ -1110,7 +1111,7 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
                 return co.WEIGHTS['h14']
             elif frozen:
                 if at_1 in f_atom or at_2 in f_atom:
-                    #print("DEBUG:",at_1,at_2,f_atom)
+                    #print("DEBUG:",at_1,at_2,f_atom) #TODO PUT THIS IN LOGGER, CHECK FOR KKOH PRINTS
                     return 0.0
                 else:
                     return 1.0
@@ -1569,6 +1570,7 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
                 filename, inps, outs, direc, sub_names, 'mt', 'opt', 'torsions'))
     # JAGUAR CHARGES
     filenames = chain.from_iterable(coms['jq'])
+    #TODO set up glob
     for filename in filenames:
         mae = check_outs(filename, outs, filetypes.Mae, direc)
         for idx_1, structure in enumerate(mae.structures):
@@ -1588,7 +1590,11 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
                             atm_1=atom.index))
     # MACROMODEL CHARGES
     filenames = chain.from_iterable(coms['mq'])
-    for filename in filenames:
+    tuple_filenames = tuple(filenames)
+    if len(tuple_filenames) == 1 and '*' in tuple_filenames[0]: #TODO add support for globbed files w # lead because good god
+        filenames = glob(tuple_filenames[0])
+        #print('mq '+str(filenames))
+    for filename in tuple_filenames:
         name_mae = inps[filename].name_mae
         mae = check_outs(name_mae, outs, filetypes.Mae, direc)
         # Pick out the right structures. Sometimes our .com files

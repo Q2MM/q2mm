@@ -8,7 +8,7 @@ from __future__ import division
 import copy
 import numpy as np
 
-import parmed
+#import parmed
 
 
 # region Atom Type Handling

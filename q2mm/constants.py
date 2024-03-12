@@ -45,6 +45,7 @@ LOG_SETTINGS = {
                 'simplex': {'level': 5, 'propagate': True},
                 'seminario': {'level': 20, 'propagate': True},
                 'schrod_indep_filetypes': {'level': 20, 'propagate': True},
+                'swarm_opt': {'level': 20, 'propagate': True},
                 },
 
     #  debug logger

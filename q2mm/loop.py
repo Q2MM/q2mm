@@ -20,7 +20,7 @@ import datatypes
 import gradient
 import opt
 import parameters
-from q2mm.swarm_opt import Swarm_Optimizer
+from swarm_opt import Swarm_Optimizer
 import simplex
 
 logging.config.dictConfig(co.LOG_SETTINGS)
@@ -389,7 +389,7 @@ class Loop(object):
                     ff_lines=self.ff.lines,
                     args_ff=self.args_ff,
                     args_ref= self.args_ref)
-                self.ff = swarm.run(r_data=self.ref_data)
+                self.ff = swarm.run(convergence_precision=self.convergence, ref_data=self.ref_data)
             if cols[0] == 'WGHT':
                 data_type = cols[1]
                 co.WEIGHTS[data_type] = float(cols[2])
