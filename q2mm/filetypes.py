@@ -2601,7 +2601,9 @@ class Mae(SchrodingerFile):
         self._index_output_mmo = []
         com_opts = self.get_com_opts()
         debg_opts = self.get_debg_opts(com_opts)
-        com = '{}\n{}\n'.format(self.filename, self.name_mae)
+        mae_in = os.path.join(self.directory, self.filename)
+        mae_out = os.path.join(self.directory, self.name_mae)
+        com = '{}\n{}\n'.format(mae_in, mae_out)
         # Is this right? It seems to work, but looking back at this,
         # I'm not sure why we wouldn't always want to control using
         # MMOD. Also, that 2nd argument of MMOD only affects the color
@@ -2689,9 +2691,9 @@ class Mae(SchrodingerFile):
                   Time waited in between lookups of Schrodinger license
                   tokens.
         """
-        #print("Run " + str(self.filename) + " with commands:" + str(self.commands))
+        logger.log(logging.INFO, "Run " + str(self.filename) + " with commands:" + str(self.commands))
         current_directory = os.getcwd()
-        os.chdir(self.directory)
+        #os.chdir(self.directory)
         current_timeout = 0
         current_fails = 0
         licenses_available = False
@@ -2743,7 +2745,7 @@ class Mae(SchrodingerFile):
                     logger.log(5, 'RUNNING: {}'.format(self.name_com))
                     sp.check_output(
                         '$SCHRODINGER/bmin -WAIT {}'.format(
-                            os.path.splitext(self.name_com)[0]), shell=True)
+                            os.path.join(self.directory, os.path.splitext(self.name_com)[0])), shell=True)
                     break
                 except sp.CalledProcessError:
                     logger.warning('Call to MacroModel failed and I have no '

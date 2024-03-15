@@ -200,7 +200,7 @@ def set_run_mode(func, mode):
     print('mode: '+str(mode))
     return
 
-def func_transformer(func, n_processes):
+def func_transformer(func, n_processes, pass_worker_num = False):
     '''
     transform this kind of function:
     ```
@@ -224,75 +224,127 @@ def func_transformer(func, n_processes):
     :return:
     '''
 
-    # to support the former version
-    if (func.__class__ is FunctionType) and (func.__code__.co_argcount > 1):
-        warnings.warn('multi-input might be deprecated in the future, use fun(p) instead')
+    if pass_worker_num:
 
-        def func_transformed(X, func_args=None):
-            return np.array([func(*tuple(x), func_args) for x in X])
+        # to support the former version
+        if getattr(func, 'is_vector', False):
+            warnings.warn('''
+            func.is_vector will be deprecated in the future, use set_run_mode(func, 'vectorization') instead
+            ''')
+            set_run_mode(func, 'vectorization')
 
-        return func_transformed
+        mode = getattr(func, 'mode', 'others')
+        valid_mode = ('common', 'multithreading', 'multiprocessing', 'vectorization', 'cached', 'others')
+        assert mode in valid_mode, 'valid mode should be in ' + str(valid_mode)
+        if mode == 'vectorization':
+            return func
+        elif mode == 'cached':
+            @lru_cache(maxsize=None)
+            def func_cached(x, func_args=None):
+                return func(x, func_args)
 
-    # to support the former version
-    if (func.__class__ is MethodType) and (func.__code__.co_argcount > 2):
-        warnings.warn('multi-input might be deprecated in the future, use fun(p) instead')
+            def func_warped(X):
+                return np.array([func_cached(tuple(x), i) for i, x in enumerate(X)])
 
-        def func_transformed(X, func_args=None):
-            return np.array([func(tuple(x), func_args) for x in X])
+            return func_warped
+        elif mode == 'multithreading':
+            assert n_processes >= 0, 'n_processes should >= 0'
+            from multiprocessing.dummy import Pool as ThreadPool
+            if n_processes == 0:
+                pool = ThreadPool()
+            else:
+                pool = ThreadPool(n_processes)
 
-        return func_transformed
+            def func_transformed(X, func_args=None):
+                return np.array(pool.map(func, enumerate(X)))
 
-    # to support the former version
-    if getattr(func, 'is_vector', False):
-        warnings.warn('''
-        func.is_vector will be deprecated in the future, use set_run_mode(func, 'vectorization') instead
-        ''')
-        set_run_mode(func, 'vectorization')
+            return func_transformed
+        elif mode == 'multiprocessing':
+            assert n_processes >= 0, 'n_processes should >= 0'
+            from multiprocessing import Pool
+            if n_processes == 0:
+                pool = Pool()
+            else:
+                pool = Pool(n_processes)
+            def func_transformed(X, func_args=None):
+                return np.array(pool.map(func, enumerate(X)))
 
-    mode = getattr(func, 'mode', 'others')
-    valid_mode = ('common', 'multithreading', 'multiprocessing', 'vectorization', 'cached', 'others')
-    assert mode in valid_mode, 'valid mode should be in ' + str(valid_mode)
-    if mode == 'vectorization':
-        return func
-    elif mode == 'cached':
-        @lru_cache(maxsize=None)
-        def func_cached(x, func_args=None):
-            return func(x, func_args)
+            return func_transformed
 
-        def func_warped(X):
-            return np.array([func_cached(tuple(x)) for x in X])
+        else:  # common
+            def func_transformed(X, func_args=None):
+                return np.array([func(x, func_args, i) for i, x in enumerate(X)])
+        
+    else:
+        # to support the former version
+        if (func.__class__ is FunctionType) and (func.__code__.co_argcount > 1):
+            warnings.warn('multi-input might be deprecated in the future, use fun(p) instead')
 
-        return func_warped
-    elif mode == 'multithreading':
-        assert n_processes >= 0, 'n_processes should >= 0'
-        from multiprocessing.dummy import Pool as ThreadPool
-        if n_processes == 0:
-            pool = ThreadPool()
-        else:
-            pool = ThreadPool(n_processes)
+            def func_transformed(X, func_args=None):
+                return np.array([func(*tuple(x), func_args) for x in X])
 
-        def func_transformed(X, func_args=None):
-            return np.array(pool.map(func, X))
+            return func_transformed
 
-        return func_transformed
-    elif mode == 'multiprocessing':
-        assert n_processes >= 0, 'n_processes should >= 0'
-        from multiprocessing import Pool
-        if n_processes == 0:
-            pool = Pool()
-        else:
-            pool = Pool(n_processes)
-        def func_transformed(X, func_args=None):
-            return np.array(pool.map(func, X))
+        # to support the former version
+        if (func.__class__ is MethodType) and (func.__code__.co_argcount > 2):
+            warnings.warn('multi-input might be deprecated in the future, use fun(p) instead')
 
-        return func_transformed
+            def func_transformed(X, func_args=None):
+                return np.array([func(tuple(x), func_args) for x in X])
 
-    else:  # common
-        def func_transformed(X, func_args=None):
-            print('func_args in func_transformed '+str(func_args))
-            return np.array([func(x, func_args) for x in X])
+            return func_transformed
 
-        return func_transformed
+        # to support the former version
+        if getattr(func, 'is_vector', False):
+            warnings.warn('''
+            func.is_vector will be deprecated in the future, use set_run_mode(func, 'vectorization') instead
+            ''')
+            set_run_mode(func, 'vectorization')
+
+        mode = getattr(func, 'mode', 'others')
+        valid_mode = ('common', 'multithreading', 'multiprocessing', 'vectorization', 'cached', 'others')
+        assert mode in valid_mode, 'valid mode should be in ' + str(valid_mode)
+        if mode == 'vectorization':
+            return func
+        elif mode == 'cached':
+            @lru_cache(maxsize=None)
+            def func_cached(x, func_args=None):
+                return func(x, func_args)
+
+            def func_warped(X):
+                return np.array([func_cached(tuple(x)) for x in X])
+
+            return func_warped
+        elif mode == 'multithreading':
+            assert n_processes >= 0, 'n_processes should >= 0'
+            from multiprocessing.dummy import Pool as ThreadPool
+            if n_processes == 0:
+                pool = ThreadPool()
+            else:
+                pool = ThreadPool(n_processes)
+
+            def func_transformed(X, func_args=None):
+                return np.array(pool.map(func, X))
+
+            return func_transformed
+        elif mode == 'multiprocessing':
+            assert n_processes >= 0, 'n_processes should >= 0'
+            from multiprocessing import Pool
+            if n_processes == 0:
+                pool = Pool()
+            else:
+                pool = Pool(n_processes)
+            def func_transformed(X, func_args=None):
+                return np.array(pool.map(func, X))
+
+            return func_transformed
+
+        else:  # common
+            def func_transformed(X, func_args=None):
+                print('func_args in func_transformed '+str(func_args))
+                return np.array([func(x, func_args) for x in X])
+
+    return func_transformed
 
 # endregion Utilities
 
@@ -313,7 +365,7 @@ class PSO_GA(SkoBase):
         prob_mut=0.001,
         constraint_eq=tuple(),
         constraint_ueq=tuple(),
-        n_processes=0,
+        n_processes=1,
         taper_GA=False,
         taper_mutation=False,
         skew_social=True,
@@ -325,9 +377,11 @@ class PSO_GA(SkoBase):
         bounds_strategy:Bounds_Handler=Bounds_Handler.PERIODIC,
         mutation_strategy = 'DE/rand/1',
         func_args = None,
-        verbose=False
+        verbose=False,
+        pool_args = None,
+        pass_particle_num=False
     ):
-        self.func = func_transformer(func, n_processes) if config.get('vectorize_func', vectorize_func) else func  # , n_processes)
+        self.func = func_transformer(func, n_processes, pass_worker_num=pass_particle_num) if config.get('vectorize_func', vectorize_func) else func  # , n_processes)
         self.func_raw = func
         #print('func_args in init: '+str(func_args))
         self.func_args = func_args
@@ -346,6 +400,7 @@ class PSO_GA(SkoBase):
         self.skew_social = config.get('skew_social',  skew_social)
         self.bounds_handler:Bounds_Handler = config.get('bounds_strategy', bounds_strategy)
         self.mutation_strategy = config.get('mutation_strategy', mutation_strategy)
+        self.pass_worker_num = pass_particle_num
 
         self.w = config.get('w', w)
         self.cp = config.get('c1', c1)  # personal best -- cognitive
@@ -400,15 +455,15 @@ class PSO_GA(SkoBase):
         self.V = np.random.uniform(
             low=-v_high, high=v_high, size=(self.size_pop, self.n_dim)
         )
-        self.Y = self.cal_y()
+        #self.Y = self.cal_y() TODO this is only commented out for q2mm, because the ff pool of objects is not yet created
         self.pbest_x = self.X.copy()
         self.pbest_y = np.array([[np.inf]] * self.size_pop)
 
         self.gbest_x = self.pbest_x[0, :]
         self.gbest_y = np.inf
         self.gbest_y_hist = []
-        self.update_gbest()
-        self.update_pbest()
+        #self.update_gbest() TODO same as above
+        #self.update_pbest() TODO same as above
 
         # record verbose values
         self.record_mode = False
@@ -474,7 +529,6 @@ class PSO_GA(SkoBase):
         # calculate y for every x in X
         if self.func_args is not None:
             print("does have func_args")
-            #print('func_args in cal_y: '+str(self.func_args))
             self.Y = self.func(self.X, self.func_args).reshape(-1, 1)
         else:
             self.Y = self.func(self.X).reshape(-1, 1)
@@ -532,7 +586,8 @@ class PSO_GA(SkoBase):
         self.recorder()
         self.crossover()
         self.selection()
-        self.cal_y()
+        #self.cal_y() #TODO most recent: this should no longer be needed, selection will set correct Y values
+        # old: ^ pass indices of selected particles and only recalculate those (needs new calc method)
         self.update_pbest()
         self.update_gbest()
 
@@ -541,8 +596,8 @@ class PSO_GA(SkoBase):
         self.recorder()
         old_x = self.X.copy()
         self.update_X()
-        if (old_x == self.X).all():
-            print("this is unholy") #TODO make warning that X not changing
+        # if (old_x == self.X).all():
+        #     print("this is unholy") #TODO make warning that X not changing
         self.cal_y()
         self.update_pbest()
         self.update_gbest()
@@ -604,9 +659,11 @@ class PSO_GA(SkoBase):
             self.x2y().copy()
         )  # Uses x2y, which incorporates the constraint equations as a large penalty
         self.X = U = self.U
-        f_U = self.x2y()
+        f_U = self.x2y() #TODO this already calculates Y, if can just make a Q2MM version inheriting from main, could then
+        # reduce the number of times this needs to be recalculated by making ff-particles with stale flags
 
-        self.X = np.where((f_X < f_U).reshape(-1, 1), X, U)
+        self.X = np.where((f_X < f_U).reshape(-1, 1), X, U) #TODO could also just return the indices of those that changes and only recalculate those
+        self.Y = np.where((f_X < f_U).reshape(-1, 1), f_X, f_U) #TODO most recent: this should eliminate the need to recalculate Y after selection
         return self.X
 
     def x2y(self):

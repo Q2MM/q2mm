@@ -19,6 +19,7 @@ import compare
 import constants as co
 import datatypes
 import parameters
+from datatypes import FF
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
@@ -96,7 +97,7 @@ class Optimizer(object):
         logger.log(20, '~~ {} SETUP ~~'.format(
                 self.__class__.__name__.upper()).rjust(79, '~'))
         self.direc = direc
-        self.ff = ff
+        self.ff:FF = ff
         self.ff_lines = ff_lines
         self.args_ff = args_ff
         self.args_ref = args_ref

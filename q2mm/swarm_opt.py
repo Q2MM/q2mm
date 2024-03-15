@@ -7,6 +7,8 @@ import csv
 import glob
 import logging
 import logging.config
+import multiprocessing
+import time
 import numpy as np
 import os
 import re
@@ -18,12 +20,16 @@ import constants as co
 import datatypes
 import opt as opt
 import parameters
+from schrod_dep_stuff import check_licenses
 import schrod_indep_filetypes
-from hybrid_optimizer import PSO_GA, Bounds_Handler
+from hybrid_optimizer import PSO_GA, Bounds_Handler, set_run_mode
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
 
+
+def prep_calculate_and_score(prep_args):
+    return
 
 
 class Swarm_Optimizer(opt.Optimizer):
@@ -37,7 +43,8 @@ class Swarm_Optimizer(opt.Optimizer):
         bias_to_current=True,
         loose_bounds = False,
         ref_data=None,
-        tight_spread=True
+        tight_spread=True,
+        num_ho_cores = 1
     ):
         super(Swarm_Optimizer, self).__init__(direc, ff, ff_lines, args_ff, args_ref)
 
@@ -96,31 +103,78 @@ class Swarm_Optimizer(opt.Optimizer):
             "guess_ratio": 0.7 if tight_spread else 0.3,
             "mutation_strategy": "DE/best/1",
         }
-        #
+        
         if ref_data is None:
             self.ref_data = opt.return_ref_data(self.args_ref)
         else:
             self.ref_data = ref_data
         self.r_dict = compare.data_by_type(self.ref_data)
+        
+        if num_ho_cores > 1:
+            self.setup_schrod_licenses(num_ho_cores)
 
-        self.hybrid_opt = PSO_GA(self.calculate_and_score, len(self.ff.params), config=self.opt_config, func_args=self.r_dict, verbose=True, bounds_strategy=Bounds_Handler.REFLECTIVE)
+        set_run_mode(self.calculate_and_score, 'multiprocessing')
 
-    def calculate_and_score(self, parameter_set, ref_dict) -> float:
+        self.hybrid_opt = PSO_GA(self.calculate_and_score, len(self.ff.params), config=self.opt_config, func_args=self.r_dict, n_processes=self.num_ff_threads, pass_particle_num=True, verbose=True, bounds_strategy=Bounds_Handler.REFLECTIVE)
+
+        self.setup_ff_pool()
+
+        self.hybrid_opt.cal_y()
+        self.hybrid_opt.update_pbest()
+        self.hybrid_opt.update_gbest()
+            
+
+    def setup_schrod_licenses(self, num_cores:int):
+        macro_avail, suite_avail = check_licenses()
+        div_suite = suite_avail / co.MIN_SUITE_TOKENS
+        div_macro = macro_avail / co.MIN_MACRO_TOKENS
+        num_ff_threads = np.floor(min([div_suite, div_macro]))
+        assert num_cores <= multiprocessing.cpu_count() #TODO MF - add descriptive exception message
+        if num_cores > self.opt_config.get('size_pop') : num_cores = self.opt_config.get('size_pop')
+        self.num_ff_threads = min(num_cores, num_ff_threads)
+    
+        self.base_pool_dir = self.direc
+        for i in range(self.num_ff_threads):
+            os.mkdir(os.path.join(self.direc, 'temp_'+str(i)))
+    
+        #pool_args = {'num_workers': num_ff_threads, 'base_path':base_pool_dir}
+
+    def setup_ff_pool(self):
+        self.pool_ff_objects = list()
+        for i in range(self.opt_config.get('size_pop')):
+            j = i % self.num_ff_threads
+            ff_i:datatypes.FF = copy.deepcopy(self.ff)
+            ff_i.set_param_values(self.hybrid_opt.X[i])
+            ff_i.path = os.path.join(self.base_pool_dir, 'temp_'+str(j), 'mm3.fld')
+            self.pool_ff_objects.append(ff_i)
+
+            # then the export of the ff will take care of itself, will just need to pass worker num to calculate and score
+    
+    
+    def calculate_and_score(self, parameter_set, ref_dict, ff_num=None) -> float:
+
+        if ff_num is not None:
+            ff = self.pool_ff_objects[ff_num]
+        else:
+            ff = self.ff
 
         #write out changes to fld file!!
-        for param, new_val in zip(self.ff.params, parameter_set):
-            param.value = new_val
-        self.ff.export_ff()
-        data = calculate.main(self.args_ff) #TODO this should be the og arguments to calculate, not the value of the parameters
-        # deprecated
-        # self.ff.score = compare.compare_data(r_data, data)
-        c_dict = compare.data_by_type(data)
-        r_dict = ref_dict
-        r_dict, c_dict = compare.trim_data(r_dict, c_dict)
-        score = compare.compare_data(r_dict, c_dict)
-        self.ff.score = score
+        ff.set_param_values(parameter_set)
+        if ff.stale_file:
+            ff.export_ff()
+        if ff.stale_score:
+            ff_direc = os.path.dirname(ff.path)
+            os.chdir(ff_direc)
+            data = calculate.main(self.args_ff)
+            os.chdir(self.direc)
+            c_dict = compare.data_by_type(data)
+            r_dict = ref_dict
+            r_dict, c_dict = compare.trim_data(r_dict, c_dict)
+            score = compare.compare_data(r_dict, c_dict)
+            ff.set_new_score(score)
+        
         logger.log(logging.INFO, "Score: "+str(score))
-        return score
+        return ff.get_score()
 
     # Don't worry that self.ff isn't included in self.new_ffs.
     # opt.catch_run_errors will know what to do if self.new_ffs

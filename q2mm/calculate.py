@@ -231,7 +231,7 @@ def main(args):
                 # Ideally this can be the same for each software backend,
                 # but that means we're going to have to make some changes
                 # so that this token argument is handled properly.
-                some_class.run(check_tokens=opts.check)
+                some_class.run(check_tokens=opts.check)  #TODO MF set stale data to false
     # `data` is a list comprised of datatypes.Datum objects.
     # If we remove/with sorting removed, the Datum class is less
     # useful. We may want to reduce this to a N x 3 matrix or
@@ -639,7 +639,7 @@ def return_calculate_parser(add_help=True, parents=None):
 
 def check_outs(filename, outs, classtype, direc):
     """
-    Reads a file if necessary. Checks the output dictionary first in
+    Reads a file if necessary. Checks the output dictionary first in TODO MF this needs to track stale data as well
     case the file has already been loaded.
 
     Could work on easing the use of this by somehow reducing number of
@@ -689,7 +689,7 @@ def collect_reference(path):
 #TODO: MF Why and what order? Has this already been done?  What priority level is this?
 def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
     """
-    Arguments
+    Arguments  TODO MF this needs to track stale data as well
     ---------
     invert : None or float
              If given, will modify the smallest value of the Hessian to

@@ -254,12 +254,16 @@ class FF(object):
     score  - Float which is the objective function score.
     """
     def __init__(self, path=None, data=None, method=None, params=None,
-                 score=None):
+                 score=None, calc_args = None):
         self.path = path
         self.data = data
         self.method = method
         self.params = params
         self.score = score
+        self.calc_args = calc_args
+        self.stale_score = True if self.score is None else False
+        self.stale_data = True if self.data is None else False
+        self.stale_file = False
     def copy_attributes(self, ff):
         """
         Copies some general attributes to another force field.
@@ -269,6 +273,43 @@ class FF(object):
         ff : `datatypes.FF`
         """
         ff.path = self.path
+
+    def set_param_values(self, param_values:np.ndarray):
+        """
+        Copies some general attributes to another force field.
+
+        Parameters
+        ----------
+        ff : `datatypes.FF`
+        """
+        for param, new_value in zip(self.params, param_values):
+            param.value = new_value
+
+        self.stale_score = True
+        self.stale_data = True
+        self.stale_file = True
+
+    def set_new_score(self, score:float):
+        self.score = score
+        self.stale_score = False
+
+    def get_score(self) -> float:
+
+        if self.stale_score:
+            if self.stale_file:
+                self.export_ff() # TODO MF ensure this calls the child method
+                #run with self.calc_args and collect data
+            if self.stale_data:
+                #collect_data
+                logger.log(logging.WARNING, "This data is stale! The file has been written with the new parameters but the MM data has not been recalculated so it is out of sync.")
+            #compare.compare
+            logger.log(logging.WARNING, "This score is stale! The file has been written with the new parameters but the data and/or score have not been recalculated so it is out of sync.")
+
+        return self.score
+
+    def freshened_file(self):
+        self.stale_file = False
+
     def __repr__(self):
         return '{}[{}]({})'.format(
             self.__class__.__name__, self.method, self.score)
@@ -515,6 +556,7 @@ class AmberFF(FF):
         with open(path, 'w') as f:
             f.writelines(lines)
         logger.log(10, 'WROTE: {}'.format(path))
+        self.freshened_file()
 
 class TinkerFF(FF):
     """
@@ -748,13 +790,14 @@ class TinkerFF(FF):
                     linesplit[5+col] = value
                     const = "".join([format(el,">12") for el in linesplit[5:]])
                 elif "vdw" in line:
-                    atoms = format(split[1]) + space5 * 3
+                    atoms = format(str.split[1]) + space5 * 3
                     linesplit[2+col] = value
                     const = "".join([format(el,">12") for el in linesplit[2:]])
                 lines[param.ff_row - 1] = (par+atoms+const+'\n')
         with open(path, 'w') as f:
             f.writelines(lines)
         logger.log(10, 'WROTE: {}'.format(path))
+        self.freshened_file()
 
 
 class TinkerMM3A(FF):
@@ -1017,6 +1060,7 @@ class TinkerMM3A(FF):
         with open(path, 'w') as f:
             f.writelines(lines)
         logger.log(10, 'WROTE: {}'.format(path))
+        self.freshened_file()
 
 
 class MM3(FF):
@@ -1782,6 +1826,8 @@ class MM3(FF):
         with open(path, 'w') as f:
             f.writelines(lines)
         logger.log(10, 'WROTE: {}'.format(path))
+        self.freshened_file()
+
     def alternate_export_ff(self, path=None, params=None):
         """
         Doesn't rely upon needing to read an mm3.fld.

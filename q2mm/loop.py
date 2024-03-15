@@ -383,13 +383,17 @@ class Loop(object):
                         raise Exception("'{}' : Not Recognized".format(col))
                 self.ff = simp.run(r_data=self.ref_data)
             if cols[0] == 'HYBR':
+                self.ff.calc_args=self.args_ff #TODO added feature by MF, stale ff tracking and auto-recalculation to save time
+                num_ho_cores = int(cols[1])
                 swarm = Swarm_Optimizer(
                     direc=self.direc,
                     ff=self.ff,
                     ff_lines=self.ff.lines,
                     args_ff=self.args_ff,
-                    args_ref= self.args_ref)
+                    args_ref= self.args_ref,
+                    num_ho_cores=num_ho_cores)
                 self.ff = swarm.run(convergence_precision=self.convergence, ref_data=self.ref_data)
+                os.rmdir(os.path.join(self.direc, 'temp_*'))
             if cols[0] == 'WGHT':
                 data_type = cols[1]
                 co.WEIGHTS[data_type] = float(cols[2])
