@@ -1,4 +1,5 @@
 from ast import FunctionType
+from multiprocessing import Pool
 from types import MethodType
 import warnings
 import sys
@@ -7,7 +8,7 @@ from enum import Enum
 import logging
 import constants as co
 
-from functools import lru_cache
+from functools import lru_cache, partial
 
 from abc import ABCMeta, abstractmethod
 
@@ -383,6 +384,7 @@ class PSO_GA(SkoBase):
     ):
         self.func = func_transformer(func, n_processes, pass_worker_num=pass_particle_num) if config.get('vectorize_func', vectorize_func) else func  # , n_processes)
         self.func_raw = func
+        self.n_processes = n_processes
         #print('func_args in init: '+str(func_args))
         self.func_args = func_args
         self.n_dim = n_dim
@@ -529,9 +531,16 @@ class PSO_GA(SkoBase):
         # calculate y for every x in X
         if self.func_args is not None:
             print("does have func_args")
-            self.Y = self.func(self.X, self.func_args).reshape(-1, 1)
+            partial_func = partial(self.func_raw, self.func_args)
+            enumerated = enumerate(self.X)
+            with Pool(self.n_processes) as pool:
+                results = np.array(pool.map(partial_func, enumerate(self.X)))
+            self.Y = results.reshape(-1,1)#self.func(self.X, self.func_args).reshape(-1, 1)
         else:
-            self.Y = self.func(self.X).reshape(-1, 1)
+            partial_func = partial(self.func_raw)
+            with self.pool:
+                results = np.array(self.pool.map(partial_func, enumerate(self.X)))
+            self.Y = results.reshape(-1,1)#self.func(self.X).reshape(-1, 1)
         return self.Y
 
     def update_pbest(self):

@@ -28,9 +28,6 @@ logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
 
 
-def prep_calculate_and_score(prep_args):
-    return
-
 
 class Swarm_Optimizer(opt.Optimizer):
     def __init__(
@@ -93,7 +90,7 @@ class Swarm_Optimizer(opt.Optimizer):
             "lb": lower_bounds,
             "ub": upper_bounds,
             "size_pop": 10,
-            "vectorize_func": True,
+            "vectorize_func": False,
             "taper_GA": True,
             "taper_mutation": True,
             "skew_social": True,
@@ -110,7 +107,7 @@ class Swarm_Optimizer(opt.Optimizer):
             self.ref_data = ref_data
         self.r_dict = compare.data_by_type(self.ref_data)
         
-        if num_ho_cores > 1:
+        if num_ho_cores >= 1:
             self.setup_schrod_licenses(num_ho_cores)
 
         set_run_mode(self.calculate_and_score, 'multiprocessing')
@@ -151,10 +148,15 @@ class Swarm_Optimizer(opt.Optimizer):
             # then the export of the ff will take care of itself, will just need to pass worker num to calculate and score
     
     
-    def calculate_and_score(self, parameter_set, ref_dict, ff_num=None) -> float:
+    
+    def calculate_and_score(self, ref_dict, enumerable_input) -> float:
+        #TODO MF the HO should really primarily be used with parallel processing, but I SHOULD make a separate function that does this for parallel, just set func for PSO_GA different based on n_processors flag
+        # for now assume multiprocessing but perhaps later include the windows supported method of multithreading but might not need bc partial
 
+        ff_num, parameter_set = enumerable_input
         if ff_num is not None:
             ff = self.pool_ff_objects[ff_num]
+            logger.log(logging.INFO, "FF Num: "+str(ff_num))
         else:
             ff = self.ff
 
