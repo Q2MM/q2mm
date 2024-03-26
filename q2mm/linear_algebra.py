@@ -2,8 +2,10 @@
 
 """
 from __future__ import division, print_function, absolute_import
+import copy
 
 import numpy as np
+import constants as co
 
 # region Generalized
 
@@ -24,7 +26,7 @@ def decompose(matrix: np.ndarray) -> (np.ndarray, np.ndarray):
 
 
 def replace_neg_eigenvalue(
-    eigenvalues: np.ndarray, replace_with=1.0, zer_out_neg=False
+    eigenvalues: np.ndarray, replace_with=1.0, zer_out_neg=False, units=co.KJMOLA
 ) -> np.ndarray:
     """_summary_
 
@@ -42,7 +44,7 @@ def replace_neg_eigenvalue(
         index_to_replace = np.argmin(eigenvalues)
     else:
         index_to_replace = neg_indices[0][0]
-    replaced_eigenvalues = eigenvalues
+    replaced_eigenvalues = copy.deepcopy(eigenvalues)
 
     # TODO: MF - Discussed with PO, decide if this should be implemented as it is not in current Q2MM
     # for neg_index in neg_indices:
@@ -53,7 +55,7 @@ def replace_neg_eigenvalue(
             replaced_eigenvalues[neg_index[0]] = 0.00
     replaced_eigenvalues[
         index_to_replace
-    ] = replace_with  # TODO: MF determine if we stick to this method, what it depends on, etc
+    ] = replace_with * co.HESSIAN_CONVERSION  if units == co.KJMOLA else replace_with # TODO: MF determine if we stick to this method, what it depends on, etc
 
     return replaced_eigenvalues
 
@@ -87,11 +89,15 @@ def invert_ts_curvature(hessian_matrix: np.ndarray) -> np.ndarray:
         np.ndarray: _description_
     """
     eigenvalues, eigenvectors = decompose(hessian_matrix)
-    print("eigenvalues: "+str(eigenvalues))
-    print("eigenvectors: "+str(eigenvectors))
     inv_curv_hessian = reform_hessian(
         replace_neg_eigenvalue(eigenvalues, zer_out_neg=True), eigenvectors
     )
+
+    #check_evals = np.diag()
+
+    if not inv_curv_hessian.all() >= 0.0:
+        print("Inverted Hessian has negative values...")
+        print(str(sum(inv_curv_hessian > 0))+" negative values...")
 
     return inv_curv_hessian
 
