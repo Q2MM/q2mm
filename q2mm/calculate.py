@@ -223,6 +223,7 @@ def main(args):
     if opts.norun or opts.fake:
         logger.log(15, "  -- Skipping backend calculations.")
     else:
+        struct_files = list()
         for filename, some_class in inps.items():
             logger.log(1, '>>> filename: {}'.format(filename))
             logger.log(1, '>>> some_class: {}'.format(some_class))
@@ -231,6 +232,10 @@ def main(args):
                 # Ideally this can be the same for each software backend,
                 # but that means we're going to have to make some changes
                 # so that this token argument is handled properly.
+                #if hasattr(some_class, 'lock') and some_class.lock is not None:
+                #    struct_files.append(some_class)
+                #    some_class.run(check_tokens=opts.check)
+                #else:
                 some_class.run(check_tokens=opts.check)  #TODO MF set stale data to false
     # `data` is a list comprised of datatypes.Datum objects.
     # If we remove/with sorting removed, the Datum class is less

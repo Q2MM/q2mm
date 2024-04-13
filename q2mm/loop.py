@@ -7,6 +7,7 @@ import argparse
 import glob
 import logging
 import logging.config
+import pickle
 import numpy as np
 import os
 import random
@@ -385,15 +386,24 @@ class Loop(object):
             if cols[0] == 'HYBR':
                 self.ff.calc_args=self.args_ff #TODO added feature by MF, stale ff tracking and auto-recalculation to save time
                 num_ho_cores = int(cols[1])
+                max_iter = int(cols[2]) if len(cols) > 2 else 1000
+                tight_spread = cols[3] != 'F' if len(cols) > 3 else True # not working
+                num_ff_particles = int(cols[4]) if len(cols) > 4 else 10 #TODO: do some benchmarking to determine best default
                 swarm = Swarm_Optimizer(
                     direc=self.direc,
                     ff=self.ff,
                     ff_lines=self.ff.lines,
                     args_ff=self.args_ff,
                     args_ref= self.args_ref,
-                    num_ho_cores=num_ho_cores)
+                    num_ho_cores=num_ho_cores,
+                    max_iter=max_iter,
+                    tight_spread=tight_spread,
+                    pop_size=num_ff_particles)
                 self.ff = swarm.run(convergence_precision=self.convergence, ref_data=self.ref_data)
-                os.rmdir(os.path.join(self.direc, 'temp_*'))
+                swarm_history = swarm.hybrid_opt.record_value
+                with open(os.path.join(self.direc, 'hybrid_opt_history.bin'), 'wb') as swarm_history_file:
+                    pickle.dump(swarm_history, swarm_history_file)
+                os.popen('rm -rd '+os.path.join(self.direc, 'temp_*'))
             if cols[0] == 'WGHT':
                 data_type = cols[1]
                 co.WEIGHTS[data_type] = float(cols[2])

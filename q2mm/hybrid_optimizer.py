@@ -1,18 +1,20 @@
+#!/usr/bin/env python
 from ast import FunctionType
 from multiprocessing import Pool
+import multiprocessing
 from types import MethodType
 import warnings
 import sys
 import numpy as np
 from enum import Enum
 import logging
-import constants as co
+#import constants as co
 
 from functools import lru_cache, partial
 
 from abc import ABCMeta, abstractmethod
 
-logging.config.dictConfig(co.LOG_SETTINGS)
+#logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger('swarm_opt')
 
 
@@ -181,7 +183,9 @@ class Bounds_Handler(Enum):
     REFLECTIVE = reflective
     RANDOM = random
     
-
+def parallel_calc_init(locks_list):
+    global locks_passed
+    locks_passed = locks_list
 
 def set_run_mode(func, mode):
     '''
@@ -380,7 +384,8 @@ class PSO_GA(SkoBase):
         func_args = None,
         verbose=False,
         pool_args = None,
-        pass_particle_num=False
+        pass_particle_num=False,
+        parallel_locks = None,
     ):
         self.func = func_transformer(func, n_processes, pass_worker_num=pass_particle_num) if config.get('vectorize_func', vectorize_func) else func  # , n_processes)
         self.func_raw = func
@@ -388,6 +393,7 @@ class PSO_GA(SkoBase):
         #print('func_args in init: '+str(func_args))
         self.func_args = func_args
         self.n_dim = n_dim
+        self.locks = parallel_locks
 
         # if config_dict:
         self.F = config.get('F', F)
@@ -530,18 +536,17 @@ class PSO_GA(SkoBase):
 
         # calculate y for every x in X
         if self.func_args is not None:
-            print("does have func_args")
             partial_func = partial(self.func_raw, self.func_args)
             enumerated = enumerate(self.X)
-            with Pool(self.n_processes) as pool:
+            with Pool(self.n_processes) as pool: #, initializer=parallel_calc_init, initargs=(self.locks,)) as pool:
                 results = np.array(pool.map(partial_func, enumerate(self.X)))
-            self.Y = results.reshape(-1,1)#self.func(self.X, self.func_args).reshape(-1, 1)
+            Y = results.reshape(-1,1)#self.func(self.X, self.func_args).reshape(-1, 1)
         else:
             partial_func = partial(self.func_raw)
-            with self.pool:
-                results = np.array(self.pool.map(partial_func, enumerate(self.X)))
-            self.Y = results.reshape(-1,1)#self.func(self.X).reshape(-1, 1)
-        return self.Y
+            with Pool(self.n_processes) as pool:
+                results = np.array(pool.map(partial_func, enumerate(self.X)))
+            Y = results.reshape(-1,1)#self.func(self.X).reshape(-1, 1)
+        return Y
 
     def update_pbest(self):
         """
@@ -561,7 +566,7 @@ class PSO_GA(SkoBase):
         idx_min = self.pbest_y.argmin()
         if self.gbest_y > self.pbest_y[idx_min]:
             self.gbest_x = self.X[idx_min, :].copy()
-            self.gbest_y = self.pbest_y[idx_min]
+            self.gbest_y = float(self.pbest_y[idx_min])
 
     def recorder(self):
         if not self.record_mode:
@@ -591,6 +596,7 @@ class PSO_GA(SkoBase):
         return self.best_x, self.best_y
 
     def de_iter(self):
+        logger.log(logging.INFO, 'DE Iter starting...')
         self.mutation()
         self.recorder()
         self.crossover()
@@ -601,6 +607,7 @@ class PSO_GA(SkoBase):
         self.update_gbest()
 
     def pso_iter(self):
+        logger.log(logging.INFO, 'PS Iter starting...')
         self.update_pso_V()
         self.recorder()
         old_x = self.X.copy()
@@ -664,9 +671,10 @@ class PSO_GA(SkoBase):
         greedy selection
         """
         X = self.X.copy()
-        f_X = (
-            self.x2y().copy()
-        )  # Uses x2y, which incorporates the constraint equations as a large penalty
+        # f_X = (
+        #     self.x2y().copy()
+        # )  # Uses x2y, which incorporates the constraint equations as a large penalty
+        f_X = self.Y_penalized if self.has_constraint else self.Y # shouldn't need to recalculate Y because the X values have not changed from the last PS iter yet
         self.X = U = self.U
         f_U = self.x2y() #TODO this already calculates Y, if can just make a Q2MM version inheriting from main, could then
         # reduce the number of times this needs to be recalculated by making ff-particles with stale flags

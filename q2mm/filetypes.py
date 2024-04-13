@@ -22,6 +22,8 @@ from __future__ import absolute_import
 from __future__ import division
 
 from argparse import RawTextHelpFormatter
+from multiprocessing import Lock
+import multiprocessing
 from string import digits
 import logging
 from logging import config
@@ -2505,6 +2507,8 @@ class Mae(SchrodingerFile):
         self.name_mae = self.name + '.q2mm.mae'
         self.name_mmo = self.name + '.q2mm.mmo'
         self.name_out = self.name + '.q2mm.out'
+
+        #self.lock = multiprocessing.Lock()
     @property
     def structures(self):
         if self._structures is None:
@@ -2673,7 +2677,7 @@ class Mae(SchrodingerFile):
             logger.log(5, 'WROTE: {}'.format(
                     os.path.join(self.name_com)))
 
-    def run(self, max_fails=5, max_timeout=None, timeout=10, check_tokens=True):
+    def run(self, max_fails=5, max_timeout=None, timeout=10, check_tokens=True, lock=None):
         """
         Runs MacroModel .com files. This has to be more complicated than a
         simple subprocess command due to problems with Schrodinger tokens.
@@ -2743,9 +2747,13 @@ class Mae(SchrodingerFile):
             while True:
                 try:
                     logger.log(5, 'RUNNING: {}'.format(self.name_com))
+                    # Critical point of running file (what shouldn't happen concurrently)
+                    #if self.lock is not None: self.lock.acquire()
                     sp.check_output(
                         '$SCHRODINGER/bmin -WAIT {}'.format(
                             os.path.join(self.directory, os.path.splitext(self.name_com)[0])), shell=True)
+                    #if lock is not None: self.lock.release()
+                    # End critical point
                     break
                 except sp.CalledProcessError:
                     logger.warning('Call to MacroModel failed and I have no '

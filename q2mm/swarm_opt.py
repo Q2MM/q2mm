@@ -2,24 +2,17 @@ from __future__ import absolute_import
 from __future__ import division
 
 import copy
-import collections
-import csv
-import glob
 import logging
 import logging.config
 import multiprocessing
-import time
 import numpy as np
 import os
-import re
-import sys
 
 import calculate
 import compare
 import constants as co
 import datatypes
 import opt as opt
-import parameters
 from schrod_dep_stuff import check_licenses
 import schrod_indep_filetypes
 from hybrid_optimizer import PSO_GA, Bounds_Handler, set_run_mode
@@ -41,7 +34,9 @@ class Swarm_Optimizer(opt.Optimizer):
         loose_bounds = False,
         ref_data=None,
         tight_spread=True,
-        num_ho_cores = 1
+        num_ho_cores = 1,
+        max_iter = 1000,
+        pop_size = 24
     ):
         super(Swarm_Optimizer, self).__init__(direc, ff, ff_lines, args_ff, args_ref)
 
@@ -89,12 +84,12 @@ class Swarm_Optimizer(opt.Optimizer):
         self.opt_config = {
             "lb": lower_bounds,
             "ub": upper_bounds,
-            "size_pop": 10,
+            "size_pop": pop_size,
             "vectorize_func": False,
             "taper_GA": True,
             "taper_mutation": True,
             "skew_social": True,
-            "max_iter": 10000,
+            "max_iter": max_iter,
             "initial_guesses": ff_params if bias_to_current else None,
             "guess_deviation": deviations,
             "guess_ratio": 0.7 if tight_spread else 0.3,
@@ -109,14 +104,16 @@ class Swarm_Optimizer(opt.Optimizer):
         
         if num_ho_cores >= 1:
             self.setup_schrod_licenses(num_ho_cores)
-
+        #if num_ho_cores > 1: 
+        #    assert struct_file_locks is not None, "If processing in parallel, there must be protections (locks) on shared resources such as structure files."
         set_run_mode(self.calculate_and_score, 'multiprocessing')
+
 
         self.hybrid_opt = PSO_GA(self.calculate_and_score, len(self.ff.params), config=self.opt_config, func_args=self.r_dict, n_processes=self.num_ff_threads, pass_particle_num=True, verbose=True, bounds_strategy=Bounds_Handler.REFLECTIVE)
 
         self.setup_ff_pool()
 
-        self.hybrid_opt.cal_y()
+        self.hybrid_opt.Y = self.hybrid_opt.cal_y()
         self.hybrid_opt.update_pbest()
         self.hybrid_opt.update_gbest()
             
@@ -125,7 +122,7 @@ class Swarm_Optimizer(opt.Optimizer):
         macro_avail, suite_avail = check_licenses()
         div_suite = suite_avail / co.MIN_SUITE_TOKENS
         div_macro = macro_avail / co.MIN_MACRO_TOKENS
-        num_ff_threads = np.floor(min([div_suite, div_macro]))
+        num_ff_threads = int(np.floor(min([div_suite, div_macro])))
         assert num_cores <= multiprocessing.cpu_count() #TODO MF - add descriptive exception message
         if num_cores > self.opt_config.get('size_pop') : num_cores = self.opt_config.get('size_pop')
         self.num_ff_threads = min(num_cores, num_ff_threads)
@@ -133,6 +130,9 @@ class Swarm_Optimizer(opt.Optimizer):
         self.base_pool_dir = self.direc
         for i in range(self.num_ff_threads):
             os.mkdir(os.path.join(self.direc, 'temp_'+str(i)))
+            os.popen('cp '+os.path.join(self.direc, '*.mae')+' '+os.path.join(self.direc, 'temp_'+str(i)))
+            os.popen('cp '+os.path.join(self.direc, '*.out')+' '+os.path.join(self.direc, 'temp_'+str(i)))
+            os.popen('cp '+os.path.join(self.direc, 'atom.typ')+' '+os.path.join(self.direc, 'temp_'+str(i)))
     
         #pool_args = {'num_workers': num_ff_threads, 'base_path':base_pool_dir}
 
@@ -156,7 +156,7 @@ class Swarm_Optimizer(opt.Optimizer):
         ff_num, parameter_set = enumerable_input
         if ff_num is not None:
             ff = self.pool_ff_objects[ff_num]
-            logger.log(logging.INFO, "FF Num: "+str(ff_num))
+            logger.log(logging.DEBUG, "FF Num: "+str(ff_num))
         else:
             ff = self.ff
 
@@ -167,23 +167,20 @@ class Swarm_Optimizer(opt.Optimizer):
         if ff.stale_score:
             ff_direc = os.path.dirname(ff.path)
             os.chdir(ff_direc)
-            data = calculate.main(self.args_ff)
+            calc_args = copy.deepcopy(self.args_ff)
+            calc_args[1] += '/temp_'+str(ff_num % self.num_ff_threads)
+            #calc_args.append(['-d', './temp_'+str(ff_num)])
+            data = calculate.main(calc_args)
             os.chdir(self.direc)
             c_dict = compare.data_by_type(data)
             r_dict = ref_dict
             r_dict, c_dict = compare.trim_data(r_dict, c_dict)
             score = compare.compare_data(r_dict, c_dict)
-            ff.set_new_score(score)
+            ff.set_new_score(float(score))
         
-        logger.log(logging.INFO, "Score: "+str(score))
+        logger.log(logging.INFO, "FF "+str(ff_num)+" Score: "+str(score))
         return ff.get_score()
 
-    # Don't worry that self.ff isn't included in self.new_ffs.
-    # opt.catch_run_errors will know what to do if self.new_ffs
-    # is None.
-    @property
-    def best_ff(self):
-        return sorted(self.new_ffs, key=lambda x: x.score)[0]
 
     @opt.catch_run_errors
     def run(self, convergence_precision=None, ref_data=None, restart=None):
@@ -207,14 +204,16 @@ class Swarm_Optimizer(opt.Optimizer):
         logger.log(20, "INIT FF SCORE: {}".format(self.ff.score))
         opt.pretty_ff_results(self.ff, level=20)
 
-        self.best_ff_params, self.best_ff_score = self.hybrid_opt.run(precision=convergence_precision, max_iter=100)
+        self.best_ff_params, self.best_ff_score = self.hybrid_opt.run(precision=convergence_precision)
 
         #replace initial ff params with best params
         assert len(self.best_ff_params) == len(self.ff.params)
-        self.best_ff: schrod_indep_filetypes.FF = copy.deepcopy(self.ff)
-        self.best_ff.path = self.best_ff.path + ".hybrid.fld"
-        for i, param in enumerate(self.best_ff.params):
-            param.value = self.best_ff_params[i]
+
+        self.best_ff = copy.deepcopy(self.ff)#schrod_indep_filetypes.FF(path=(self.ff.path[:-4] +'.hybrid.fld'), params=self.best_ff_params, score=self.best_ff_score)
+        self.best_ff.path = self.best_ff.path[:-4] + ".hybrid.fld"
+        self.best_ff.set_param_values(self.best_ff_params)
+        self.best_ff.score = self.best_ff_score
+
 
         logger.log(20, "BEST:")
         opt.pretty_ff_results(self.best_ff, level=20)
