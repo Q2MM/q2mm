@@ -179,6 +179,7 @@ class Swarm_Optimizer(opt.Optimizer):
             ff.set_new_score(float(score))
         
         logger.log(logging.INFO, "FF "+str(ff_num)+" Score: "+str(score))
+        print("FF "+str(ff_num)+" Score: "+str(score))
         return ff.get_score()
 
 

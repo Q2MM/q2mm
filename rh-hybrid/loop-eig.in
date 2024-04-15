@@ -1,13 +1,13 @@
-DIR /home/mfarrugi/repos/q2mm/rh-hybrid
-FFLD read rh_end_hybrid_q.fld
+DIR /home/mfarrugi/repos/q2mm/rh-hybrid/test_sem_hybrid_eig
+FFLD read mm3.fld
 PARM param_eig.txt
-RDAT -geigz enone1N2-3b.log enone2N2-2b.log enone3N2-8b.log enone4N2-6b.log enone5N2-5b.log enone7N2_2b.log enone13N2_2b.log enone14N2_3b.log enone15N2_2b.log enone16N2_3b.log
-CDAT -mgeig enone1N2-3c_chelpg.mae,enone1N2-3b.log enone2N2-2c_chelpg.mae,enone2N2-2b.log enone3N2-8c_chelpg.mae,enone3N2-8b.log enone4N2-6c_chelpg.mae,enone4N2-6b.log enone5N2-5c_chelpg.mae,enone5N2-5b.log enone7N2_2c_chelpg.mae,enone7N2_2b.log enone13N2_2c_chelpg.mae,enone13N2_2b.log enone14N2_3c_chelpg.mae,enone14N2_3b.log enone15N2_2c_chelpg.mae,enone15N2_2b.log enone16N2_3c_chelpg.mae,enone16N2_3b.log 
+RDAT -d /home/mfarrugi/repos/q2mm/rh-hybrid/test_sem_hybrid_eig -jeigz 1ZDMPfromJCTCSI_loner1.01.in,1ZDMPfromJCTCSI_loner1.out 2DMPEConformation1fromJCTCSI_isomer1.01.in,2DMPEConformation1fromJCTCSI_isomer1.out 3DMPEConformation2fromJCTCSI_isomer2.01.in,3DMPEConformation2fromJCTCSI_isomer2.out 4RR-Me-DuPHOSpro-RfromJCTCSI_isomer3.01.in,4RR-Me-DuPHOSpro-RfromJCTCSI_isomer3.out 5RR-Me-DuPHOSpro-SfromJCTCSI_isomer4.01.in,5RR-Me-DuPHOSpro-SfromJCTCSI_isomer4.out 6RR-Me-BPEpro-RConformation1fromJCTCSI_isomer5.01.in,6RR-Me-BPEpro-RConformation1fromJCTCSI_isomer5.out 7RR-Me-BPEpro-RConformation2fromJCTCSI_isomer6.01.in,7RR-Me-BPEpro-RConformation2fromJCTCSI_isomer6.out 8RR-Me-BPEpro-SConformation1fromJCTCSI_isomer7.01.in,8RR-Me-BPEpro-SConformation1fromJCTCSI_isomer7.out 9RR-Me-BPEpro-SConformation2fromJCTCSI_isomer8.01.in,9RR-Me-BPEpro-SConformation2fromJCTCSI_isomer8.out
+CDAT -d /home/mfarrugi/repos/q2mm/rh-hybrid/test_sem_hybrid_eig -mjeig 1ZDMPfromJCTCSI.mae,1ZDMPfromJCTCSI_loner1.out 2DMPEConformation1fromJCTCSI.mae,2DMPEConformation1fromJCTCSI_isomer1.out 3DMPEConformation2fromJCTCSI.mae,3DMPEConformation2fromJCTCSI_isomer2.out 4RR-Me-DuPHOSpro-RfromJCTCSI.mae,4RR-Me-DuPHOSpro-RfromJCTCSI_isomer3.out 5RR-Me-DuPHOSpro-SfromJCTCSI.mae,5RR-Me-DuPHOSpro-SfromJCTCSI_isomer4.out 6RR-Me-BPEpro-RConformation1fromJCTCSI.mae,6RR-Me-BPEpro-RConformation1fromJCTCSI_isomer5.out 7RR-Me-BPEpro-RConformation2fromJCTCSI.mae,7RR-Me-BPEpro-RConformation2fromJCTCSI_isomer6.out 8RR-Me-BPEpro-SConformation1fromJCTCSI.mae,8RR-Me-BPEpro-SConformation1fromJCTCSI_isomer7.out 9RR-Me-BPEpro-SConformation2fromJCTCSI.mae,9RR-Me-BPEpro-SConformation2fromJCTCSI_isomer8.out
 COMP -p
 LOOP 0.001
 GRAD
-SIMP
+SIMP 
 END
-FFLD write rh_end_hybrid_eig.fld
+FFLD write rh_fuerza_end_hybrid_eig.fld
 CDAT
-COMP -o opt_end_hybrid_eig.txt 
+COMP -o opt_fuerza_end_hybrid_eig.txt 
