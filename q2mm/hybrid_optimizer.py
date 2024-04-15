@@ -474,7 +474,7 @@ class PSO_GA(SkoBase):
         #self.update_pbest() TODO same as above
 
         # record verbose values
-        self.record_mode = False
+        self.record_mode = True
         self.record_value = {"X": [], "V": [], "Y": []}
         self.verbose = verbose
 
@@ -540,13 +540,13 @@ class PSO_GA(SkoBase):
             enumerated = enumerate(self.X)
             with Pool(self.n_processes) as pool: #, initializer=parallel_calc_init, initargs=(self.locks,)) as pool:
                 results = np.array(pool.map(partial_func, enumerate(self.X)))
-            Y = results.reshape(-1,1)#self.func(self.X, self.func_args).reshape(-1, 1)
+            self.Y = results.reshape(-1,1)#self.func(self.X, self.func_args).reshape(-1, 1)
         else:
             partial_func = partial(self.func_raw)
             with Pool(self.n_processes) as pool:
                 results = np.array(pool.map(partial_func, enumerate(self.X)))
-            Y = results.reshape(-1,1)#self.func(self.X).reshape(-1, 1)
-        return Y
+            self.Y = results.reshape(-1,1)#self.func(self.X).reshape(-1, 1)
+        return self.Y
 
     def update_pbest(self):
         """
