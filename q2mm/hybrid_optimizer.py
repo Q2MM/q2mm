@@ -750,10 +750,10 @@ class PSO_GA(SkoBase):
                 self.prob_mut = self.prob_mut / 10.0
             elif self.taper_mutation and iter_num == np.floor(0.75 * self.max_iter):
                 self.prob_mut = self.prob_mut / 10.0
-            if self.skew_social and iter_num == np.floor(0.5 * self.max_iter):
+            if self.skew_social and iter_num == np.floor(0.25 * self.max_iter):
                 self.cg = self.cg + 0.25 * self.cp
                 self.cp = self.cp * 0.75
-            elif self.skew_social and iter_num == np.floor(0.75 * self.max_iter):
+            elif self.skew_social and iter_num == np.floor(0.5 * self.max_iter):
                 self.cg = self.cg + (1/3) * self.cp
                 self.cp = self.cp * (2/3)
 
