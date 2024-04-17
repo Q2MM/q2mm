@@ -1434,6 +1434,7 @@ class GaussLog(File):
         # Z-matrix coordinates adds another section. We need to be aware of
         # this.
         probably_z_matrix = False
+        struct._atoms = []
         for atom in atoms:
             stuff = atom.split(",")
             # An atom typically looks like this:
