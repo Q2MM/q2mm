@@ -36,7 +36,7 @@ from typing import List
 import numpy as np
 import parmed
 
-from linear_algebra import invert_ts_curvature
+from linear_algebra import invert_ts_curvature, reform_hessian
 
 import logging
 import logging.config
@@ -264,35 +264,41 @@ def seminario_bond(atoms: list, hessian, scaling=0.963, ang_to_bohr=False) -> fl
 
     f21 = seminario_sum(vec21, eigval21, eigvec21)
 
-    if f12 < 0 or f21 < 0:
-        print('sums < 0')
-
     # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
 
     if f12 <= 0 or f21 <= 0:
         logger.log(
-            logging.WARNING,
-            "Estimated force constant between atoms: {}, {} <= 0, with raw kJ/molA estimates: {} {}!\nSetting to 0.0 instead.".format(
+            logging.DEBUG,
+            "Estimated force constant between atoms: {}, {} <= 0, with raw kJ/molA estimates: {} {}!\nSetting to 0.5 instead.".format(
                 atoms[0].index, atoms[1].index, f12, f21
             ),
         )
-        return 0.0
 
     if np.iscomplexobj(f12):
         logger.log(logging.DEBUG, "Complex number in estimate for bond f12 ("+str(f12)+"): "+str(atoms))
         if not np.iscomplex(f12):
             f12 = np.real(f12)
         else:
-            logger.log(logging.WARN, "Non-zero imaginary component of bond force constant estimate for angle ("+str(f12)+"): "+str(atoms))
+            logger.log(logging.WARN, "WARNING: Non-zero imaginary component of bond force constant estimate for angle ("+str(f12)+"): "+str(atoms)+".")
+    
     if np.iscomplexobj(f21):
         logger.log(logging.DEBUG, "Complex number in estimate for bond f21 ("+str(f21)+"): "+str(atoms))
         if not np.iscomplex(f21):
             f21 = np.real(f21)
         else:
-            logger.log(logging.WARN, "Non-zero imaginary component of bond force constant estimate for angle ("+str(f21)+"): "+str(atoms))
+            logger.log(logging.WARN, "WARNING: Non-zero imaginary component of bond force constant estimate for angle ("+str(f21)+"): "+str(atoms)+".")
 
-    return scaling * 0.5 * (f12 + f21)
+    f = 0.5 * (f12 + f21)
+    if f <= 0:
+        logger.log(
+            logging.WARNING,
+            "WARNING: Estimated force constant between atoms: {}, {} <= 0, with (raw, scaled) kJ/molA estimate: {} {}!\nPlease visualize normal modes to confirm transition states are correct.".format(
+                atoms[0].index, atoms[1].index, f, f*scaling
+            ),
+        )
+
+    return scaling * f
 
 
 def po_angle(
@@ -385,8 +391,6 @@ def seminario_angle(atoms:list, hessian, scaling=0.963, convert=False, ang_to_bo
     sum1 = seminario_sum(upa, eigval12, eigvec12)
     sum2 = seminario_sum(upc, eigval32, eigvec32)
 
-    if sum1 < 0 or sum2 < 0:
-        print('sums < 0')
 
     len12 = utilities.measure_bond(atoms[0].coords, atoms[1].coords)
     if ang_to_bohr:
@@ -395,14 +399,33 @@ def seminario_angle(atoms:list, hessian, scaling=0.963, convert=False, ang_to_bo
     if ang_to_bohr:
         len32 = len32 / co.BOHR_TO_ANG
 
+    f12 = 1.0 / (sum1 * len12 * len12)
+    f32 = 1.0 / (sum2 * len32 * len32)
+
+    if f12 <= 0 or f32 <= 0:
+        logger.log(
+            logging.DEBUG,
+            "Estimated force constant between atoms: {}, {}, {} <= 0, with raw kJ/molA estimates: {}, {}!".format(
+                atoms[0].index, atoms[1].index, atoms[2].index, f12, f32
+            ),
+        )
+
     f = 1.0 / (1.0 / (sum1 * len12 * len12) + 1.0 / (sum2 * len32 * len32))
+
+    if f < 0:
+        logger.log(
+            logging.WARNING,
+            "WARNING: Estimated force constant between atoms: {}, {}, {} < 0, with (raw, scaled) kJ/molA estimate: {} {}!\nPlease visualize normal modes to confirm transition states are correct.".format(
+                atoms[0].index, atoms[1].index, atoms[2].index, f, f*scaling
+            ),
+        )
 
     if np.iscomplexobj(f):
         logger.log(logging.DEBUG, "Complex number in estimate for angle("+str(f)+"): "+str(atoms))
         if not np.iscomplex(f):
             f = np.real(f)
         else:
-            logger.log(logging.WARN, "Non-zero imaginary component of angle force constant estimate for angle ("+str(f)+"): "+str(atoms))
+            logger.log(logging.WARN, "WARNING: Non-zero imaginary component of angle force constant estimate for angle ("+str(f)+"): "+str(atoms))
 
     # 627.5095 is Hartree to kcal/mol
     # 4.184 is kcal/mol to kJ/mol
@@ -569,6 +592,9 @@ def estimate_bf_param(
                     hessian=hessian,
                     ang_to_bohr=ang_to_bohr,
                 )
+                if s_bond < 0 or np.iscomplex(s_bond):
+                    logger.log(logging.WARN, "Invalid estimate of param {} in structure {}".format(param, struct.origin_name))
+
                 # The below reverse-massweighting of the force constant is only necessary if the mass-weighted
                 # Hessian is used.
                 # s_bond = mass_weight_force_constant(s_bond, struct.get_atoms_in_DOF(bond), reverse=True, rm = False)
@@ -576,7 +602,7 @@ def estimate_bf_param(
                     logging.DEBUG, "Seminario (KJMOLA)" + str(bond) + ": " + str(s_bond)
                 )
                 #TODO retest PO method p_bond = po_bond(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
-                match_vals.append(s_bond)
+                if s_bond > 0 and not np.iscomplex(s_bond): match_vals.append(s_bond) # only includes estimate if it is valid, warnings are triggered upon calculation. bonds where all structures have invalid estimates should simply remain unchanged from input. 
     if match_count <= 0:
         logger.log(
             logging.WARN,
@@ -585,7 +611,11 @@ def estimate_bf_param(
         )
         return None
     else:
-        averaged_fc = sum([float(fc) for fc in match_vals]) / float(match_count)
+        if len(match_vals) == 0:
+            logger.log(logging.WARNING, "WARNING: All structures with interactions matching parameter {} have invalid estimates so it will not be changed. Please review normal modes.".format(param))
+            return None
+        
+        averaged_fc = sum([float(fc) for fc in match_vals]) / float(len(match_vals))
         return averaged_fc
 
 
@@ -624,12 +654,14 @@ def estimate_af_param(
                 s_angle = seminario_angle(
                     struct.get_atoms_in_DOF(angle), hessian, ang_to_bohr=ang_to_bohr
                 )
+                if s_angle < 0 or np.iscomplex(s_angle):
+                    logger.log(logging.WARN, "Invalid estimate of param {} in structure {}".format(param, struct.origin_name))
                 #TODO retest this method p_bond = po_angle(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
                 logger.log(
                     logging.DEBUG,
                     "Seminario (KJMOLA)" + str(angle) + ": " + str(s_angle),
                 )
-                match_vals.append(s_angle)
+                if s_angle > 0 and not np.iscomplex(s_angle): match_vals.append(s_angle)
     if match_count <= 0:
         logger.log(
             logging.WARN,
@@ -638,6 +670,10 @@ def estimate_af_param(
         )
         return None
     else:
+        if len(match_vals) == 0:
+            logger.log(logging.WARNING, "WARNING: All structures with interactions matching parameter {} have invalid estimates so it will not be changed. Please review normal modes.".format(param))
+            return None
+        
         averaged_fc = sum([float(fc) for fc in match_vals]) / match_count
         return averaged_fc
 
@@ -871,6 +907,9 @@ def main(args):
         hessians: List[np.ndarray] = []
         for log in logs:
             mw_hessian = copy.deepcopy(log.structures[-1].hess)
+            # evals = log.evals
+            # evecs = log.evecs
+            # mw_hessian = reform_hessian(evals, evecs)
             # mass_weight_hessian(mw_hessian, log.structures[-1].atoms)
             if args.invert:
                 mw_hessian = invert_ts_curvature(mw_hessian)

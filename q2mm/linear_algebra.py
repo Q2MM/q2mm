@@ -40,7 +40,7 @@ def replace_neg_eigenvalue(
     neg_indices = np.argwhere([eval < 0 for eval in eigenvalues])
 
     if len(neg_indices) > 1:
-        print("more than one neg. eigenvalue: " + str(neg_indices))
+        print("more than one neg. eigenvalue: " + str([eigenvalues[index] for index in neg_indices]))
         index_to_replace = np.argmin(eigenvalues)
     else:
         index_to_replace = neg_indices[0][0]
