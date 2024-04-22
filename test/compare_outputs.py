@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 
-struct_path = "test/ethane/ethane.mol2"
-qm_log_path = "test/ethane/ethane.log"
-seminario_fld_path = "test/ethane/ethane.seminario.fld"
-mm_log_path = "test/ethane/ethane.seminario.mm-freq.log"
+struct_path = "rh-seminario/rh_enamide_training_set/rh_enamide_training_set.mol2"
+qm_log_path = "rh-seminario/rh_enamide_training_set/jaguar_spe_freq_in_out/*.01.in"
+seminario_fld_path = "rh-seminario/rh_hyd_enamide_seminario_q.fld"
+mm_log_path = "rh-seminario/mm3_results/q_seminario_fld/*.log"
 ethane_og_fld_path = "test/ethane/start.fld"
-mol2_path = "test/ethane/ethane.mol2"
+mol2_path = "rh-seminario/rh_enamide_training_set/rh_enamide_training_set.mol2"
 def run_seminario(self):
     
     ethane_ff = seminario(self.ethane_og_fld, self.structs, self.hessians, zero_out=True, hessian_units=co.KJMOLA)

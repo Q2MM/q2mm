@@ -5,13 +5,184 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
+            "name": "Python: Attach using Process Id",
+            "type": "python",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "justMyCode": true
+        },
+        {
+            "name": "Loop Q2MM",
+            "type": "python",
+            "request":"launch",
+            "subProcess": true,
+            "program": "q2mm/loop.py",
+            "console": "integratedTerminal",
+            "args": ["q2mm_example/amber/Ethane/GS.loop.in"]
+        },
+        {
+            "name": "Python: Seminario",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "program": "q2mm/seminario.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["--ff-out", "test.seminario.frcmod", "--ff-in", "test.frcmod", "--mol", "test.mol2", "--fchk", "test.fchk"]
+            "args": [
+                "--ff-out",
+                "q2mm_example/amber/Ethane/GS.CT.seminario.frcmod",
+                "--ff-in",
+                "q2mm_example/amber/Ethane/GS.CT.frcmod",
+                "--mol",
+                "q2mm_example/amber/Ethane/GS.CT.mol2",
+                "--log",
+                "q2mm_example/amber/Ethane/GS.log",
+                "--prep",
+                ">",
+                "q2mm_example/amber/Ethane/GS.CT.txt"
+            ],
+            // "args": [
+            //     "--ff-out",
+            //     "q2mm_example/amber/hp-thiohemiacet/seminario.frcmod",
+            //     "--ff-in",
+            //     "q2mm_example/amber/hp-thiohemiacet/theo-tsnadhm06.frcmod",
+            //     "--mol",
+            //     "q2mm_example/amber/hp-thiohemiacet/theo-tsnadhm06.mol2",
+            //     "--log",
+            //     "q2mm_example/amber/hp-thiohemiacet/theo-tsnadhm06.log",
+            //     "--prep",
+            //     "--invert",
+            //     ">",
+            //     "q2mm_example/amber/hp-thiohemiacet/testing.txt"
+            // ]
+            // "args": [
+            //     "--ff-out",
+            //     "q2mm_example/meets.seminario.fld",
+            //     "--ff-in",
+            //     "q2mm_example/mm3.fld",
+            //     "--mol",
+            //     "q2mm_example/meets1.mol2",
+            //     "q2mm_example/meets2.mol2",
+            //     "--log",
+            //     "q2mm_example/meets1.log",
+            //     "q2mm_example/meets2.log",
+            //     "--prep",
+            //     "--invert",
+            //     ">",
+            //     "q2mm_example/meets.seminario.txt"
+            // ]
+        },
+        {
+            "name": "eth mm3 seminario",
+            "type": "python",
+            "request": "launch",
+            "program": "q2mm/seminario.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--ff-out",
+                "q2mm_example/multi-mae/eth.umw.kjmola.fld",
+                "--ff-in",
+                "q2mm_example/multi-mae/eth.fld",
+                "--mol",
+                "q2mm_example/multi-mae/eth-opt.mol2",
+                "--log",
+                "q2mm_example/multi-mae/eth.log",
+                "--prep",
+                ">",
+                "q2mm_example/multi-mae/eth.umw.kjmola.out.txt"
+            ]
+        },
+        {
+            "name": "rh mm3 seminario",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "q2mm/seminario.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--ff-out",
+                "rh-seminario/rh_hyd_enamide_seminario.fld",
+                "--ff-in",
+                "rh-seminario/rh_hyd_enamide_start.fld",
+                "--mmo",
+                "rh-seminario/rh_enamide_training_set/rh_enamide_training_set.mmo",
+                "--jag-in",
+                "rh-seminario/rh_enamide_training_set/jaguar_spe_freq_in_out/*.in",
+                "--prep",
+                "--invert"
+            ]
+        },
+        {
+            "name": "Laura Debug",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "q2mm/seminario.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--ff-out",
+                "Laura_seminario_error_case/attempt_2/seminario.original.fld",
+                "--ff-in",
+                "Laura_seminario_error_case/attempt_2/mm3.fld",
+                "--mmo",
+                "Laura_seminario_error_case/attempt_2/*.q2mm.original.mmo",
+                "--log",
+                "Laura_seminario_error_case/attempt_2/*.log",
+                "--prep",
+                "--invert"
+            ]
+        },
+        {
+            "name": "rh compare",
+            "type": "python",
+            "request": "launch",
+            "program": "q2mm/just_compare.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            // "args": [
+            //     "--calc",
+            //     "rh-seminario/mm3_results/q_seminario/*.log",
+            //     "--ref",
+            //     "rh-seminario/rh_enamide_training_set/jaguar_spe_freq_in_out/*.01.in",
+            //     "--mmo",
+            //     "rh-seminario/rh_enamide_training_set/rh_enamide_training_set.mmo",
+            //     "-o",
+            //     "rh-seminario/mm3_results/q_seminario_mjeigz_score.txt",
+            //     "--invert"
+            // ]
+            // "args": [
+            //     "--calc",
+            //     "rh-seminario/mm3_results/donoghue_fld/*.log",
+            //     "--ref",
+            //     "rh-seminario/rh_enamide_training_set/jaguar_spe_freq_in_out/*.01.in",
+            //     "--mmo",
+            //     "rh-seminario/rh_enamide_training_set/rh_enamide_training_set.mmo",
+            //     "-o",
+            //     "rh-seminario/mm3_results/donoghue_mjeigz_score.txt",
+            //     "--invert"
+            // ]
+            "args": [
+                "--calc",
+                "rh-seminario/mm3_results/tweaked_qs/*.log",
+                "--ref",
+                "rh-seminario/rh_enamide_training_set/jaguar_spe_freq_in_out/*.01.in",
+                "--mmo",
+                "rh-seminario/rh_enamide_training_set/rh_enamide_training_set.mmo",
+                "-o",
+                "rh-seminario/mm3_results/tweaked_qs_mjeigz_score.txt",
+                "--invert"
+            ]
+            // "args": [
+            //     "--calc",
+            //     "rh-seminario/mm3_results/old_initials_fld/*.log",
+            //     "--ref",
+            //     "rh-seminario/rh_enamide_training_set/jaguar_spe_freq_in_out/*.01.in",
+            //     "--mmo",
+            //     "rh-seminario/rh_enamide_training_set/rh_enamide_training_set.mmo",
+            //     "-o",
+            //     "rh-seminario/mm3_results/old_initials_mjeigz_score.txt",
+            //     "--invert"
+            // ]
         }
     ]
 }
