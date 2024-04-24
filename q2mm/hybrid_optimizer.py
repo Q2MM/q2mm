@@ -183,6 +183,12 @@ class Bounds_Handler(Enum):
     REFLECTIVE = reflective
     RANDOM = random
     
+# def exp_decay(start:float, end:float, iter_num:int, max_iter:int, d2=7):
+#     return (start - end - d1) * np.exp(1 / (1 + d2 * iter_num / max_iter))
+
+def exp_decay(start:float, end:float, iter_num:int, max_iter:int, d2=7):
+    return (start - end) * np.exp(-d2 * iter_num / max_iter) + end
+
 def parallel_calc_init(locks_list):
     global locks_passed
     locks_passed = locks_list
@@ -365,8 +371,8 @@ class PSO_GA(SkoBase):
         lb=[-1000.0],
         ub=[1000.0],
         w=0.8,
-        c1=0.1,
-        c2=0.1,
+        c1=0.5,
+        c2=0.5,
         prob_mut=0.001,
         constraint_eq=tuple(),
         constraint_ueq=tuple(),
@@ -396,12 +402,13 @@ class PSO_GA(SkoBase):
         self.locks = parallel_locks
 
         # if config_dict:
-        self.F = config.get('F', F)
+        self.F = config.get('F', F) # differential weight or mutation constant, increasing increases search radius
+        self.F0 = self.F
         assert config.get('size_pop', size_pop) % 2 == 0, "size_pop must be an even integer for GA"
         self.size_pop = config.get('size_pop', size_pop)
         self.tether_ratio = config.get('guess_ratio', guess_ratio)
         self.max_iter = config.get('max_iter', max_iter)
-        self.prob_mut = config.get('prob_mut', prob_mut)
+        self.prob_mut = config.get('prob_mut', prob_mut) # recombination constant or crossover probability, controls # of mutants which progress into next gen, lower for stability (fewer)
         self.early_stop = config.get('early_stop', early_stop)
         self.taper_GA = config.get('taper_GA', taper_GA)
         self.taper_mutation = config.get('taper_mutation', taper_mutation)
@@ -410,9 +417,14 @@ class PSO_GA(SkoBase):
         self.mutation_strategy = config.get('mutation_strategy', mutation_strategy)
         self.pass_worker_num = pass_particle_num
 
-        self.w = config.get('w', w)
-        self.cp = config.get('c1', c1)  # personal best -- cognitive
-        self.cg = config.get('c2', c2)  # global best -- social
+        self.w = config.get('w', w) # inertia
+        self.w0 = self.w
+        self.cp = config.get('c1', c1)  # personal best -- cognitive acceleration constant
+        self.cp0 = self.cp
+        self.cg = config.get('c2', c2)  # global best -- social acceleration constant
+        self.cg0 = self.cg
+
+        logger.log(logging.INFO, 'cp: {} w: {} cg {}'.format(self.cp, self.w, self.cg))
 
         self.Chrom = None
 
@@ -705,7 +717,7 @@ class PSO_GA(SkoBase):
         else:
             return self.Y
 
-    def run(self, max_iter=None, precision=None, N=20):
+    def run(self, max_iter=None, precision=None, N=20, strategy='', d1=0.2, d2=7, final_w=0.4, final_cg=0.9, final_cp=0.1, final_F=0.1):
         """
         precision: None or float
             If precision is None, it will run the number of max_iter steps
@@ -713,13 +725,16 @@ class PSO_GA(SkoBase):
         N: int
         """
         self.max_iter = max_iter or self.max_iter
+        logger.log(logging.INFO, 'max iter {}'.format(self.max_iter))
         c = 0
+        print(str(strategy))
         for iter_num in range(self.max_iter):
             self.pso_iter()
 
             if precision is not None:
                 tor_iter = np.amax(self.pbest_y) - np.amin(self.pbest_y)
                 if tor_iter < precision:
+                    logger.log(logging.INFO, 'precision ({}) greater than tor_iter ({})'.format(precision, tor_iter))
                     c = c + 1
                     if c > N:
                         break
@@ -746,16 +761,28 @@ class PSO_GA(SkoBase):
                 )
             self.gbest_y_hist.append(self.gbest_y)
 
-            if self.taper_mutation and iter_num == np.floor(0.25 * self.max_iter):
-                self.prob_mut = self.prob_mut / 10.0
-            elif self.taper_mutation and iter_num == np.floor(0.75 * self.max_iter):
-                self.prob_mut = self.prob_mut / 10.0
-            if self.skew_social and iter_num == np.floor(0.25 * self.max_iter):
-                self.cg = self.cg + 0.25 * self.cp
-                self.cp = self.cp * 0.75
-            elif self.skew_social and iter_num == np.floor(0.5 * self.max_iter):
-                self.cg = self.cg + (1/3) * self.cp
-                self.cp = self.cp * (2/3)
+            if self.taper_mutation:
+                if strategy == 'exp_decay':
+                    self.F = exp_decay(self.F0, final_F, iter_num, self.max_iter)
+                    logger.log(logging.INFO, 'F; {}'.format(self.F))
+                elif strategy == 'stepped':
+                    if iter_num == np.floor(0.25 * self.max_iter):
+                        self.prob_mut = self.F / 10.0
+                    elif iter_num == np.floor(0.75 * self.max_iter):
+                        self.prob_mut = self.F / 10.0
+            if self.skew_social:
+                if strategy == 'exp_decay':
+                    self.cp = exp_decay(self.cp0, final_cp, iter_num, self.max_iter)
+                    self.w = exp_decay(self.w0, final_w, iter_num, self.max_iter)
+                    self.cg = 1.0 - self.cp
+                elif strategy == 'stepped':
+                    if iter_num == np.floor(0.25 * self.max_iter):
+                        self.cg = self.cg + 0.25 * self.cp
+                        self.cp = self.cp * 0.75
+                    elif iter_num == np.floor(0.5 * self.max_iter):
+                        self.cg = self.cg + (1/3) * self.cp
+                        self.cp = self.cp * (2/3)
+            logger.log(logging.INFO, 'cp: {} w: {} cg {}'.format(self.cp, self.w, self.cg))
 
         self.best_x, self.best_y = self.gbest_x, self.gbest_y
         return self.best_x, self.best_y

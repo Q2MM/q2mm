@@ -120,8 +120,8 @@ class Swarm_Optimizer(opt.Optimizer):
 
     def setup_schrod_licenses(self, num_cores:int):
         macro_avail, suite_avail = check_licenses()
-        div_suite = suite_avail / co.MIN_SUITE_TOKENS
-        div_macro = macro_avail / co.MIN_MACRO_TOKENS
+        div_suite = suite_avail #/ co.MIN_SUITE_TOKENS
+        div_macro = macro_avail #/ co.MIN_MACRO_TOKENS
         num_ff_threads = int(np.floor(min([div_suite, div_macro])))
         assert num_cores <= multiprocessing.cpu_count() #TODO MF - add descriptive exception message
         if num_cores > self.opt_config.get('size_pop') : num_cores = self.opt_config.get('size_pop')
@@ -184,7 +184,7 @@ class Swarm_Optimizer(opt.Optimizer):
 
 
     @opt.catch_run_errors
-    def run(self, convergence_precision=None, ref_data=None, restart=None):
+    def run(self, convergence_precision=None, ref_data=None, restart=None, strategy='exp_decay'):
         """
         Once all attributes are setup as you so desire, run this method to
         optimize the parameters.
@@ -205,7 +205,7 @@ class Swarm_Optimizer(opt.Optimizer):
         logger.log(20, "INIT FF SCORE: {}".format(self.ff.score))
         opt.pretty_ff_results(self.ff, level=20)
 
-        self.best_ff_params, self.best_ff_score = self.hybrid_opt.run(precision=convergence_precision)
+        self.best_ff_params, self.best_ff_score = self.hybrid_opt.run(precision=convergence_precision, strategy=strategy)
 
         #replace initial ff params with best params
         assert len(self.best_ff_params) == len(self.ff.params)
