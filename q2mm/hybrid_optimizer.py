@@ -365,15 +365,15 @@ class PSO_GA(SkoBase):
         func,
         n_dim,
         config = None,
-        F=0.5,
+        F=(0.5, 0.5),
         size_pop=50,
         max_iter=200,
         lb=[-1000.0],
         ub=[1000.0],
         w=0.8,
-        c1=0.5,
-        c2=0.5,
-        prob_mut=0.001,
+        c1=(2.5,0.5),
+        c2=(0.5, 2.5),
+        recomb_constant=(0.7, 0.7),
         constraint_eq=tuple(),
         constraint_ueq=tuple(),
         n_processes=1,
@@ -402,13 +402,14 @@ class PSO_GA(SkoBase):
         self.locks = parallel_locks
 
         # if config_dict:
-        self.F = config.get('F', F) # differential weight or mutation constant, increasing increases search radius
-        self.F0 = self.F
+        self.F_0, self.F_t = config.get('differential_weight', F) # differential weight or mutation constant, increasing increases search radius
+        self.F = self.F_0
         assert config.get('size_pop', size_pop) % 2 == 0, "size_pop must be an even integer for GA"
         self.size_pop = config.get('size_pop', size_pop)
         self.tether_ratio = config.get('guess_ratio', guess_ratio)
         self.max_iter = config.get('max_iter', max_iter)
-        self.prob_mut = config.get('prob_mut', prob_mut) # recombination constant or crossover probability, controls # of mutants which progress into next gen, lower for stability (fewer)
+        self.recomb_constant_0, self.recomb_constant_t = config.get('recombination_constant', recomb_constant) # recombination constant or crossover probability, controls # of mutants which progress into next gen, lower for stability (fewer)
+        self.recomb_constant = self.recomb_constant_0
         self.early_stop = config.get('early_stop', early_stop)
         self.taper_GA = config.get('taper_GA', taper_GA)
         self.taper_mutation = config.get('taper_mutation', taper_mutation)
@@ -417,13 +418,12 @@ class PSO_GA(SkoBase):
         self.mutation_strategy = config.get('mutation_strategy', mutation_strategy)
         self.pass_worker_num = pass_particle_num
 
-        self.w = config.get('w', w) # inertia
-        self.w0 = self.w
-        self.cp = config.get('c1', c1)  # personal best -- cognitive acceleration constant
-        self.cp0 = self.cp
-        self.cg = config.get('c2', c2)  # global best -- social acceleration constant
-        self.cg0 = self.cg
-
+        self.w_0, self.w_t = config.get('inertia', w) # inertial weight
+        self.w =  self.w_0
+        self.cp_0, self.cp_t = config.get('cognitive', c1)  # personal best -- cognitive acceleration constant
+        self.cp = self.cp_0
+        self.cg_0, self.cg_t = config.get('social', c2)  # global best -- social acceleration constant
+        self.cg = self.cg_0
         logger.log(logging.INFO, 'cp: {} w: {} cg {}'.format(self.cp, self.w, self.cg))
 
         self.Chrom = None
@@ -610,18 +610,17 @@ class PSO_GA(SkoBase):
     def de_iter(self):
         logger.log(logging.INFO, 'DE Iter starting...')
         self.mutation()
-        self.recorder()
         self.crossover()
         self.selection()
         #self.cal_y() #TODO most recent: this should no longer be needed, selection will set correct Y values
         # old: ^ pass indices of selected particles and only recalculate those (needs new calc method)
         self.update_pbest()
         self.update_gbest()
+        self.recorder()
 
     def pso_iter(self):
         logger.log(logging.INFO, 'PS Iter starting...')
         self.update_pso_V()
-        self.recorder()
         old_x = self.X.copy()
         self.update_X()
         # if (old_x == self.X).all():
@@ -629,6 +628,7 @@ class PSO_GA(SkoBase):
         self.cal_y()
         self.update_pbest()
         self.update_gbest()
+        self.recorder()
 
     def mutation(self):
         """
@@ -638,7 +638,6 @@ class PSO_GA(SkoBase):
         """
         X = self.X
         # i is not needed,
-        # and TODO: r1, r2, r3 should not be equal
         random_idx = np.random.randint(0, self.size_pop, size=(self.size_pop, 3))
 
         r1, r2, r3 = random_idx[:, 0], random_idx[:, 1], random_idx[:, 2]
@@ -674,7 +673,7 @@ class PSO_GA(SkoBase):
         """
         if rand < prob_crossover, use V, else use X
         """
-        mask = np.random.rand(self.size_pop, self.n_dim) <= self.prob_mut
+        mask = np.random.rand(self.size_pop, self.n_dim) <= self.recomb_constant
         self.U = np.where(mask, self.V, self.X)
         return self.U
 
@@ -717,7 +716,7 @@ class PSO_GA(SkoBase):
         else:
             return self.Y
 
-    def run(self, max_iter=None, precision=None, N=20, strategy='', d1=0.2, d2=7, final_w=0.4, final_cg=0.9, final_cp=0.1, final_F=0.1):
+    def run(self, max_iter=None, precision=None, N=20, strategy=''):
         """
         precision: None or float
             If precision is None, it will run the number of max_iter steps
@@ -763,25 +762,13 @@ class PSO_GA(SkoBase):
 
             if self.taper_mutation:
                 if strategy == 'exp_decay':
-                    self.F = exp_decay(self.F0, final_F, iter_num, self.max_iter)
+                    self.F = exp_decay(self.F_0, self.F_t, iter_num, self.max_iter)
                     logger.log(logging.INFO, 'F; {}'.format(self.F))
-                elif strategy == 'stepped':
-                    if iter_num == np.floor(0.25 * self.max_iter):
-                        self.prob_mut = self.F / 10.0
-                    elif iter_num == np.floor(0.75 * self.max_iter):
-                        self.prob_mut = self.F / 10.0
             if self.skew_social:
                 if strategy == 'exp_decay':
-                    self.cp = exp_decay(self.cp0, final_cp, iter_num, self.max_iter)
-                    self.w = exp_decay(self.w0, final_w, iter_num, self.max_iter)
-                    self.cg = 1.0 - self.cp
-                elif strategy == 'stepped':
-                    if iter_num == np.floor(0.25 * self.max_iter):
-                        self.cg = self.cg + 0.25 * self.cp
-                        self.cp = self.cp * 0.75
-                    elif iter_num == np.floor(0.5 * self.max_iter):
-                        self.cg = self.cg + (1/3) * self.cp
-                        self.cp = self.cp * (2/3)
+                    self.cp = exp_decay(self.cp_0, self.cp_t, iter_num, self.max_iter)
+                    self.w = exp_decay(self.w_0, self.w_t, iter_num, self.max_iter)
+                    self.cg = (self.cg_0 + self.cp_0) - self.cp
             logger.log(logging.INFO, 'cp: {} w: {} cg {}'.format(self.cp, self.w, self.cg))
 
         self.best_x, self.best_y = self.gbest_x, self.gbest_y

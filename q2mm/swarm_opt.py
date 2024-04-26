@@ -20,7 +20,35 @@ from hybrid_optimizer import PSO_GA, Bounds_Handler, set_run_mode
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
 
+#region SWARM OPTIMIZER HYPERPARAMETER CONFIGURATIONS
+TIGHT_SEARCH_CONFIG = {    
+            "vectorize_func": False,
+            "taper_GA": False,
+            "taper_mutation": True,
+            "skew_social": True,
+            "mutation_strategy": "DE/best/1",
+            "differential_weight" : (0.4, 0.1),
+            "recomb_constant" : (0.7, 0.7),
+            "inertia" : (0.7, 0.4), #LDIW strategy
+            "cognitive" : (2.0, 0.5),
+            "social" : (1.0, 2.5),
+        }
 
+GLOBAL_SEARCH_CONFIG = { # NOTE: user should also increase population size, global has slower convergence    
+            "vectorize_func": False,
+            "taper_GA": False,
+            "taper_mutation": True,
+            "skew_social": True,
+            "mutation_strategy": "DE/best/1",
+            "differential_weight" : (0.7, 0.1),
+            "recomb_constant" : (0.7, 0.7),
+            "inertia" : (0.9, 0.4), #LDIW strategy
+            "cognitive" : (2.5, 0.5),
+            "social" : (0.5, 2.5),
+        }
+    # widens the search radius but slows convergence
+
+#endregion
 
 class Swarm_Optimizer(opt.Optimizer):
     def __init__(
@@ -81,20 +109,16 @@ class Swarm_Optimizer(opt.Optimizer):
 
         ff_params = [param.value for param in self.ff.params]
 
-        self.opt_config = {
+        param_opt_config = {
             "lb": lower_bounds,
             "ub": upper_bounds,
             "size_pop": pop_size,
-            "vectorize_func": False,
-            "taper_GA": True,
-            "taper_mutation": True,
-            "skew_social": True,
             "max_iter": max_iter,
             "initial_guesses": ff_params if bias_to_current else None,
             "guess_deviation": deviations,
             "guess_ratio": 0.7 if tight_spread else 0.3,
-            "mutation_strategy": "DE/best/1",
         }
+        self.opt_config = {**param_opt_config, **TIGHT_SEARCH_CONFIG} if tight_spread else {**param_opt_config, **GLOBAL_SEARCH_CONFIG}
         
         if ref_data is None:
             self.ref_data = opt.return_ref_data(self.args_ref)
@@ -116,6 +140,7 @@ class Swarm_Optimizer(opt.Optimizer):
         self.hybrid_opt.Y = self.hybrid_opt.cal_y()
         self.hybrid_opt.update_pbest()
         self.hybrid_opt.update_gbest()
+        self.hybrid_opt.recorder()
             
 
     def setup_schrod_licenses(self, num_cores:int):
