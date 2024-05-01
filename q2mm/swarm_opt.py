@@ -15,7 +15,7 @@ import datatypes
 import opt as opt
 from schrod_dep_stuff import check_licenses
 import schrod_indep_filetypes
-from hybrid_optimizer import PSO_GA, Bounds_Handler, set_run_mode
+from hybrid_optimizer import PSO_DE, Bounds_Handler, set_run_mode
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
@@ -133,7 +133,7 @@ class Swarm_Optimizer(opt.Optimizer):
         set_run_mode(self.calculate_and_score, 'multiprocessing')
 
 
-        self.hybrid_opt = PSO_GA(self.calculate_and_score, len(self.ff.params), config=self.opt_config, func_args=self.r_dict, n_processes=self.num_ff_threads, pass_particle_num=True, verbose=True, bounds_strategy=Bounds_Handler.REFLECTIVE)
+        self.hybrid_opt = PSO_DE(self.calculate_and_score, len(self.ff.params), config=self.opt_config, func_args=self.r_dict, n_processes=self.num_ff_threads, pass_particle_num=True, verbose=True, bounds_strategy=Bounds_Handler.REFLECTIVE)
 
         self.setup_ff_pool()
 
@@ -175,7 +175,7 @@ class Swarm_Optimizer(opt.Optimizer):
     
     
     def calculate_and_score(self, ref_dict, enumerable_input) -> float:
-        #TODO MF the HO should really primarily be used with parallel processing, but I SHOULD make a separate function that does this for parallel, just set func for PSO_GA different based on n_processors flag
+        #TODO MF the HO should really primarily be used with parallel processing, but I SHOULD make a separate function that does this for parallel, just set func for PSO_DE different based on n_processors flag
         # for now assume multiprocessing but perhaps later include the windows supported method of multithreading but might not need bc partial
 
         ff_num, parameter_set = enumerable_input
