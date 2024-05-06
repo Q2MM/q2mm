@@ -18,10 +18,8 @@ This step should be done after RESP calculation, generation of a force field fil
 ensures that all interactions in the structures are covered by a corresponding parameter in the
 force field file (compatibility via compare.py or calculate.py usage typically).
 
-Code adapted from Samuel Genheden and can be found at
+Portions of code adapted from Samuel Genheden and can be found at
 https://github.com/SGenheden/Seminario
-
-TODO reformat docstrings to Google style
 """
 
 from __future__ import division, print_function, absolute_import
