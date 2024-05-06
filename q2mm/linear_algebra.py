@@ -10,7 +10,7 @@ import constants as co
 # region Generalized
 
 
-def decompose(matrix: np.ndarray) -> (np.ndarray, np.ndarray):
+def decompose(matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """_summary_
 
     Args:
