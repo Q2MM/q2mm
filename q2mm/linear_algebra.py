@@ -1,4 +1,4 @@
-"""_summary_
+"""Contains methods which perform linear algebraic operations.
 
 """
 from __future__ import division, print_function, absolute_import
@@ -11,7 +11,7 @@ import constants as co
 
 
 def decompose(matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """_summary_
+    """Decomposes matrix into its eigenvalues and eigenvectors.
 
     Args:
         matrix (np.ndarray): Matrix to decompose, matrix must be square.
@@ -28,15 +28,17 @@ def decompose(matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 def replace_neg_eigenvalue(
     eigenvalues: np.ndarray, replace_with=1.0, zer_out_neg=False, units=co.KJMOLA
 ) -> np.ndarray:
-    """_summary_
+    """Replaces the most negative eigenvalue with a strong positive value to invert the curvature of the Potential Energy Surface.
 
     Args:
-        eigenvalues (np.ndarray): _description_
-        replace_with (float, optional): _description_. Defaults to 1.0.
+        eigenvalues (np.ndarray): Eigenvalues
+        replace_with (float, optional): Value which should replace the most negative eigenvalue. Defaults to 1.0.
+        zer_out_neg (bool, optional): If True, will zero out remaining negative eigenvalues. Defaults to False.
+        units (_type_, optional): Units in which replaced eigenvalue should be returned. Defaults to co.KJMOLA.
 
     Returns:
-        np.ndarray: _description_
-    """
+        np.ndarray: Eigenvalues with most negative eigenvalue replaced and, if requested, remaining negative values zeroed out.
+    """    
     neg_indices = np.argwhere([eval < 0 for eval in eigenvalues])
 
     if len(neg_indices) > 1:
@@ -46,10 +48,6 @@ def replace_neg_eigenvalue(
         index_to_replace = neg_indices[0][0]
     replaced_eigenvalues = copy.deepcopy(eigenvalues)
 
-    # TODO: MF - Discussed with PO, decide if this should be implemented as it is not in current Q2MM
-    # for neg_index in neg_indices:
-    #     if neg_index != index_to_replace:
-    #         replaced_eigenvalues[neg_index] = 0
     if zer_out_neg:
         for neg_index in neg_indices:
             replaced_eigenvalues[neg_index[0]] = 0.00
@@ -66,27 +64,27 @@ def replace_neg_eigenvalue(
 
 
 def reform_hessian(eigenvalues: np.ndarray, eigenvectors: np.ndarray) -> np.ndarray:
-    """_summary_
+    """Forms the Hessian matrix by multiplying the eigenvalues and eigenvectors
 
     Args:
-        eigenvalues (np.ndarray[float]): _description_
-        eigenvectors (np.ndarray[float]): _description_
+        eigenvalues (np.ndarray[float]): eigenvalues
+        eigenvectors (np.ndarray[float]): eigenvectors
 
     Returns:
-        np.ndarray: _description_
+        np.ndarray: Hessian matrix
     """
     reformed_hessian = eigenvectors.dot(np.diag(eigenvalues).dot(eigenvectors.T))
     return reformed_hessian
 
 
 def invert_ts_curvature(hessian_matrix: np.ndarray) -> np.ndarray:
-    """_summary_
+    """Inverts the curvature of the Hessian matrix
 
     Args:
-        hessian_matrix (np.ndarray): _description_
+        hessian_matrix (np.ndarray): hessian matrix whose curvature to invert
 
     Returns:
-        np.ndarray: _description_
+        np.ndarray: inverted hessian matrix
     """
     eigenvalues, eigenvectors = decompose(hessian_matrix)
     inv_curv_hessian = reform_hessian(
