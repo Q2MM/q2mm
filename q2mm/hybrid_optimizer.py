@@ -687,6 +687,8 @@ class PSO_DE(SkoBase):
             return
         self.record_value["X"].append(self.X)
         self.record_value["Y"].append(self.Y)
+        self.record_value["best_x"] = self.gbest_x
+        self.record_value["best_y"] = self.gbest_y
 
     def de_iter(self):
         """Performs one iteration of Differential Evolution."""
@@ -859,14 +861,18 @@ class PSO_DE(SkoBase):
         c = 0
         print(str(strategy))
         for iter_num in range(self.max_iter):
-            self.pso_iter()
+            #self.pso_iter()
 
-            if precision is not None:
-                tor_iter = np.amax(self.pbest_y) - np.amin(self.pbest_y)
+            if iter_num > 0 and precision is not None:
+                tor_iter = (np.amax(self.pbest_y) - np.amin(self.pbest_y))
+                #blah = [np.abs(x - self.gbest_x) < precision for x in self.X]
+                #if np.all(blah):
+                #tor_iter = np.max([X - self.gbest_x for X in self.X])
+                #tor_iter = np.max([Y - self.gbest_y for Y in self.Y]) / self.gbest_y
                 if tor_iter < precision:
                     logger.log(
                         logging.INFO,
-                        "precision ({}) greater than tor_iter ({})".format(
+                        "precision ({}) greater than tor_iter ({}). PS has localized sufficiently.".format(
                             precision, tor_iter
                         ),
                     )
