@@ -185,6 +185,9 @@ class Loop(object):
                     if self.ff.path[-11:] == '.hybrid.fld': #TODO test this because the loop (only the loop compare) was running compare on old mm3, so all final scores graphed in ipynb are just the start
                         os.popen("mv " + os.path.join(self.direc, "mm3.fld") + " " + os.path.join(self.direc, "mm3.old.fld"))
                         os.popen("cp " + self.ff.path + " " + os.path.join(self.direc, "mm3.fld"))
+                        self.ff.data = calculate.main(self.args_ff)
+                        c_dict = compare.data_by_type(self.ff.data)
+                        r_dict, c_dict = compare.trim_data(r_dict,c_dict)
                     output = os.path.join(self.direc, cols[cols.index('-o') +1])
                 if '-p' in cols:
                     doprint = True
