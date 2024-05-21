@@ -2443,7 +2443,7 @@ class FF(object):
 
     __slots__ = ["path", "data", "method", "params", "score"]
 
-    def __init__(self, path=None, data=None, method=None, params:list[Param]=None, score=None):
+    def __init__(self, path=None, data=None, method=None, params:List[Param]=None, score=None):
         self.path = path
         self.data = data
         self.method = method

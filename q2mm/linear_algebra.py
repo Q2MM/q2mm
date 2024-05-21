@@ -6,11 +6,12 @@ import copy
 
 import numpy as np
 import constants as co
+from typing import Tuple
 
 # region Generalized
 
 
-def decompose(matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def decompose(matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Decomposes matrix into its eigenvalues and eigenvectors.
 
     Args:

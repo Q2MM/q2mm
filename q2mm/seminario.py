@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Estimates bond and angle force constants, prepares a force field for Q2MM parameterization.
 
