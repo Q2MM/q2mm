@@ -23,7 +23,7 @@ logger = logging.getLogger(__file__)
 # region SWARM OPTIMIZER HYPERPARAMETER CONFIGURATIONS
 TIGHT_SEARCH_CONFIG = {
     "vectorize_func": False,
-    "taper_GA": False,
+    "taper_GA": True,
     "taper_mutation": True,
     "skew_social": True,
     "mutation_strategy": "DE/best/1",
@@ -37,7 +37,7 @@ TIGHT_SEARCH_CONFIG = {
 GLOBAL_SEARCH_CONFIG = (
     {  # NOTE: user should also increase population size, global has slower convergence
         "vectorize_func": False,
-        "taper_GA": False,
+        "taper_GA": True,
         "taper_mutation": True,
         "skew_social": True,
         "mutation_strategy": "DE/best/1",
@@ -54,6 +54,12 @@ GLOBAL_SEARCH_CONFIG = (
 
 
 class Swarm_Optimizer(opt.Optimizer):
+    """_summary_
+
+    Note:
+        In order to use the swarm optimizer/HYBR option, please ensure that you are running with a schrodinger virtual environment
+        and have set the environment variables SCHRODINGER_ALLOW_UNSAFE_MULTIPROCESSING to TRUE.
+    """    
     def __init__(
         self,
         direc=None,

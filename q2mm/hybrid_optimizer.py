@@ -861,19 +861,20 @@ class PSO_DE(SkoBase):
         c = 0
         print(str(strategy))
         for iter_num in range(self.max_iter):
-            #self.pso_iter()
+            self.pso_iter()
 
             if iter_num > 0 and precision is not None:
-                tor_iter = (np.amax(self.pbest_y) - np.amin(self.pbest_y))
-                #blah = [np.abs(x - self.gbest_x) < precision for x in self.X]
-                #if np.all(blah):
+                #tor_iter = (np.amax(self.pbest_y) - np.amin(self.pbest_y))
+                per_param_precision = precision * self.gbest_x
+                blah = [np.all(np.abs(x - self.gbest_x) < per_param_precision) for x in self.X]
+                if np.all(blah):
                 #tor_iter = np.max([X - self.gbest_x for X in self.X])
                 #tor_iter = np.max([Y - self.gbest_y for Y in self.Y]) / self.gbest_y
-                if tor_iter < precision:
+                #if tor_iter < precision:
                     logger.log(
                         logging.INFO,
                         "precision ({}) greater than tor_iter ({}). PS has localized sufficiently.".format(
-                            precision, tor_iter
+                            precision, per_param_precision #tor_iter
                         ),
                     )
                     c = c + 1
