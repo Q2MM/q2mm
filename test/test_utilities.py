@@ -3,9 +3,13 @@ import os
 import unittest
 import sys
 
+import parmed
+
 src_dir = os.path.abspath("q2mm")
 sys.path.append(src_dir)
 import utilities
+
+ethane_struct = parmed.load_file('../q2mm_example/amber/Ethane/GS.mol2', structure=True)
 
 
 class MakeInput(object):
@@ -40,3 +44,15 @@ class TestAtomTypeConversion(unittest.TestCase):
             converted_metal,
             "Incorrect conversion from mol2 metal to Schrodinger atom type.",
         )
+
+
+# class TestStructureEqual(unittest.TestCase):
+
+#     def test_is_same_bond(self):
+#         self.assertEqual()
+
+class TestIdentifyAngles(unittest.TestCase):
+
+    def test_identify_angles_ethane(self):
+        angles = utilities.identify_angles(ethane_struct.bonds)
+        self.assertEqual(len(angles), 12)

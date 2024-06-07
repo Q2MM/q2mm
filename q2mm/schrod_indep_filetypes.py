@@ -4,6 +4,7 @@ from __future__ import division
 from abc import abstractmethod
 
 import logging
+from string import digits
 from typing import List
 import numpy as np
 import os
@@ -627,6 +628,8 @@ class Structure(object):
                 logger.log(10, "  -- Identified {} as a dummy atom.".format(atom))
                 dummies.append(atom.index)
         return dummies
+    
+    
 
     # endregion
 
@@ -748,6 +751,50 @@ class Structure(object):
             else:
                 torsion_dic[torsion.ff_row] = [torsion.value]
         return bond_dic, angle_dic, torsion_dic
+
+def check_mm_dummy(hess, dummy_indices):
+    """
+    Removes dummy atom rows and columns from the Hessian based upon
+    dummy_indices.
+
+    Arguments
+    ---------
+    hess : np.matrix
+    dummy_indices : list of integers
+                    Integers correspond to the indices to be removed from the
+                    np.matrix of the Hessian.
+
+    Returns
+    -------
+    np.matrix
+    """
+    hess = np.delete(hess, dummy_indices, 0)
+    hess = np.delete(hess, dummy_indices, 1)
+    logger.log(15, 'Created {} Hessian w/o dummy atoms.'.format(hess.shape))
+    return hess
+
+def get_dummy_hessian_indices(dummy_indices):
+    """
+    Takes a list of indices for the dummy atoms and returns another list of
+    integers corresponding to the rows of the eigenvectors to remove
+    for those those dummy atoms.
+
+    Arguments
+    ---------
+    dummy_indices : list of integers
+                    Indices for the dummy atoms.
+
+    Returns
+    -------
+    list of integers
+    """
+    hess_dummy_indices = []
+    for index in dummy_indices:
+        hess_index = (index - 1) * 3
+        hess_dummy_indices.append(hess_index)
+        hess_dummy_indices.append(hess_index + 1)
+        hess_dummy_indices.append(hess_index + 2)
+    return hess_dummy_indices
 
 
 class File(object):
@@ -1387,6 +1434,7 @@ class GaussLog(File):
         # Z-matrix coordinates adds another section. We need to be aware of
         # this.
         probably_z_matrix = False
+        struct._atoms = []
         for atom in atoms:
             stuff = atom.split(",")
             # An atom typically looks like this:
@@ -1736,7 +1784,7 @@ class GaussLog(File):
 
 class JaguarIn(File):
     """
-    Used to retrieve data from Jaguar .in files. Hessian units assumed to be kJ/(mol*Angstrom^2)
+    Used to retrieve data from Jaguar .in files. Hessian is not mass-weighted. Hessian units assumed to be kJ/(mol*Angstrom^2)
     """
     def __init__(self, path):
         super(JaguarIn, self).__init__(path)
@@ -1784,7 +1832,7 @@ class JaguarIn(File):
             logger.log(1, '>>> hessian:\n{}'.format(hessian))
             logger.log(5, '  -- Created {} Hessian matrix (w/o dummy '
                        'atoms).'.format(hessian.shape))
-            self._hessian = hessian * co.HESSIAN_CONVERSION
+            self._hessian = hessian * co.HESSIAN_CONVERSION #TODO find a more universal way to manage units, JAGUAR IGNORED UNITS SETTINGS????!
             logger.log(1, '>>> hessian.shape: {}'.format(hessian.shape))
         return self._hessian
     
@@ -1811,6 +1859,170 @@ class JaguarIn(File):
         lines.extend(struct.format_coords(format='gauss'))
         lines.append('&')
         return lines
+    
+class JaguarOut(File):
+    """
+    Used to retrieve data from Schrodinger Jaguar .out files. Eigenvalues and Eigenvectors are NOT mass-weighted.
+    """
+    def __init__(self, path):
+        super(JaguarOut, self).__init__(path)
+        self._structures = None
+        self._eigenvalues = None
+        self._eigenvectors = None
+        self._frequencies = None
+        self._dummy_atom_eigenvector_indices = None
+        # self._force_constants = None
+    @property
+    def structures(self):
+        if self._structures is None:
+            self.import_file()
+        return self._structures
+    @property
+    def eigenvalues(self):
+        if self._eigenvalues is None:
+            self.import_file()
+        return self._eigenvalues
+    @property
+    def eigenvectors(self):
+        if self._eigenvectors is None:
+            self.import_file()
+        return self._eigenvectors
+    @property
+    def frequencies(self):
+        if self._frequencies is None:
+            self.import_file()
+        return self._frequencies
+    @property
+    def dummy_atom_eigenvector_indices(self):
+        if self._dummy_atom_eigenvector_indices is None:
+            self.import_file()
+        return self._dummy_atom_eigenvector_indices
+    def import_file(self):
+        logger.log(10, 'READING: {}'.format(self.filename))
+        frequencies = []
+        force_constants = []
+        eigenvectors = []
+        structures = []
+        with open(self.path, 'r') as f:
+            section_geometry = False
+            section_eigenvalues = False
+            section_eigenvectors = False
+            for i, line in enumerate(f):
+                if section_geometry:
+                    cols = line.split()
+                    if len(cols) == 0:
+                        section_geometry = False
+                        structures.append(current_structure)
+                        continue
+                    elif len(cols) == 1:
+                        pass
+                    else:
+                        match = re.match(
+                            '\s+([\d\w]+)\s+({0})\s+({0})\s+({0})'.format(
+                                co.RE_FLOAT), line)
+                        if match != None:
+                            current_atom = Atom()
+                            current_atom.element = match.group(1).translate(str.maketrans('', '', digits))
+                            current_atom.x = float(match.group(2))
+                            current_atom.y = float(match.group(3))
+                            current_atom.z = float(match.group(4))
+                            current_structure.atoms.append(current_atom)
+                            logger.log(0,
+                                       '{0:<3}{1:>12.6f}{2:>12.6f}'
+                                       '{3:>12.6f}'.format(
+                                    current_atom.element, current_atom.x,
+                                    current_atom.y, current_atom.z))
+                if 'geometry:' in line:
+                    section_geometry = True
+                    current_structure = Structure(self.filename)
+                    logger.log(5, '[L{}] Located geometry.'.format(i + 1))
+                if 'Number of imaginary frequencies' in line or \
+                        'Writing vibrational' in line or \
+                        'Thermochemical properties at' in line:
+                    section_eigenvalues = False
+                if section_eigenvectors is True:
+                    cols = line.split()
+                    if len(cols) == 0:
+                        section_eigenvectors = False
+                        eigenvectors.extend(temp_eigenvectors)
+                        continue
+                    else:
+                        for i, x in enumerate(cols[2:]):
+                            if not len(temp_eigenvectors) > i:
+                                temp_eigenvectors.append([])
+                            temp_eigenvectors[i].append(float(x))
+                if section_eigenvalues is True and \
+                        section_eigenvectors is False:
+                    if 'frequencies' in line:
+                        cols = line.split()
+                        frequencies.extend(map(float, cols[1:]))
+                    if 'force const' in line:
+                        cols = line.split()
+                        force_constants.extend(map(float, cols[2:]))
+                        section_eigenvectors = True
+                        temp_eigenvectors = [[]]
+                if 'normal modes in' in line:
+                    section_eigenvalues = True
+        logger.log(1, '>>> len(frequencies): {}'.format(len(frequencies)))
+        logger.log(1, '>>> frequencies:\n{}'.format(frequencies))
+        # logger.log(1, '>>> frequencies:\n{}'.format(
+        #         [x / co.FORCE_CONVERSION for x in frequencies]))
+        # logger.log(1, '>>> frequencies:\n{}'.format(
+        #         [x * 4.55633e-6 for x in frequencies]))
+        # logger.log(1, '>>> frequencies:\n{}'.format(
+        #         [x * 1.23981e-4 for x in frequencies]))
+        # logger.log(1, '>>> frequencies:\n{}'.format(
+        #         [x / 219474.6305 for x in frequencies]))
+        eigenvalues = [- fc / co.FORCE_CONVERSION if f < 0 else
+                         fc / co.FORCE_CONVERSION
+                         for fc, f in zip(force_constants, frequencies)]
+        logger.log(1, '>>> eigenvalues:\n{}'.format(eigenvalues))
+        # Remove eigenvector components related to dummy atoms.
+        # Find the index of the atoms that are dummies.
+        dummy_atom_indices = []
+        for i, atom in enumerate(structures[-1].atoms):
+            if atom.is_dummy:
+                dummy_atom_indices.append(i)
+        logger.log(10, '  -- Located {} dummy atoms.'.format(len(dummy_atom_indices)))
+        # Correlate those indices to the rows in the cartesian eigenvector.
+        dummy_atom_eigenvector_indices = []
+        for dummy_atom_index in dummy_atom_indices:
+            start = dummy_atom_index * 3
+            dummy_atom_eigenvector_indices.append(start)
+            dummy_atom_eigenvector_indices.append(start + 1)
+            dummy_atom_eigenvector_indices.append(start + 2)
+        new_eigenvectors = []
+        # Create new eigenvectors without the rows corresponding to the
+        # dummy atoms.
+        for eigenvector in eigenvectors:
+            new_eigenvectors.append([])
+            for i, eigenvector_row in enumerate(eigenvector):
+                if i not in dummy_atom_eigenvector_indices:
+                    new_eigenvectors[-1].append(eigenvector_row)
+        # Replace old eigenvectors with new where dummy atoms aren't included.
+        eigenvectors = np.array(new_eigenvectors)
+        self._dummy_atom_eigenvector_indices = dummy_atom_eigenvector_indices
+        self._structures = structures
+        self._eigenvalues = np.array(eigenvalues)
+        self._eigenvectors = np.array(eigenvectors)
+        self._frequencies = np.array(frequencies)
+        # self._force_constants = np.array(force_constants)
+        logger.log(5, '  -- Read {} structures'.format(
+                len(self.structures)))
+        logger.log(5, '  -- Read {} frequencies.'.format(
+                len(self.frequencies)))
+        logger.log(5, '  -- Read {} eigenvalues.'.format(
+                len(self.eigenvalues)))
+        logger.log(5, '  -- Read {} eigenvectors.'.format(
+                self.eigenvectors.shape))
+        # num_atoms = len(structures[-1].atoms)
+        # logger.log(5,
+        #            '  -- ({}, {}) eigenvectors expected for linear '
+        #            'molecule.'.format(
+        #         num_atoms * 3 - 5, num_atoms * 3))
+        # logger.log(5, '  -- ({}, {}) eigenvectors expected for nonlinear '
+        #            'molecule.'.format(
+        #         num_atoms * 3 - 6, num_atoms * 3))
 
 # Row of mm3.fld where comments start.
 COM_POS_START = 96
@@ -2250,6 +2462,11 @@ class FF(object):
 
     def __repr__(self):
         return "{}[{}]({})".format(self.__class__.__name__, self.method, self.score)
+    
+    @abstractmethod
+    def get_DOFs_by_param(self, structs:List[Structure]) -> dict:
+        raise NotImplemented
+        
 
 
 class AmberFF(FF):
@@ -2524,6 +2741,22 @@ class AmberFF(FF):
         with open(path, "w") as f:
             f.writelines(lines)
         logger.log(10, "WROTE: {}".format(path))
+
+    def get_DOFs_by_atom_type(self, structs:List[Structure]) -> dict:
+        dof_by_param = dict()
+        for param in self.params:
+            dof_by_param[param.ff_row]:List[DOF] = []
+        for struct in structs:
+            for bond in struct.bonds:
+                dof_by_param[bond.ff_row].append(bond)
+            for angle in struct.angles:
+                dof_by_param[angle.ff_row].append(angle)
+            for dihed in struct.torsions:
+                dof_by_param[dihed.ff_row].append(dihed)
+        return dof_by_param
+    
+    def get_DOFs_by_param(self, structs:List[Structure]) -> dict:
+        return self.get_DOFs_by_atom_type(structs)
 
 
 class MM3(FF):
@@ -3426,6 +3659,22 @@ class MM3(FF):
             f.writelines(lines)
         logger.log(10, "WROTE: {}".format(path))
 
+    def get_DOFs_by_ff_row(self, structs:List[Structure]) -> dict:
+        dof_by_param = dict()
+        for param in self.params:
+            dof_by_param[param.ff_row]:List[DOF] = []
+        for struct in structs:
+            for bond in struct.bonds:
+                dof_by_param[bond.ff_row].append(bond)
+            for angle in struct.angles:
+                dof_by_param[angle.ff_row].append(angle)
+            for dihed in struct.torsions:
+                dof_by_param[dihed.ff_row].append(dihed)
+        return dof_by_param
+    
+    def get_DOFs_by_param(self, structs:List[Structure]) -> dict:
+        return self.get_DOFs_by_ff_row(structs)
+
     def alternate_export_ff(self, path=None, params=None):
         """
         Doesn't rely upon needing to read an mm3.fld.
@@ -3587,7 +3836,8 @@ class MacroModel(File):
                         if '(' in line:
                             split = [item.strip() for item in line.split()]
                             atom_num = split[2][:-1] # same as index
-                            atom = Atom(atom_type_name=split[0], index=int(atom_num), x=float(split[5]), y=float(split[6]), z=float(split[7]))
+                            ele_name = re.sub(r'[0-9]', '', split[0])
+                            atom = Atom(atom_type_name=split[0], element=ele_name, index=int(atom_num), x=float(split[5]), y=float(split[6]), z=float(split[7]))
                             atoms.append(atom)
                         if 'Total' in line:
                             section = None
@@ -3743,7 +3993,7 @@ def geo_from_points(*args):
 
 class MacroModelLog(File):
     """
-    Used to retrieve data from MacroModel log files.
+    Used to retrieve data from MacroModel log files. Hessian is Mass weighted.
     """
     def __init__(self, path):
         super(MacroModelLog, self).__init__(path)
