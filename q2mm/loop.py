@@ -398,6 +398,7 @@ class Loop(object):
                 max_iter = int(cols[2]) if len(cols) > 2 else 1000
                 tight_spread = cols[3] != 'F' if len(cols) > 3 else True 
                 num_ff_particles = int(cols[4]) if len(cols) > 4 else 10 #TODO: do some benchmarking to determine best default
+                ff_row_expanded_bounds = int(cols[5]) if len(cols) > 5 else None
                 if not hasattr(self, 'swarm'):
                     self.swarm = Swarm_Optimizer(
                         direc=self.direc,
@@ -408,7 +409,8 @@ class Loop(object):
                         num_ho_cores=num_ho_cores,
                         max_iter=max_iter,
                         tight_spread=tight_spread,
-                        pop_size=num_ff_particles)
+                        pop_size=num_ff_particles,
+                        ff_row_expand_bounds=ff_row_expanded_bounds)
                     self.ff = self.swarm.run(convergence_precision=self.convergence, ref_data=self.ref_data)
                 else:
                     self.ff = self.swarm.run(convergence_precision=self.convergence, ref_data=self.ref_data, strategy='')

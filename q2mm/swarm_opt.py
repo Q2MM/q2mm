@@ -74,6 +74,7 @@ class Swarm_Optimizer(opt.Optimizer):
         num_ho_cores=1,
         max_iter=1000,
         pop_size=24,
+        ff_row_expand_bounds:int=None
     ):
         super(Swarm_Optimizer, self).__init__(direc, ff, ff_lines, args_ff, args_ref)
 
@@ -86,8 +87,8 @@ class Swarm_Optimizer(opt.Optimizer):
                 upper_bounds.append(7.0)
                 deviations.append(0.125) if tight_spread else deviations.append(1.0)
             elif param.ptype == "bf":
-                lower_bounds.append(0.1)
-                upper_bounds.append(7.0)
+                lower_bounds.append(5.0) if ff_row_expand_bounds == param.ff_row else lower_bounds.append(0.1)
+                upper_bounds.append(30.0) if ff_row_expand_bounds == param.ff_row else upper_bounds.append(7.0)
                 deviations.append(0.125) if tight_spread else deviations.append(1.0)
             elif param.ptype == "ae":
                 lower_bounds.append(0.0)
