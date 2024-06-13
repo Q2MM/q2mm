@@ -384,3 +384,36 @@ CHELPG_RADII = OrderedDict(
     )
 
 
+# Commands where we need to load the force field.
+COM_LOAD_FF    = ['ma', 'mb', 'mt',
+                  'ja', 'jb', 'jt']
+# Commands related to Gaussian.
+COM_GAUSSIAN   = ['gaa','gaao','gab','gabo','gat','gato',
+                  'gta','gtb','gtt','ge','ge1', 'gea', 'geo','ge1o', 'geao',
+                  'gh', 'geigz']
+# Commands related to Jaguar (Schrodinger).
+COM_JAGUAR     = ['jq', 'jqh', 'jqa',
+                  'je', 'jeo', 'jea', 'jeao',
+                  'jh', 'jeigz']
+# Commands related to MacroModel (Schrodinger).
+# Seems odd that the Jaguar geometry datatypes are in here, but we
+# do a MacroModel calculation to get the data in an easy form to
+# extract.
+COM_MACROMODEL = ['ja', 'jb', 'jt',
+                  'mq', 'mqh', 'mqa',
+                  'ma', 'mb', 'mt',
+                  'me', 'meo', 'mea', 'meao',
+                  'mh', 'mjeig', 'mgeig',
+                  'mp', 'mgESP', 'mjESP']
+# Commands related to Tinker.
+COM_TINKER     = ['ta','tao', 'tb', 'tbo',
+                  'tt','tto', 'te', 'teo',
+                  'tea','teao', 'th',
+                  'tjeigz', 'tgeig']
+# Commands related to Amber.
+COM_AMBER      = ['ae','ae1','aeo','ae1o','abo','aao','ato','ah']
+# All other commands.
+COM_OTHER = ['r']                           
+# All possible commands.
+COM_ALL = COM_GAUSSIAN + COM_JAGUAR + COM_MACROMODEL + COM_TINKER + \
+          COM_AMBER + COM_OTHER

@@ -87,7 +87,7 @@ class Swarm_Optimizer(opt.Optimizer):
                 upper_bounds.append(7.0)
                 deviations.append(0.125) if tight_spread else deviations.append(1.0)
             elif param.ptype == "bf":
-                lower_bounds.append(5.0) if ff_row_expand_bounds == param.ff_row else lower_bounds.append(0.1)
+                lower_bounds.append(15.0) if ff_row_expand_bounds == param.ff_row else lower_bounds.append(0.1)
                 upper_bounds.append(30.0) if ff_row_expand_bounds == param.ff_row else upper_bounds.append(7.0)
                 deviations.append(0.125) if tight_spread else deviations.append(1.0)
             elif param.ptype == "ae":
@@ -179,20 +179,23 @@ class Swarm_Optimizer(opt.Optimizer):
         self.num_ff_threads = min(num_cores, num_ff_threads)
 
         self.base_pool_dir = self.direc
+        files_to_move = []
+        calc_parser = calculate.return_calculate_parser()
+        calc_args = calc_parser.parse_args(self.args_ff)
+        temp = {key: value for key, value in calc_args.__dict__.items() if key
+                in co.COM_ALL and value}
+        for calc in temp.values():
+            for file_set in calc[0]:
+                files_to_move.extend(file_set.split(','))
         for i in range(self.num_ff_threads):
             os.mkdir(os.path.join(self.direc, "temp_" + str(i)))
-            os.popen(
-                "cp "
-                + os.path.join(self.direc, "*.mae")
-                + " "
-                + os.path.join(self.direc, "temp_" + str(i))
-            )
-            os.popen(
-                "cp "
-                + os.path.join(self.direc, "*.out")
-                + " "
-                + os.path.join(self.direc, "temp_" + str(i))
-            )
+            for file in files_to_move:
+                os.popen(
+                    "cp "
+                    + os.path.join(self.direc, file)
+                    + " "
+                    + os.path.join(self.direc, "temp_" + str(i))
+                )
             os.popen(
                 "cp "
                 + os.path.join(self.direc, "atom.typ")
