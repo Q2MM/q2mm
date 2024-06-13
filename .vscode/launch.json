@@ -5,13 +5,39 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python Debugger: Attach using Process Id",
+            "type": "debugpy",
+            "request": "attach",
+            "processId": "${command:pickProcess}"
+        },
+        {
             "name": "Python: Current File",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["--ff-out", "test.seminario.frcmod", "--ff-in", "test.frcmod", "--mol", "test.mol2", "--fchk", "test.fchk"]
+            "args": [
+                "--ff-out",
+                "test.seminario.frcmod",
+                "--ff-in",
+                "test.frcmod",
+                "--mol",
+                "test.mol2",
+                "--fchk",
+                "test.fchk"
+            ]
+        },
+        {
+            "name": "Eig Loop",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/mfarrugi/repos/q2mm/q2mm/loop.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "/home/mfarrugi/repos/q2mm/rh-hybrid/test_sem_hybrid_eig/loop-eig.in"
+            ]
         }
     ]
 }

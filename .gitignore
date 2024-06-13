@@ -7,6 +7,8 @@
 *.mae
 *.mmo
 *.fld
+*.typ
+rh-hybrid/
 example_data/*
 
 # Created by http://www.gitignore.io
@@ -173,6 +175,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+*.json
+*.ve
 
 # Spyder project settings
 .spyderproject
