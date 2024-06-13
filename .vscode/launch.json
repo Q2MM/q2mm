@@ -5,21 +5,8 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Attach using Process Id",
-            "type": "debugpy",
-            "request": "attach",
-            "processId": "${command:pickProcess}"
-        },
-        {
-            "name": "Python: Attach using Process Id",
-            "type": "python",
-            "request": "attach",
-            "processId": "${command:pickProcess}",
-            "justMyCode": true
-        },
-        {
             "name": "Loop Q2MM",
-            "type": "python",
+            "type": "debugpy",
             "request":"launch",
             "subProcess": true,
             "program": "q2mm/loop.py",
@@ -28,7 +15,7 @@
         },
         {
             "name": "Python: Seminario",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "q2mm/seminario.py",
             "console": "integratedTerminal",
@@ -76,27 +63,6 @@
             //     ">",
             //     "q2mm_example/meets.seminario.txt"
             // ]
-        },
-        {
-            "name": "eth mm3 seminario",
-            "type": "python",
-            "request": "launch",
-            "program": "q2mm/seminario.py",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": [
-                "--ff-out",
-                "q2mm_example/multi-mae/eth.umw.kjmola.fld",
-                "--ff-in",
-                "q2mm_example/multi-mae/eth.fld",
-                "--mol",
-                "q2mm_example/multi-mae/eth-opt.mol2",
-                "--log",
-                "q2mm_example/multi-mae/eth.log",
-                "--prep",
-                ">",
-                "q2mm_example/multi-mae/eth.umw.kjmola.out.txt"
-            ]
         },
         {
             "name": "rh mm3 seminario",
@@ -165,6 +131,25 @@
             "justMyCode": true,
             "args": [
                 "/home/mfarrugi/repos/q2mm/rh-hybrid/test_sem_hybrid_eig/loop-eig.in"
+            ]
+        },
+        {
+            "name": "Ferrocene FUERZA",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/mfarrugi/repos/q2mm/q2mm/seminario.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--ff-out",
+                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/ferrocene.seminario.test.fld",
+                "--ff-in",
+                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/ferrocene_start.fld",
+                "--mmo",
+                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/1.q2mm.mmo",
+                "--log",
+                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/1.log",
+                "--prep"
             ]
         }
     ]
