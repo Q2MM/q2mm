@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Estimates bond and angle force constants, prepares a force field for Q2MM parameterization.
 
@@ -18,11 +19,10 @@ This step should be done after RESP calculation, generation of a force field fil
 ensures that all interactions in the structures are covered by a corresponding parameter in the
 force field file (compatibility via compare.py or calculate.py usage typically).
 
-Code adapted from Samuel Genheden and can be found at
+Portions of code adapted from Samuel Genheden and can be found at
 https://github.com/SGenheden/Seminario
-
-TODO reformat docstrings to Google style
 """
+
 from __future__ import division, print_function, absolute_import
 import argparse
 from collections import Counter
@@ -35,7 +35,7 @@ from typing import List
 import numpy as np
 import parmed
 
-from linear_algebra import invert_ts_curvature
+from linear_algebra import invert_ts_curvature, reform_hessian
 
 import logging
 import logging.config
@@ -60,34 +60,29 @@ import utilities
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
 
-# region calculation_methods TODO perhaps move some of these to linear_algebra.py,
+# region calculation_methods
+
+# TODO perhaps move some of these to linear_algebra.py,
 # can do when I reformat the docstrings to Google style after I've tested the method.
 # Preferably, have it done before publication though.
 
 
-def sub_hessian(hessian, atom1: Atom, atom2: Atom, ang_to_bohr=False):
-    """
-    Subsample the Hessian matrix that is formed between atom1 and atom2
-    as well as calculating the vector from atom1 to atom2
+def sub_hessian(hessian, atom1: Atom, atom2: Atom, ang_to_bohr=False) -> tuple:   
+    """Subsample the Hessian matrix by pulling out the terms relevant to the
+    bond that is formed between atom1 and atom2 as well as calculating the 
+    vector from atom1 to atom2.
 
-    Parameters
-    ----------
-    hessian : numpy.ndarray
-        the Hessian matrix
-    atom1 : parmed.Atom
-        the first atom
-    atom2 : parmed.Atom
-        the second atom
+    Args:
+        hessian (np.ndarray): Hessian matrix
+        atom1 (Atom): first atom
+        atom2 (Atom): second atom
+        ang_to_bohr (bool, optional): whether to convert the hessian terms from
+         Angstrom length units to Bohr radii units. Defaults to False.
 
-    Returns
-    -------
-    numpy.ndarray
-        the vector from atom1 to atom2
-    numpy.ndarray
-        the eigenvalues of the submatrix
-    numpy.ndarray
-        the eigenvector of the submatrix
-    """
+    Returns:
+        tuple: tuple of (vector from atom1 to atom2, eigenvalues of the submatrix,
+         eigenvector of the submatrix)
+    """    
     vec12 = atom1.coords - atom2.coords
     if ang_to_bohr:
         vec12 = vec12 / co.BOHR_TO_ANG
@@ -101,29 +96,17 @@ def sub_hessian(hessian, atom1: Atom, atom2: Atom, ang_to_bohr=False):
     return vec12, eigval, eigvec
 
 
-def get_unit_vector(atom1: Atom, atom2: Atom, ang_to_bohr=False):
-    """
-    Subsample the Hessian matrix that is formed between atom1 and atom2
-    as well as calculating the vector from atom1 to atom2
+def get_unit_vector(atom1: Atom, atom2: Atom, ang_to_bohr=False) -> np.ndarray:
+    """Get the unit vector between atom1 and atom2
 
-    Parameters
-    ----------
-    hessian : numpy.ndarray
-        the Hessian matrix
-    atom1 : parmed.Atom
-        the first atom
-    atom2 : parmed.Atom
-        the second atom
+    Args:
+        atom1 (Atom): first atom
+        atom2 (Atom): second atom
+        ang_to_bohr (bool, optional): whether to convert the distance from Angstroms to Bohr radii. Defaults to False.
 
-    Returns
-    -------
-    numpy.ndarray
-        the vector from atom1 to atom2
-    numpy.ndarray
-        the eigenvalues of the submatrix
-    numpy.ndarray
-        the eigenvector of the submatrix
-    """
+    Returns:
+        numpy.ndarray: unit vector between atom1 and atom2
+    """    
     vec12 = atom1.coords - atom2.coords
     vec21 = atom2.coords - atom1.coords
     unit_vec = np.hstack((vec12, vec21))
@@ -133,7 +116,19 @@ def get_unit_vector(atom1: Atom, atom2: Atom, ang_to_bohr=False):
     return unit_vec
 
 
-def get_subhessian(hessian, atom1: Atom, atom2: Atom):
+def get_subhessian(hessian, atom1: Atom, atom2: Atom) -> np.ndarray:
+    """Subsample the Hessian matrix by pulling out the terms relevant to the
+    bond that is formed between atom1 and atom2 as well as calculating the 
+    vector from atom1 to atom2.
+
+    Args:
+        hessian (np.ndarray): Hessian matrix
+        atom1 (Atom): first atom
+        atom2 (Atom): second atom
+
+    Returns:
+        np.ndarray: submatrix of the Hessian relevant to atom1-atom2 interactions.
+    """    
     submat_11 = (
         0
         * hessian[
@@ -186,32 +181,25 @@ def po_sum(unit_vec, eigval, eigvec):
     return ssum
 
 
-def seminario_sum(vec, eigval, eigvec):
-    """
-    Average the projections of the eigenvector on a specific unit vector
-    according to Seminario
+def seminario_sum(vec, eigval, eigvec) -> float:
+    """Average the projections of the Hessian eigenvector on a specific interaction unit vector
+    according to FUERZA
 
-    Parameters
-    ----------
-    vec : numpy.ndarray
-        the unit vector
-    eigval : numpy.ndarray
-        the eigenvalues of a Hessian submatrix
-    eigvec : numpy.ndarray
-        the eigenvectors of a Hessian submatrix
+    Args:
+        vec (np.ndarray): unit vector (atomic interaction)
+        eigval (np.ndarray): eigenvalues of Hessian submatrix
+        eigvec (np.ndarray): eigenvectors of Hessian submatrix
 
-    Returns
-    -------
-    float :
-        the average projection
-    """
+    Returns:
+        float: the averaged projection to serve as a force constant estimate
+    """    
     ssum = 0.0
     for i in range(3):
         ssum += eigval[i] * np.abs(np.dot(eigvec[:, i], vec))
     return ssum
 
 
-def po_bond_alt(bond, hessian, scaling=0.963, convert=False):
+def po_bond_alt(bond, hessian, scaling=0.963, convert=False) -> float:
     unit_vector_ab = get_unit_vector(bond.atom1, bond.atom2)
     subhessian = get_subhessian(hessian, bond.atom1, bond.atom2)
     eigval, eigvec = np.linalg.eig(subhessian)
@@ -244,10 +232,15 @@ def po_bond(atoms: list, hessian, scaling=0.963, convert=False, ang_to_bohr=Fals
 
 
 def seminario_bond(atoms: list, hessian, scaling=0.963, ang_to_bohr=False) -> float:
-    """
-    Estimate the bond force constant using the Seminario method, i.e. by
+    """Estimate the bond force constant using the Seminario method, i.e. by
     analysing the Hessian submatrix. Will average over atom1->atom2 and
-    atom2->atom1 force constants
+    atom2->atom1 force constants.
+
+    Args:
+        atoms (list[Atom]): atoms involved in the bond for which to estimate a force constant
+        hessian (np.ndarray): Hessian matrix
+        scaling (float, optional): Hessian scaling factor, dependent on Hessian calculation level of theory. Defaults to 0.963 for DFT.
+        ang_to_bohr (bool, optional): whether to convert length units from Angstrom to Bohr radii. Defaults to False.
 
     Note:
         Multiplication by a scaling factor is necessary because different Quantum-level
@@ -255,20 +248,9 @@ def seminario_bond(atoms: list, hessian, scaling=0.963, ang_to_bohr=False) -> fl
         are typically overestimated, so DFT calculations must be scaled down by ~0.963x,
         hence the default scaling of 0.963.
 
-    Parameters
-    ----------
-    bond : parmed.Bond
-        the bond to estimate the force constant for
-    hessian : numpy.ndarray
-        the Hessian matrix
-    scaling : float
-        the Hessian scaling factor
-
-    Returns
-    -------
-    float :
-        estimated bond force constant in AU
-    """
+    Returns:
+        float: estimated bond force constant in AU
+    """    
 
     vec12, eigval12, eigvec12 = sub_hessian(
         hessian, atoms[0], atoms[1], ang_to_bohr=ang_to_bohr
@@ -284,11 +266,38 @@ def seminario_bond(atoms: list, hessian, scaling=0.963, ang_to_bohr=False) -> fl
     # 2240.87 is from Hartree/Bohr ^2 to kcal/mol/A^2
     # 418.4 is kcal/mol/A^2 to kJ/mol/nm^2
 
-    if f12 <=0 or f21 <=0:
-        logger.log(logging.WARNING, "Estimated force constant between atoms: {}, {} <= 0, with raw kJ/molA estimates: {} {}!\nSetting to 0.0 instead.".format(atoms[0].index, atoms[1].index, f12, f21))
-        return 0.0
+    if f12 <= 0 or f21 <= 0:
+        logger.log(
+            logging.DEBUG,
+            "Estimated force constant between atoms: {}, {} <= 0, with raw kJ/molA estimates: {} {}!\nSetting to 0.5 instead.".format(
+                atoms[0].index, atoms[1].index, f12, f21
+            ),
+        )
 
-    return scaling * 0.5 * (f12 + f21)
+    if np.iscomplexobj(f12):
+        logger.log(logging.DEBUG, "Complex number in estimate for bond f12 ("+str(f12)+"): "+str(atoms))
+        if not np.iscomplex(f12):
+            f12 = np.real(f12)
+        else:
+            logger.log(logging.WARN, "WARNING: Non-zero imaginary component of bond force constant estimate for angle ("+str(f12)+"): "+str(atoms)+".")
+    
+    if np.iscomplexobj(f21):
+        logger.log(logging.DEBUG, "Complex number in estimate for bond f21 ("+str(f21)+"): "+str(atoms))
+        if not np.iscomplex(f21):
+            f21 = np.real(f21)
+        else:
+            logger.log(logging.WARN, "WARNING: Non-zero imaginary component of bond force constant estimate for angle ("+str(f21)+"): "+str(atoms)+".")
+
+    f = 0.5 * (f12 + f21)
+    if f <= 0:
+        logger.log(
+            logging.WARNING,
+            "WARNING: Estimated force constant between atoms: {}, {} <= 0, with (raw, scaled) kJ/molA estimate: {} {}!\nPlease visualize normal modes to confirm transition states are correct.".format(
+                atoms[0].index, atoms[1].index, f, f*scaling
+            ),
+        )
+
+    return scaling * f
 
 
 def po_angle(
@@ -348,20 +357,26 @@ def po_angle(
         return scaling * f
 
 
-def seminario_angle(atoms, hessian, scaling=0.963, convert=False, ang_to_bohr=False):
-    """
-    Estimate the angle force constant using the Seminario method, i.e. by
+def seminario_angle(atoms:list, hessian, scaling=0.963, convert=False, ang_to_bohr=False) -> float:
+    """Estimate the angle force constant using the Seminario method, i.e. by
     analysing the Hessian submatrix.
 
-    Parameters
-    ----------
-    angle : parmed.Angle
-        the angle to estimate the force constant for
-    hessian : numpy.ndarray
-        the Hessian matrix
-    scaling : float
-        the Hessian scaling factor
-    """
+    Args:
+        atoms (list[Atom]): list of Atom objects for which to estimate the angle force constant
+        hessian (numpy.ndarray): Hessian matrix
+        scaling (float, optional): Hessian scaling factor, dependent on Hessian calculation level of theory. Defaults to 0.963 for DFT.
+        convert (bool, optional): whether to convert force constant from AU to kJ/mol. Defaults to False.
+        ang_to_bohr (bool, optional): whether to convert structure length units from Angstrom to Bohr. Defaults to False.
+
+    Note:
+        Multiplication by a scaling factor is necessary because different Quantum-level
+        calculations are often off by some consistent factor. In the case of DFT, values
+        are typically overestimated, so DFT calculations must be scaled down by ~0.963x,
+        hence the default scaling of 0.963.
+    
+    Returns:
+        float: estimated angle force constant
+    """    
 
     assert len(atoms) == 3
     vec12, eigval12, eigvec12 = sub_hessian(hessian, atoms[0], atoms[1])
@@ -375,6 +390,7 @@ def seminario_angle(atoms, hessian, scaling=0.963, convert=False, ang_to_bohr=Fa
     sum1 = seminario_sum(upa, eigval12, eigvec12)
     sum2 = seminario_sum(upc, eigval32, eigvec32)
 
+
     len12 = utilities.measure_bond(atoms[0].coords, atoms[1].coords)
     if ang_to_bohr:
         len12 = len12 / co.BOHR_TO_ANG
@@ -382,9 +398,35 @@ def seminario_angle(atoms, hessian, scaling=0.963, convert=False, ang_to_bohr=Fa
     if ang_to_bohr:
         len32 = len32 / co.BOHR_TO_ANG
 
+    f12 = 1.0 / (sum1 * len12 * len12)
+    f32 = 1.0 / (sum2 * len32 * len32)
+
+    if f12 <= 0 or f32 <= 0:
+        logger.log(
+            logging.DEBUG,
+            "Estimated force constant between atoms: {}, {}, {} <= 0, with raw kJ/molA estimates: {}, {}!".format(
+                atoms[0].index, atoms[1].index, atoms[2].index, f12, f32
+            ),
+        )
+
     f = 1.0 / (1.0 / (sum1 * len12 * len12) + 1.0 / (sum2 * len32 * len32))
 
-    # 627.5095 is Hatree to kcal/mol
+    if f < 0:
+        logger.log(
+            logging.WARNING,
+            "WARNING: Estimated force constant between atoms: {}, {}, {} < 0, with (raw, scaled) kJ/molA estimate: {} {}!\nPlease visualize normal modes to confirm transition states are correct.".format(
+                atoms[0].index, atoms[1].index, atoms[2].index, f, f*scaling
+            ),
+        )
+
+    if np.iscomplexobj(f):
+        logger.log(logging.DEBUG, "Complex number in estimate for angle("+str(f)+"): "+str(atoms))
+        if not np.iscomplex(f):
+            f = np.real(f)
+        else:
+            logger.log(logging.WARN, "WARNING: Non-zero imaginary component of angle force constant estimate for angle ("+str(f)+"): "+str(atoms))
+
+    # 627.5095 is Hartree to kcal/mol
     # 4.184 is kcal/mol to kJ/mol
     if convert:
         return scaling * 627.5095 * 4.184 * f
@@ -397,11 +439,16 @@ def seminario_angle(atoms, hessian, scaling=0.963, convert=False, ang_to_bohr=Fa
 # region Arguments
 
 
-def return_params_parser(add_help=True):
-    """
-    Returns an argparse.ArgumentParser object for the selection of
+def return_params_parser(add_help=True) -> argparse.ArgumentParser:
+    """Returns an argparse.ArgumentParser object for the selection of
     parameters.
-    """
+
+    Args:
+        add_help (bool, optional): toggle acceptance of -h for descriptive help information to be output. Defaults to True.
+
+    Returns:
+        argparse.ArgumentParser: Parser for seminario.py command-line arguments
+    """    
     if add_help:
         description = __doc__
         parser = argparse.ArgumentParser(
@@ -532,24 +579,29 @@ def estimate_bf_param(
     match_vals = []
     for struct, hessian in zip(structs, hessians):
         for bond in struct.bonds:
-            if param.ff_row == bond.ff_row: # TODO I have no clue why there is a mismatch here, it clearly comes from past IO, but literally WHY??
-                                                # It looks like it's just an artifact of 1-basing Param ff_row and 0-basing bond ff_row when taking it from lines
-                                                # This should be investigated and fixed or explained in full otherwise it will absolutely continue
-                                                # to be a stumbling block when maintaining, improving, learning this code... Creates weird mismatches and I hate it
+            if (
+                param.ff_row == bond.ff_row
+            ):  # TODO I have no clue why there is a mismatch here, it clearly comes from past IO, but literally WHY??
+                # It looks like it's just an artifact of 1-basing Param ff_row and 0-basing bond ff_row when taking it from lines
+                # This should be investigated and fixed or explained in full otherwise it will absolutely continue
+                # to be a stumbling block when maintaining, improving, learning this code... Creates weird mismatches and I hate it
                 match_count += 1
                 s_bond = seminario_bond(
                     atoms=struct.get_atoms_in_DOF(bond),
                     hessian=hessian,
                     ang_to_bohr=ang_to_bohr,
                 )
+                if s_bond < 0 or np.iscomplex(s_bond):
+                    logger.log(logging.WARN, "Invalid estimate of param {} in structure {}".format(param, struct.origin_name))
+
                 # The below reverse-massweighting of the force constant is only necessary if the mass-weighted
                 # Hessian is used.
                 # s_bond = mass_weight_force_constant(s_bond, struct.get_atoms_in_DOF(bond), reverse=True, rm = False)
                 logger.log(
                     logging.DEBUG, "Seminario (KJMOLA)" + str(bond) + ": " + str(s_bond)
                 )
-                # p_bond = po_bond(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
-                match_vals.append(s_bond)
+                #TODO retest PO method p_bond = po_bond(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
+                if s_bond > 0 and not np.iscomplex(s_bond): match_vals.append(s_bond) # only includes estimate if it is valid, warnings are triggered upon calculation. bonds where all structures have invalid estimates should simply remain unchanged from input. 
     if match_count <= 0:
         logger.log(
             logging.WARN,
@@ -558,7 +610,11 @@ def estimate_bf_param(
         )
         return None
     else:
-        averaged_fc = sum([float(fc) for fc in match_vals]) / float(match_count)
+        if len(match_vals) == 0:
+            logger.log(logging.WARNING, "WARNING: All structures with interactions matching parameter {} have invalid estimates so it will not be changed. Please review normal modes.".format(param))
+            return None
+        
+        averaged_fc = sum([float(fc) for fc in match_vals]) / float(len(match_vals))
         return averaged_fc
 
 
@@ -597,12 +653,14 @@ def estimate_af_param(
                 s_angle = seminario_angle(
                     struct.get_atoms_in_DOF(angle), hessian, ang_to_bohr=ang_to_bohr
                 )
-                # p_bond = po_angle(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
+                if s_angle < 0 or np.iscomplex(s_angle):
+                    logger.log(logging.WARN, "Invalid estimate of param {} in structure {}".format(param, struct.origin_name))
+                #TODO retest this method p_bond = po_angle(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
                 logger.log(
                     logging.DEBUG,
                     "Seminario (KJMOLA)" + str(angle) + ": " + str(s_angle),
                 )
-                match_vals.append(s_angle)
+                if s_angle > 0 and not np.iscomplex(s_angle): match_vals.append(s_angle)
     if match_count <= 0:
         logger.log(
             logging.WARN,
@@ -611,6 +669,10 @@ def estimate_af_param(
         )
         return None
     else:
+        if len(match_vals) == 0:
+            logger.log(logging.WARNING, "WARNING: All structures with interactions matching parameter {} have invalid estimates so it will not be changed. Please review normal modes.".format(param))
+            return None
+        
         averaged_fc = sum([float(fc) for fc in match_vals]) / match_count
         return averaged_fc
 
@@ -696,10 +758,10 @@ def seminario(
     zero_out: bool,
     hessian_units=co.GAUSSIAN,
 ) -> FF:
-    """Returns a FF with Seminario/FUERZA-estimated initial force constant and averaged equilibrium structure parameters.
+    """Returns a FF with Seminario/FUERZA-estimated force constant and averaged equilibrium structure parameters.
 
     Args:
-        force_field (FF): FF for which to estimate new initial parameters.
+        force_field (FF): FF for which to estimate new parameters.
         structures (List[Structure]): structures for which to estimate new FF(s) in Angstrom, degrees
         hessians (np.ndarray): Hessian matrices (Cartesian), units assumed to be in kJ mol**-1 Ang**-2. If otherwise, specify unit
         system with hessian_units constant from constants.py. List must be in same order as structures.
@@ -716,6 +778,7 @@ def seminario(
     estimated_ff = copy.deepcopy(force_field)
     structs = structures
 
+    # TODO verify if below is still an issue
     # In the case of MM3, user may have equivalent atom types such as HX referring to
     # H1, H2, or H3.  Outside of seminario, this is simply handled by MacroModel, but
     # here we need to ensure that any atom types with an equivalent generalized type
@@ -728,18 +791,6 @@ def seminario(
     #         struct.generalize_to_ff_atom_types(force_field.atom_type_equivalencies, force_field.atom_types)
 
     ang_to_bohr = hessian_units == co.GAUSSIAN
-
-    """ # Last Gaussian Eigenvalue Analysis Check TODO move this to unit testing
-
-    last_evec_ch = log.evecs[-1]
-    normed = last_evec_ch/np.linalg.norm(last_evec_ch)
-    print("normed final eigenvector ch: "+str(normed))
-    last_evec_hess = np.dot(normed, min_hessian)
-    print("last evec dot hess: "+str(last_evec_hess))
-    dotted_again = last_evec_hess.dot(np.transpose(normed))
-    print("last evec dot dot: "+str(dotted_again))
-    print("all close hessian dotted: "+str(np.allclose(log.evals[-1], dotted_again)))
-    print("last eigenvalue/force constant: "+str(log.evals[-1]))"""
 
     for param in estimated_ff.params:
         if param.ptype == "bf":
@@ -766,7 +817,7 @@ def seminario(
     return estimated_ff
 
 
-# region Stand-alone AMBER Seminario methods process
+# region Stand-alone Seminario/FUERZA methods process
 
 
 def main(args):
@@ -802,7 +853,7 @@ def main(args):
         args.mol = sorted(glob.glob(args.mol[0]))
 
     if args.mmo and "*" in args.mmo[0]:
-        args.mol = sorted(glob.glob(args.mmo[0]))
+        args.mmo = sorted(glob.glob(args.mmo[0]))
 
     structs: List[Structure] = []
 
@@ -855,6 +906,9 @@ def main(args):
         hessians: List[np.ndarray] = []
         for log in logs:
             mw_hessian = copy.deepcopy(log.structures[-1].hess)
+            # evals = log.evals
+            # evecs = log.evecs
+            # mw_hessian = reform_hessian(evals, evecs)
             # mass_weight_hessian(mw_hessian, log.structures[-1].atoms)
             if args.invert:
                 mw_hessian = invert_ts_curvature(mw_hessian)

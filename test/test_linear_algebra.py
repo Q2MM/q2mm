@@ -1,10 +1,15 @@
 from __future__ import print_function
+from ast import List
+import copy
+from ctypes import Structure
 
 import os
 import sys
 
 import unittest
 import numpy as np
+import constants
+from schrod_indep_filetypes import FF
 
 src_dir = os.path.abspath("q2mm")
 sys.path.append(src_dir)
@@ -74,4 +79,32 @@ class TestLinearAlgebra(unittest.TestCase):
     def test_reform_hessian(self):
         evals, evecs = linear_algebra.decompose(example_sq3)
         reformed_sq3 = linear_algebra.reform_hessian(evals, evecs)
-        np.testing.assert_allclose(example_sq3, reformed_sq3, err_msg="Hessian is not reformed properly.")
+        np.testing.assert_allclose(
+            example_sq3, reformed_sq3, err_msg="Hessian is not reformed properly."
+        )
+
+    def test_last(
+        self,
+        force_field: FF,
+        structures: List[Structure],
+        hessians: List[np.ndarray],
+        zero_out: bool,
+        hessian_units=constants.GAUSSIAN,
+    ):
+        # TODO this might need to be refactored for python 3.8 at some point if it will be run with Schrodinger...
+        # Last Gaussian Eigenvalue Analysis Check TODO finish refactoring this after moving from seminario.py
+
+        estimated_ff = copy.deepcopy(force_field)
+        structs = structures
+
+        last_evec_ch = log.evecs[-1]
+        normed = last_evec_ch / np.linalg.norm(last_evec_ch)
+        print("normed final eigenvector ch: " + str(normed))
+        last_evec_hess = np.dot(normed, min_hessian)
+        print("last evec dot hess: " + str(last_evec_hess))
+        dotted_again = last_evec_hess.dot(np.transpose(normed))
+        print("last evec dot dot: " + str(dotted_again))
+        print(
+            "all close hessian dotted: " + str(np.allclose(log.evals[-1], dotted_again))
+        )
+        print("last eigenvalue/force constant: " + str(log.evals[-1]))

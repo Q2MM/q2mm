@@ -1,158 +1,112 @@
-
-from __future__ import division, print_function, absolute_import
-
+from __future__ import print_function
+import copy
+import logging
+import logging.config
 import os
-import sys
-import time
 import unittest
-
-import seminario
-import parmed
 import numpy as np
+import linear_algebra
 
-fchk_filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "..","examples","model.fchk")
-gro_filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "..","examples","model.gro")
-opt_filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "..","examples","model_opt.gro")
+from schrod_indep_filetypes import MM3, MacroModelLog, GaussLog, Mol2, mass_weight_hessian
+from seminario import seminario
+import constants as co
+import utilities
 
-class PutOutput(object) :
+logger = logging.getLogger(__name__)
 
-    def __init__(self) :
-        self.out = []
+class TestEthane(unittest.TestCase):
+    """
+    Check that the -mb command for the calculate module produces the
+    proper number of data points.
+    """
 
-    def write(self, str) :
-        self.out.append(str)
+    struct_path = "test/ethane/ethane.mol2"
+    qm_log_path = "test/ethane/ethane.log"
+    seminario_fld_path = "test/ethane/ethane.seminario.fld"
+    mm_log_path = "test/ethane/ethane.seminario.mm-freq.log"
+    ethane_og_fld_path = "test/ethane/start.fld"
+    mol2_path = "test/ethane/ethane.mol2"
 
-    def __str__(self) :
-        return "".join(self.out)
+    def run_seminario(self):
+        
+        ethane_ff = seminario(self.ethane_og_fld, self.structs, self.hessians, zero_out=True, hessian_units=co.KJMOLA)
+        ethane_ff.export_ff(self.seminario_fld_path, ethane_ff.params)
 
-class TestSeminario(unittest.TestCase):
+    def read_in_files(self):
+        self.ethane_og_fld = MM3(self.ethane_og_fld_path)
+        self.mol2s = [Mol2(self.mol2_path)]
+        self.structs = [mol2.structures[0] for mol2 in self.mol2s]
+        self.qm_log = GaussLog(self.qm_log_path)
+        self.qm_structs = self.qm_log.structures
+        self.hessians = [struct.hess for struct in self.qm_structs]
 
-    def test_loadstruct(self) :
+    def read_out_files(self):
+        self.qm_log = GaussLog(self.qm_log_path, au_hessian=False)
+        self.qm_structs = self.qm_log.structures
+        self.mm_log = MacroModelLog(self.mm_log_path)
 
-        struct = parmed.load_file(gro_filename, skip_bonds=True)
-        self.assertEqual(len(struct.atoms),41)
+    def test_seminario_ethane_hessian(self):
 
-    def test_loadfchk(self) :
+        self.read_in_files()
+        self.read_out_files()
 
-        xyz_opt, hess = seminario.gaussian.parse_fchk(fchk_filename)
-        self.assertEqual(xyz_opt.shape,(41,3))
-        self.assertEqual(hess.shape,(123,123))
-        self.assertEqual(xyz_opt[0,0],-2.39626372)
-        self.assertEqual(hess[0,0],0.493623378)
+        qm_hessian = self.qm_structs[0].hess # KJMOLA
+        mass_weight_hessian(qm_hessian, self.structs[0].atoms)
+        mm_hessian = self.mm_log.hessian
+        mm_hessian = mm_hessian #* co.HARTREE_TO_KJMOL / co.HARTREE_TO_KCALMOL
 
-    def test_bondparm(self) :
+        diff = mm_hessian - qm_hessian
+        proportion_error = diff / qm_hessian
+        percent_error_signed = proportion_error * 100
+        percent_error = np.abs(percent_error_signed)
+        max = np.max(percent_error)
+        min = np.min(percent_error)
+        avg = np.average(percent_error)
+        median = np.median(percent_error)
+        stddev = np.std(percent_error)
 
-        struct = parmed.load_file(gro_filename, skip_bonds=True)
-        xyz_opt, hess = seminario.gaussian.parse_fchk(fchk_filename)
-        struct.coordinates = xyz_opt*0.529177249
-        atom1 = struct.view[":1@N"].atoms[0]
-        atom2 = struct.view[":3@CU"].atoms[0]
-        bond = parmed.Bond(atom1, atom2)
-        force = seminario.forcefield.seminario_bond(bond, hess, 0.963)
-        self.assertEqual(np.round(force,4), 60493.9023)
-        self.assertEqual(np.round(bond.measure(),3), 1.993)
+        mm_eigvals, mm_eigvecs = np.linalg.eigh(self.mm_log.hessian)
+        reformed_mm_hessian = linear_algebra.reform_hessian(mm_eigvals, self.qm_log.evecs)
 
-    def test_angleparm(self) :
+        # reformed_diff = reformed_mm_hessian - qm_hessian
+        # reformed_proportion_error = reformed_diff / qm_hessian
+        # reformed_percent_error_signed = reformed_proportion_error * 100
+        # reformed_percent_error = np.abs(reformed_percent_error_signed)
+        # reformed_max = np.max(reformed_percent_error)
+        # reformed_min = np.min(reformed_percent_error)
+        # reformed_avg = np.average(reformed_percent_error)
+        # reformed_median = np.median(reformed_percent_error)
+        # reformed_stddev = np.std(reformed_percent_error)
 
-        struct = parmed.load_file(gro_filename, skip_bonds=True)
-        xyz_opt, hess = seminario.gaussian.parse_fchk(fchk_filename)
-        struct.coordinates = xyz_opt*0.529177249
-        atom1 = struct.view[":1@CG"].atoms[0]
-        atom2 = struct.view[":1@ND1"].atoms[0]
-        atom3 = struct.view[":3@CU"].atoms[0]
-        angle = parmed.Angle(atom1, atom2, atom3)
-        force = seminario.forcefield.seminario_angle(angle, hess, 0.963)
-        self.assertEqual(np.round(force,4), 192.3902)
-        self.assertEqual(np.round(angle.measure(),3), 123.642)
+        mm_eigenmatrix = np.dot(np.dot(self.qm_log.evecs, mm_hessian), self.qm_log.evecs.T)
+        qm_evals = self.qm_log.evals * co.HESSIAN_CONVERSION
+        qm_eigenmatrix = np.diag(qm_evals)
+        mm_eig_diag = np.diag(mm_eigenmatrix)
+        mm_eig_tril = np.tril(mm_eigenmatrix)
+        qm_eig_tril = np.tril(qm_eigenmatrix)
+        np.savetxt("test/ethane/qm_eig_tril.csv", qm_eig_tril, delimiter=',')
+        np.savetxt("test/ethane/mm_eig_tril.csv", mm_eig_tril, delimiter=',')
+        #qm_eigenmatrix = np.dot(np.dot(self.qm_log.evecs, qm_hessian), self.qm_log.evecs.T)
 
-    def test_makebonds(self) :
+        eig_diag_diff = mm_eig_diag - qm_evals
+        eig_diag_proportion_error = eig_diag_diff / qm_evals
+        eig_diag_perc_err_signed = eig_diag_proportion_error * 100
+        eig_diag_perc_error = np.abs(eig_diag_perc_err_signed)
+        eigenmatrix_max = np.max(eig_diag_diff)
+        eigenmatrix_min = np.min(eig_diag_diff)
+        eigenmatrix_avg = np.average(eig_diag_diff)
+        eigenmatrix_median = np.median(eig_diag_diff)
+        eigenmatrix_stddev = np.std(eig_diag_diff)
 
-        stdout_orig = sys.stdout
-        sys.stdout = PutOutput()
+        eig_tril_diff = mm_eig_tril - qm_eig_tril
+        eig_tril_ratio_error = eig_tril_diff / qm_eig_tril
+        eig_tril_perc_err_signed = eig_tril_ratio_error * 100
+        eig_tril_perc_error = np.abs(eig_tril_perc_err_signed)
+        eigenmatrix_max = np.max(eig_tril_diff)
+        eigenmatrix_min = np.min(eig_tril_diff)
+        eigenmatrix_avg = np.average(eig_tril_diff)
+        eigenmatrix_median = np.median(eig_tril_diff)
+        eigenmatrix_stddev = np.std(eig_tril_diff)
 
-        struct = parmed.load_file(gro_filename, skip_bonds=True)
-        xyz_opt, hess = seminario.gaussian.parse_fchk(fchk_filename)
-        xyz_orig = np.array(struct.coordinates)
-        struct.coordinates = xyz_opt*0.529177249
-        seminario.forcefield.make_bonded_ff(struct, xyz_orig, hess,
-                                                [":1@N-:3@CU"], 0.963)
-        seminario.forcefield.make_bonded_ff(struct, xyz_orig, hess,
-                                                [":1@N-:3@CU"], 1.0)
-
-        expected_out = """Bond	idx1	idx2	r(x-ray)	r(opt) [nm]	k [kJ/mol/nm2]
-:1@N-:3@CU	3	38	0.2185	0.1993	60493.9023
-Bond	idx1	idx2	r(x-ray)	r(opt) [nm]	k [kJ/mol/nm2]
-:1@N-:3@CU	3	38	0.2185	0.1993	62818.1747\n"""
-        actual_out = str(sys.stdout)
-        sys.stdout = stdout_orig
-
-        self.assertEqual(expected_out, actual_out)
-
-    def test_makeangles(self) :
-
-        stdout_orig = sys.stdout
-        sys.stdout = PutOutput()
-
-        struct = parmed.load_file(gro_filename, skip_bonds=True)
-        xyz_opt, hess = seminario.gaussian.parse_fchk(fchk_filename)
-        xyz_orig = np.array(struct.coordinates)
-        struct.coordinates = xyz_opt*0.529177249
-        seminario.forcefield.make_angled_ff(struct, xyz_orig, hess,
-                                                [":1@CG-:1@ND1-:3@CU"], 0.963)
-        seminario.forcefield.make_angled_ff(struct, xyz_orig, hess,
-                                                [":1@CG-:1@ND1-:3@CU"], 1.0)
-
-        expected_out = """Angle	idx1	idx2	idx3	theta(x-ray)	theta(opt)	k [kJ/mol]
-:1@CG-:1@ND1-:3@CU	9	10	38	126.0279	123.6422	192.3902
-Angle	idx1	idx2	idx3	theta(x-ray)	theta(opt)	k [kJ/mol]
-:1@CG-:1@ND1-:3@CU	9	10	38	126.0279	123.6422	199.7822\n"""
-        actual_out = str(sys.stdout)
-        sys.stdout = stdout_orig
-
-        self.assertEqual(expected_out, actual_out)
-
-    def test_toolnothing(self) :
-
-        stdout_orig = sys.stdout
-        sys.stdout = PutOutput()
-
-        sys.argv = ["seminario_ff"]
-        seminario.tools.seminario_ff()
-        expected_out = "Nothing to be done. Use -h to see help."
-        actual_out = str(sys.stdout)
-        sys.stdout = stdout_orig
-
-        self.assertEqual(expected_out, actual_out.split("\n")[0].strip())
-
-    def test_toolnormal(self) :
-
-        stdout_orig = sys.stdout
-        sys.stdout = PutOutput()
-
-        sys.argv = ["seminario_ff", "-f", fchk_filename, "-s",
-                    gro_filename, "-a",
-                    ":1@CG-:1@ND1-:3@CU", "-b", ":1@N-:3@CU","--saveopt"]
-        seminario.tools.seminario_ff()
-        expected_out = """Bond	idx1	idx2	r(x-ray)	r(opt) [nm]	k [kJ/mol/nm2]
-:1@N-:3@CU	3	38	0.2185	0.1993	60493.9023
-Angle	idx1	idx2	idx3	theta(x-ray)	theta(opt)	k [kJ/mol]
-:1@CG-:1@ND1-:3@CU	9	10	38	126.0279	123.6422	192.3902\n"""
-        actual_out = str(sys.stdout)
-        sys.stdout = stdout_orig
-
-        self.assertEqual(expected_out, actual_out)
-
-        for i in range(10) :
-            time.sleep(1)
-            if os.path.exists(opt_filename) :
-                break
-        self.assertTrue(os.path.exists(opt_filename))
-        os.remove(opt_filename)
-
-
-if __name__ == '__main__':
-
-    unittest.main()
+        # TODO write tests to check that mm off-diags << mm diag corresponding
+        # mm diags close-ish to 
