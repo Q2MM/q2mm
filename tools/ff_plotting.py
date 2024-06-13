@@ -147,7 +147,7 @@ def plot_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, sco
 def linear_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, scored_runs:list, final_scores, title:str=''):
     # Plot Diagonal Elements with a linear fit
 
-    fig, ax = plt.subplots(1, 4, figsize=(32,8))
+    fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(32,8))
     fig.suptitle('Diagonal Eigenmatrix terms after a PSO only - Rh Hyd Enamides')
     palette = itertools.cycle(seaborn.color_palette())
 
