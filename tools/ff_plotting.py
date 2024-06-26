@@ -184,7 +184,7 @@ def get_ff_params(base_direc:str, directories:list, final_scores:list, bond_rows
 
     return bonds, angles
 
-def plot_ff_params(start_bonds:pd.DataFrame, start_angles:pd.DataFrame, bonds:list, angles:list, final_scores:list, title:str=''):
+def plot_ff_params(start_bonds:pd.DataFrame, start_angles:pd.DataFrame, bonds:list, angles:list, final_scores:list, title:str='', bond_labels=None, angles_labels=None):
     fig, ax = plt.subplots(1, 2, figsize=(24, 8))
     fig.suptitle('Force Constants'+title)
     ax[0].set_title('Bonds')
@@ -195,11 +195,12 @@ def plot_ff_params(start_bonds:pd.DataFrame, start_angles:pd.DataFrame, bonds:li
     color = next(palette)
     seaborn.regplot(data=start_bonds, label='FUERZA', x = start_bonds.index, y="Force Constant", fit_reg=False, ax=ax[0], color=color)
     seaborn.regplot(data=start_angles, label='FUERZA', x = start_angles.index, y="Force Constant", fit_reg=False, ax=ax[1], color=color)
-    bond_labels = bonds[0][['atom1', 'atom2', 'param_type']].values
-    bond_labels = [str(bl) for bl in bond_labels]
-    angles_labels = angles[0][['atom1', 'atom2', 'atom3', 'param_type']].values
-    angles_labels = [str(al) for al in angles_labels]
-    print(bond_labels)
+    if bond_labels is None:
+        bond_labels = bonds[0][['atom1', 'atom2', 'param_type']].values
+        bond_labels = [str(bl) for bl in bond_labels]
+    if angles_labels is None:
+        angles_labels = angles[0][['atom1', 'atom2', 'atom3', 'param_type']].values
+        angles_labels = [str(al) for al in angles_labels]
     for i in range(len(bonds)):
         color = next(palette)
         seaborn.regplot(data=bonds[i], label=final_scores[i], x = bond_labels, y="Force Constant", fit_reg=False, ax=ax[0], color=color)
@@ -213,5 +214,20 @@ def plot_ff_params(start_bonds:pd.DataFrame, start_angles:pd.DataFrame, bonds:li
     ax[1].set_xlabel('atom1, atom2, atom3, param_type')
     plt.show()
 
+def plot_last_x(history:dict, rows:list, title:str=''):
+    fig, ax = plt.subplots(1, 1, figsize=(24, 8))
+    fig.suptitle('Force Constants'+title)
+
+    X_history = history["X"]
+    last_X = X_history[-1]
+    palette = itertools.cycle(seaborn.color_palette())
+
+    for i, particle in enumerate(last_X):
+        color = next(palette)
+        seaborn.regplot(x=rows, y=particle, fit_reg=False, label=i, ax=ax, color=color)
+
+    ax.legend()
+    ax.set_ylabel('Force Constant (mdyne/Ang)')
+    plt.show()
 
 
