@@ -11,15 +11,19 @@ minimal adaptation for the purpose of visualizing hybrid optimization results.
 
 # Import modules
 import numpy as np
+import attr
 from attr import attrib, attrs
 from attr.validators import instance_of
 from matplotlib import cm, colors
 import pandas as pd
 import sys
 import multiprocessing
+import os
 
-if sys.platform != 'win32':
-    multiprocessing.set_start_method('fork')
+os.environ['SCHRODINGER_ALLOW_UNSAFE_MULTIPROCESSING'] = '1'
+# if sys.platform != 'win32':
+#     multiprocessing.set_start_method('fork')
+
 
 
 @attrs

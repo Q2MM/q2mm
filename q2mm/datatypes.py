@@ -13,7 +13,6 @@ import re
 import sys
 
 import constants as co
-import filetypes
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)

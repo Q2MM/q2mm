@@ -220,7 +220,8 @@ def exp_decay(start: float, end: float, iter_num: int, max_iter: int, d2=7) -> f
 
 
 def parallel_calc_init(locks_list):
-    # TODO remove this if it will never be used
+    # TODO remove this if it will never be used, it is not currently in use, but ideally we would check for file locks
+    # as opposed to copying all necessary files into temp directories to avoid resource use clashes
     global locks_passed
     locks_passed = locks_list
 
@@ -595,7 +596,7 @@ class PSO_DE(SkoBase):
                 size=(int(self.size_pop - num_tethered), self.n_dim),
             )
             lower_tether = initial_points - np.ones(
-                shape=(int(num_tethered), self.n_dim)
+                shape=(int(num_tethered-1), self.n_dim)
             ) * (initial_deviation)
             lower_tether = np.where(lower_tether < self.lb, self.lb, lower_tether)
 
@@ -605,9 +606,9 @@ class PSO_DE(SkoBase):
             x_tethered = np.random.uniform(
                 low=lower_tether,
                 high=upper_tether,
-                size=(int(num_tethered), self.n_dim),
+                size=(int(num_tethered-1), self.n_dim),
             )
-            self.X = np.vstack((x_free, x_tethered))
+            self.X = np.vstack((x_free, x_tethered, initial_points))
         else:
             self.X = np.random.uniform(
                 low=self.lb, high=self.ub, size=(self.size_pop, self.n_dim)
@@ -745,8 +746,6 @@ class PSO_DE(SkoBase):
         elif self.mutation_strategy == "DE/rand/2":
             self.V = X[r1, :] + self.F * (X[r2, :] - X[r3, :])
 
-        # 这里F用固定值，为了防止早熟，可以换成自适应值
-
         # DE/either-or could also work
 
         # DE/cur-to-best/1 !!
@@ -865,15 +864,15 @@ class PSO_DE(SkoBase):
 
             if iter_num > 0 and precision is not None:
                 #tor_iter = (np.amax(self.pbest_y) - np.amin(self.pbest_y))
-                per_param_precision = precision * self.gbest_x
-                blah = [np.all(np.abs(x - self.gbest_x) < per_param_precision) for x in self.X]
-                if np.all(blah):
+                per_param_precision = precision #* self.gbest_x TODO: MF removed the scaling of precision to parameter value
+                param_within_precision = [np.all(np.abs(x - self.gbest_x) < per_param_precision) for x in self.X]
+                if np.all(param_within_precision):
                 #tor_iter = np.max([X - self.gbest_x for X in self.X])
                 #tor_iter = np.max([Y - self.gbest_y for Y in self.Y]) / self.gbest_y
                 #if tor_iter < precision:
                     logger.log(
                         logging.INFO,
-                        "precision ({}) greater than tor_iter ({}). PS has localized sufficiently.".format(
+                        "All params within precision ({}). per_param_precision: ({}). PS has localized sufficiently.".format(
                             precision, per_param_precision #tor_iter
                         ),
                     )

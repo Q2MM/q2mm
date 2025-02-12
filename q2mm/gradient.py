@@ -511,9 +511,9 @@ def do_newton(params):
             if param.d2 > 0.00000001:
                 changes.append(- param.d1 / param.d2)
             else:
-                logger.warning('  -- 2nd derivative of {} is {:.4f}.'.format(
+                logger.warning('  -- 2nd derivative of {} is {:.8f}.'.format(
                         param, param.d2))
-                logger.warning('  -- 1st derivative of {} is {:.4f}.'.format(
+                logger.warning('  -- 1st derivative of {} is {:.8f}.'.format(
                         param, param.d1))
                 if param.d1 > 0.:
                     changes.append(-1.)

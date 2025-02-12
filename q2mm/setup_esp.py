@@ -27,6 +27,7 @@ import logging.config
 
 import constants as co
 import filetypes as ft
+import schrod_indep_filetypes
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)

@@ -22,45 +22,45 @@ LOG_SETTINGS = {
         },
     'handlers': {
         'console': {
-            'class': 'logging.StreamHandler', 'formatter': 'bare',
-            'level':logging.INFO},
-            # 'class': 'logging.StreamHandler', 'formatter': 'basic',
-            # 'level': 1},
+            # 'class': 'logging.StreamHandler', 'formatter': 'bare',
+            # 'level':logging.INFO},
+            'class': 'logging.StreamHandler', 'formatter': 'basic',
+            'level': 1},
         'root_file_handler': {
-            # 'class': 'logging.FileHandler', 'filename': 'root.log',
-            # 'formatter': 'bare', 'level': 1} #20}
             'class': 'logging.FileHandler', 'filename': 'root.log',
-            'formatter': 'basic', 'level': 20}
+            'formatter': 'bare', 'level': 1} #20}
+            # 'class': 'logging.FileHandler', 'filename': 'root.log',
+            # 'formatter': 'basic', 'level': 20}
         },
-    'loggers': {'__main__': {'level': 5, 'propagate': True},
-                'calculate': {'level': 20, 'propagate': True},
-                'compare': {'level': 10, 'propagate': True},
-                'constants': {'level': 20, 'propagate': True},
-                'datatypes': {'level': 20,' propagate': True},
-                'filetypes': {'level': 20, 'propagate': True},
-                'gradient': {'level': 20, 'propagate': True},
-                'loop': {'level': 5, 'propagate': True},
-                'opt': {'level': 5, 'propagate': True},
-                'parameters': {'level': 20, 'propagate': True},
-                'simplex': {'level': 5, 'propagate': True},
-                'seminario': {'level': 20, 'propagate': True},
-                'schrod_indep_filetypes': {'level': 20, 'propagate': True},
-                'swarm_opt': {'level': 20, 'propagate': True},
-                },
+    # 'loggers': {'__main__': {'level': 5, 'propagate': True},
+    #             'calculate': {'level': 20, 'propagate': True},
+    #             'compare': {'level': 10, 'propagate': True},
+    #             'constants': {'level': 20, 'propagate': True},
+    #             'datatypes': {'level': 20,' propagate': True},
+    #             'filetypes': {'level': 20, 'propagate': True},
+    #             'gradient': {'level': 20, 'propagate': True},
+    #             'loop': {'level': 5, 'propagate': True},
+    #             'opt': {'level': 5, 'propagate': True},
+    #             'parameters': {'level': 20, 'propagate': True},
+    #             'simplex': {'level': 5, 'propagate': True},
+    #             'seminario': {'level': 20, 'propagate': True},
+    #             'schrod_indep_filetypes': {'level': 20, 'propagate': True},
+    #             'swarm_opt': {'level': 20, 'propagate': True},
+    #             },
 
     #  debug logger
-    # 'loggers': {'__main__': {'level': 1, 'propagate': True},
-    #             'calculate': {'level': 1, 'propagate': True},
-    #             'compare': {'level': 1, 'propagate': True},
-    #             'constants': {'level': 1, 'propagate': True},
-    #             'datatypes': {'level': 1,' propagate': True},
-    #             'filetypes': {'level': 1, 'propagate': True},
-    #             'gradient': {'level': 1, 'propagate': True},
-    #             'loop': {'level': 1, 'propagate': True},
-    #             'opt': {'level': 1, 'propagate': True},
-    #             'parameters': {'level': 1, 'propagate': True},
-    #             'simplex': {'level': 1, 'propagate': True}
-    #             },
+    'loggers': {'__main__': {'level': 1, 'propagate': True},
+                'calculate': {'level': 1, 'propagate': True},
+                'compare': {'level': 1, 'propagate': True},
+                'constants': {'level': 1, 'propagate': True},
+                'datatypes': {'level': 1,' propagate': True},
+                'filetypes': {'level': 1, 'propagate': True},
+                'gradient': {'level': 1, 'propagate': True},
+                'loop': {'level': 1, 'propagate': True},
+                'opt': {'level': 1, 'propagate': True},
+                'parameters': {'level': 1, 'propagate': True},
+                'simplex': {'level': 1, 'propagate': True}
+                },
 
     'root': {
         'level': 'NOTSET',
@@ -160,6 +160,7 @@ MM3FF = 'MDYNA' # force constant (millidyne) (A**-1), (millidyne); length in Ang
 TINKERFF = 'NOT IMPLEMENTED' # TODO
 GAUSSIAN = 'AU' # atomic units, so energy (Hartree), length (Bohr), force constant (Hartree/Bohr**2), (Hartree/Bohr)
 KJMOLA = 'KJMOLA'
+KCALMOLA = 'KCALMOLA'
 
 
 # SCRIPTS

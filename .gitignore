@@ -181,7 +181,7 @@ Network Trash Folder
 Temporary Items
 .apdisk
 # Jupyter Notebook
-.ipynb_checkpoints
+.ipynb
 
 # IPython
 profile_default/

@@ -39,8 +39,10 @@ import sys
 try:
     from schrodinger import structure as sch_str
     from schrodinger.application.jaguar import input as jag_in
+    schrod_on = True
 except:
     print("Schrodinger not installed, limited functionality")
+    schrod_on = False
     pass
 
 import constants as co
@@ -81,745 +83,6 @@ class File(object):
                 f.write(line)
 
 
-# Currently only for 1 system.
-# 
-class AmberHess(File):
-    def __init__(self, path):
-        super(AmberHess, self).__init__(path)
-        self._hessian = None
-        self.natoms = None
-    @property
-    def hessian(self):
-        if self._hessian is None:
-            logger.log(10, 'READING: {}'.format(self.filename))
-            with open("./calc/"+self.filename, 'r') as f:
-                lines = f.readlines()
-            for i,line in enumerate(lines):
-                if i == 0:
-                    self.natoms = int(line.split()[1])
-                    hessian = np.zeros([self.natoms * 3, self.natoms * 3], dtype=float)
-                else:
-                    row = np.array(line.split()).astype(np.float)
-                    hessian[:,i-1] = row
-            # Convert hessian units to use kJ/mol instead of kcal/mol.
-
-            # kcal/mol for energy in AMBER
-            # E(kcal/mol -> cm**-1) = 349.75
-            # freq = sqrt(lambda(kcal/mol)) / (2 pi c)
-            
-            w, v = np.linalg.eigh(hessian)
-            eigval = np.zeros([self.natoms * 3],dtype=float)
-            for i,eig in enumerate(w):
-                if eig < 0:
-                    eigval[i] = -np.sqrt(-eig)
-                else:
-                    eigval[i] = np.sqrt(eig)
-            eigval *= 108.587 # freq in cm**-1
-            self._hessian = hessian / co.HARTREE_TO_KCALMOL \
-                * co.HARTREE_TO_KJMOL
-            logger.log(5, '  -- Finished Creating {} Hessian matrix.'.format(
-                hessian.shape))
-            return self._hessian
-class AmberEne(File):
-    """
-        Amber .ene file to read either current energy or optimized energy
-    """
-    def __init__(self, path):
-        super(AmberEne, self).__init__(path)
-        self._structures = None
-        self.name = None
-    @property
-    def structures(self):
-        if self._structures == None:
-            logger.log(10, 'READING: {}'.format(self.filename))
-            self._structures = []
-            flag = 0
-            with open('./calc/'+self.filename, 'r') as f:
-                sections = {'sp':1, 'minimization':2}
-                calc_section = 'sp'
-                count_previous = 0
-                    
-                for line in f:
-                    count_current = sections[calc_section]
-                    if count_current != count_previous:
-                        current_structure = Structure()
-                        self._structures.append(current_structure)
-                        count_previous += 1
-                    if 'FINAL RESULTS' in line:
-                        flag = 1
-                    elif flag == 1 and "NSTEP" in line:
-                        flag = 2
-                    elif flag == 2:
-                        energy = self.read_line_for_energy(line)
-                        if energy is not None:
-                            current_structure.props['energy']=energy
-                        flag = 0
-            logger.log(5, '  -- Imported {} structure(s)'.format(
-                len(self._structures)))
-        return self._structures
-
-
-    def read_line_for_energy(self, line):
-        # The Amber Energy is in units of kcal/mol, so we have to convert them to kJ/mol
-        # for consistency purposes.
-        # don't know how to use match = re.compile 
-        linesplit = line.split()
-        energy = float(linesplit[1])
-        energy *= co.HARTREE_TO_KJMOL / co.HARTREE_TO_KCALMOL
-        return energy
-#        if match:
-#            energy = float(match.group(1))
-#            energy *= co.HARTREE_TO_KJMOL / co.HARTREE_TO_KCALMOL
-#            return energy
-#        else:
-#            return None
-
-class AmberGeo(File):
-    """
-        .geo file to be used for bond,angles,dihedral sets
-        .out file for the current value
-    """
-    def __init__(self, path):
-        super(AmberGeo, self).__init__(path)
-        self._structures = None
-        self.name = None
-    @property
-    def structures(self):
-        if self._structures == None:
-            logger.log(10, 'READING: {}'.format(self.filename))
-            self._structures = []
-            with open("./calc/"+self.filename, 'r') as f:
-                sections = {'sp':1, 'minimization':2, 'hessian':2}
-                count_previous = 0
-                calc_section = 'sp'
-                b = 0
-                a = 0  
-                t = 0
-                for line in f:
-                    count_current = sections[calc_section]
-                    if count_current != count_previous:
-                        bonds = []
-                        angles = []
-                        torsions = []
-                        current_structure = Structure()
-                        self._structures.append(current_structure)
-                        count_previous += 1
-                    section = None
-                    if "END" in line:
-                        t = 0
-                        calc_section = 'minimization'
-                        for bond in bonds:
-                            bond.atom_nums.sort()
-                        bonds.sort(key=lambda x: (x.atom_nums[0],
-                                                  x.atom_nums[1]))
-                        for angle in angles:
-                            if angle.atom_nums[0] > angle.atom_nums[2]:
-                                angle.atom_nums = [angle.atom_nums[2],
-                                                   angle.atom_nums[1],
-                                                   angle.atom_nums[0]]
-                        for torsion in torsions:
-                            if torsion.atom_nums[1] > torsion.atom_nums[2]:
-                                torsion.atom_nums = [torsion.atom_nums[3],
-                                                     torsion.atom_nums[2],
-                                                     torsion.atom_nums[1],
-                                                     torsion.atom_nums[0]]
-                        angles.sort(key=lambda x: (x.atom_nums[1],
-                                                   x.atom_nums[0],
-                                                   x.atom_nums[2]))
-                        torsions.sort(key=lambda x: (x.atom_nums[1],
-                                                     x.atom_nums[2],
-                                                     x.atom_nums[0],
-                                                     x.atom_nums[3]))
-                        current_structure.bonds.extend(bonds)
-                        current_structure.angles.extend(angles)
-                        current_structure.torsions.extend(torsions)
-
-                    if t == 1:
-                        torsion = self.read_line_for_torsion(line)
-                        if torsion is not None:
-                            torsions.append(torsion)
-                    elif 'TORSIONS' in line:
-                        t = 1
-                        a = 0
-                    if a == 1:
-                        angle = self.read_line_for_angle(line)
-                        if angle is not None:
-                            angles.append(angle)
-                    elif 'ANGLES' in line:
-                        a = 1
-                        b = 0
-                    if b == 1:
-                        bond = self.read_line_for_bond(line)
-                        if bond is not None:
-                            bonds.append(bond)
-                    elif 'BONDS' in line:
-                        b = 1
-
-
-            logger.log(5, '  -- Imported {} structure(s)'.format(
-                len(self._structures)))
-        return self._structures
-
-    def read_line_for_bond(self, line):
-        # All bond data starts with the string "Bond" and then the rest of the
-        # interaction information.
-        a,b,z = line.split()
-        atom_nums = [int(x) for x in [a,b]]
-        value = float(z)
-        return Bond(atom_nums=atom_nums, value=value)
-
-    def read_line_for_angle(self, line):
-        a,b,c,z = line.split()
-        atom_nums = [int(x) for x in [a,b,c]]
-        value = float(z)
-        return Angle(atom_nums=atom_nums, value=value)
-
-    def read_line_for_torsion(self, line):
-        a,b,c,d,z = line.split()
-        atom_nums = [int(x) for x in [a,b,c,d]]
-        value = float(z)
-        return Torsion(atom_nums=atom_nums, value=value)
-
-    def read_line_for_energy(self, line):
-        # The TPE is in units of kcal/mol, so we have to convert them to kJ/mol
-        # for consistency purposes.
-        match = re.compile('Total Potential Energy :\s+({0})'.format(
-            co.RE_FLOAT)).search(line)
-        if match:
-            energy = float(match.group(1))
-            energy *= co.HARTREE_TO_KJMOL / co.HARTREE_TO_KCALMOL
-            return energy
-        else:
-            return None
-class AmberLeap_Gaus(File):
-    def __init__(self, path):
-        """
-            run -> gaus to amber -> sp -> traj -> cpptraj -> cpptraj -> AmberGeo
-            path = leap.in
-        """
-        super(AmberLeap_Gaus, self).__init__(path)
-        self._index_output_log = None
-        self._structures = None
-        self.commands = None
-        self.name = os.path.splitext(self.filename)[0]
-        self.filename = self.name + '.in' # .log file to .in (.in file is never replaced. so using .in should have original coordinate)
-        self.name_log = 'gaus.' + self.name + '.log'
-        self.name_prm = 'gaus.' + self.name + '.parm7' #topology
-        self.name_rst = 'gaus.' + self.name + '.rst7' # coordinate
-        self.name_min = 'gaus.' + self.name + '.min' # sander min input
-        self.name_ene = 'gaus.' + self.name + '.ene'
-        self.name_dyn = 'gaus.' + self.name + '.dyn' # sander dyn input
-        self.name_int = 'gaus.' + self.name + '.int' # interaction input for cpptraj
-        self.name_geo = 'gaus.' + self.name + '.geo' # cpptraj output for all interactions (to be read by AmberGeo)
-        self.min_script = """Comments
- &cntrl
-  imin      = 1,
-  ntx       = 1,
-  maxcyc    = 0,
-  ncyc      = 0,
-  cut       = 15.0,
-  ntpr      = 10000,
-  ntwx      = 0,
-  ntb       = 0
- /
-"""
-        self.dyn_script = """Comments
- &cntrl
-  imin      = 0,
-  ntx       = 1,
-  irest     = 0,
-  nstlim    = 0,
-  ntwx      = 1,
-  cut       = 15.0,
-  ntb       = 0,
-  ntpr      = 1
- /
-"""
-    @property
-    def structures(self):
-        if self._structures is None:
-            logger.log(10, 'READING: {}'.format(self.filename))
-            struct = Structure()
-            self._structures = [struct]
-            with open(self.filename, 'r') as f:
-                for line in f:
-                    line = line.split()
-                    if len(line) == 2:
-                        struct.props['total atoms'] = int(line[0])
-                        struct.props['title'] = line[1]
-                        logger.log(5, '  -- Read {} atoms.'.format(
-                            struct.props['total atoms']))
-                    if len(line) > 2:
-                        indx, ele, x, y, z, at, bonded_atom = line[0], \
-                            line[1], line[2], line[3], line[4], \
-                            line[5], line[6:]
-                        struct.atoms.append(Atom(index=indx,
-                            element=ele,
-                            x=float(x),
-                            y=float(y),
-                            z=float(z),
-                            atom_type=at,
-                            atom_type_name=at,
-                            bonded_atom_indices=bonded_atom))
-            return self._structures
-    def get_com_opts(self):
-        com_opts = {'freq': False,
-                    'opt': False,
-                    'sp':True,
-                    'tors': False,
-                    'geo':True}
-        return com_opts
-
-#BUG: 'fixatomorder' is removed in Himani's version of q2mm_kk, this is correct
-# 'fixatomorder' command is removed because it causes mismatches between the line
-# numbers of atoms, thus producing nonsensical bond lengths in the output .geo files.
-# This was pinpointed by Mikaela and Himani on 11/28/22 and running without this command
-# does not crash, produce errors, or result in nonsensical bonds.  It must be removed for
-# the gaussian (reference) version of this script as well ~line 597.
-
-    def extract(self,log):
-        script="""
-trajin calc/gaus.NAME.nc
-fixatomorder
-AA
-run
-write
-exit
-"""
-        script = script.replace("NAME",self.name)
-        geo = ""
-
-        # read .geo file and store all possible interaction
-        bonds = []
-        angles = []
-        torsions = []
-        ref = open('./calc/'+self.name_geo,'r').readlines()
-        count = 0
-        for line in ref:
-            # Bonds
-            if "[angles]" in line:
-                count = 0
-            elif count == 1:
-                bonds.append(line.split()[-4:-2])
-            elif "Atom2" in line:
-                count = 1
-
-            # Angles
-            if "[dihedrals]" in line:
-                count = 0
-            if count == 2:
-                angles.append(line.split()[-6:-3])
-            elif "Atom3" in line:
-                count = 2
-
-            # Dihedral
-            # store the columns as negtive since there is unexpected "B" or E in front of column
-            if "TIME" in line:
-                count = 0
-            if count == 3:
-                torsions.append(line.split()[-8:-4])
-            elif "Atom4" in line:
-                count = 3
-        
-        for a,b in bonds:
-            geo += "distance @{} @{} out calc/gaus.bonds".format(a,b) + '\n'
-        for a,b,c in angles:
-            geo += "angle @{} @{} @{} out calc/gaus.angles".format(a,b,c) + '\n'
-        for a,b,c,d in torsions:
-            geo += "dihedral @{} @{} @{} @{} out calc/gaus.torsions".format(a,b,c,d) + '\n'
-        
-        script = script.replace("AA",geo)
-        script_f = './calc/' + self.name + '.temp'
-        with open(script_f, 'w') as f:
-            f.write(script)
-        sp.call("cpptraj -p calc/prmtop < {}".format(script_f), shell=True, stderr=log, stdin=log, stdout=log)
-        summary = ""
-        if os.path.isfile("calc/gaus.bonds"):
-            bond_file = open("calc/gaus.bonds","r").readlines()
-            bond_line = bond_file[-1].split()[1:]
-            summary += "BONDS\n"
-            i = 0
-            for a,b in bonds:
-                summary += "{} {} {} \n".format(a,b,bond_line[i])
-                i += 1
-        if os.path.isfile("calc/gaus.angles"):
-            angle_file = open("calc/gaus.angles","r").readlines()
-            angle_line = angle_file[-1].split()[1:]
-            summary += "ANGLES\n"
-            i = 0
-            for a,b,c in angles:
-                summary += "{} {} {} {} \n".format(a,b,c,angle_line[i])
-                i += 1
-        if os.path.isfile("calc/gaus.torsions"):
-            tors_file = open("calc/gaus.torsions","r").readlines()
-            tors_line = tors_file[-1].split()[1:]
-            summary += "TORSIONS\n"
-            i = 0
-            for a,b,c,d in torsions:
-                summary += "{} {} {} {} {} \n".format(a,b,c,d,tors_line[i])
-                i += 1
-        summary += "END"
-        # replace name_geo with summary
-        with open('./calc/'+self.name_geo,'w') as f:
-            f.write(summary)
-        return
-
-    def geometry(self,log):
-        # Run Trajectory (Required for cpptraj)
-        with open("./calc/"+self.name_dyn, 'w') as f:
-            f.write(self.dyn_script)
-        sp.call("sander -O -i calc/{} -o calc/traj.out -p calc/prmtop -c calc/gaus.{}.rst -x calc/gaus.{}.nc".format(self.name_dyn,self.name,self.name),shell=True)
-        # Generate All geometry
-        int_script = "bonds\nangles\ndihedrals\n"
-        with open('./calc/'+self.name_int, 'w') as f:
-            f.write(int_script)
-        sp.call("cpptraj -p calc/prmtop < calc/{} > calc/{} \n".format(self.name_int,self.name_geo),shell=True)
-        self.extract(log)
-        return
-    def run(self,check_tokens=False):
-        logger.log(5, 'RUNNING: {}'.format(self.filename))
-        self._index_output_log = []
-        com_opts = self.get_com_opts()
-        current_directory = os.getcwd()
-        os.chdir(self.directory)
-        log = open(self.name_log,'w')
-        os.chdir(self.directory)
-        if os.path.isfile('calc'):
-            os.remove('calc')
-        sp.call("mkdir calc",shell=True, stderr=log, stdin=log, stdout=log)
-        if com_opts['sp']:
-            logger.log(1, '  CALCULATE: {}'.format(self.filename))
-            # Run leap
-            sp.call("tleap -f {}".format(self.filename),shell=True, stderr=log, stdin=log, stdout=log) # parm7 rst7 files made
-            # Run Min
-            with open("./calc/"+self.name_min, 'w') as f:
-                f.write(self.min_script)
-            sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/gaus.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
-        if com_opts['geo']:
-            self.geometry(log)
-        os.chdir(current_directory)
-
-class AmberLeap(File):
-    def __init__(self, path):
-        """
-            path = leap.in
-        """
-        super(AmberLeap, self).__init__(path)
-        self._index_output_log = None
-        self._structures = None
-        self.commands = None
-        self.name = os.path.splitext(self.filename)[0]
-        self.name_log = 'amber.' + self.name + '.log'
-        self.name_prm = 'amber.' + self.name + '.parm7' #topology
-        self.name_rst = 'amber.' + self.name + '.rst7' # coordinate
-        self.name_min = 'amber.' + self.name + '.min' # sander min input
-        self.name_ene = 'amber.' + self.name + '.ene'
-        self.name_dyn = 'amber.' + self.name + '.dyn' # sander dyn input
-        self.name_int = 'amber.' + self.name + '.int' # interaction input for cpptraj
-        self.name_geo = 'amber.' + self.name + '.geo' # cpptraj output for all interactions
-        self.name_hes = 'amber.' + self.name + '.hes'
-        self.geo = None
-        self.min_script = """Comments
- &cntrl
-  imin      = 1,
-  ntx       = 1,
-  maxcyc    = aa,
-  ncyc      = bb,
-  cut       = 15.0,
-  ntpr      = 10000,
-  ntwx      = 0,
-  ntb       = 0
- /
-"""
-        self.dyn_script = """Comments
- &cntrl
-  imin      = 0,
-  ntx       = 1,
-  irest     = 0,
-  nstlim    = 0,
-  ntwx      = 1,
-  cut       = 15.0,
-  ntb       = 0,
-  ntpr      = 1
- /
-"""
-    @property
-    def structures(self):
-        if self._structures is None:
-            logger.log(10, 'READING: {}'.format(self.filename))
-            struct = Structure()
-            self._structures = [struct]
-            with open(self.filename, 'r') as f:
-                for line in f:
-                    line = line.split()
-                    if len(line) == 2:
-                        struct.props['total atoms'] = int(line[0])
-                        struct.props['title'] = line[1]
-                        logger.log(5, '  -- Read {} atoms.'.format(
-                            struct.props['total atoms']))
-                    if len(line) > 2:
-                        indx, ele, x, y, z, at, bonded_atom = line[0], \
-                            line[1], line[2], line[3], line[4], \
-                            line[5], line[6:]
-                        struct.atoms.append(Atom(index=indx,
-                            element=ele,
-                            x=float(x),
-                            y=float(y),
-                            z=float(z),
-                            atom_type=at,
-                            atom_type_name=at,
-                            bonded_atom_indices=bonded_atom))
-            return self._structures
-    def get_com_opts(self):
-        com_opts = {'freq': False,
-                    'opt': False,
-                    'sp': False,
-                    'tors': False,
-                    'geo':False}
-        if any(x in ['ab','aa','at','abo','aao','ato'] for x in self.commands):
-            com_opts['geo'] = True
-        if any(x in ['abo','aao','ato','aeo','ae1o','aeao'] for x in self.commands):
-            com_opts['opt'] = True
-            com_opts['sp'] = True
-        if any(x in ['ah', 'ajeig', 'ageig'] for x in self.commands):
-            com_opts['geo'] = True
-            com_opts['freq'] = True
-            com_opts['opt'] = True
-            com_opts['sp'] = True
-        if any(x in ['at', 'ato'] for x in self.commands):
-            com_opts['tors'] = True
-        return com_opts
-    def extract(self,log):
-#BUG: 'fixatomorder' is removed in Himani's version of q2mm_kk, this is correct
-# 'fixatomorder' command is removed because it causes mismatches between the line
-# numbers of atoms, thus producing nonsensical bond lengths in the output .geo files.
-# This was pinpointed by Mikaela and Himani on 11/28/22 and running without this command
-# does not crash, produce errors, or result in nonsensical bonds.  It must be removed for
-# the gaussian (reference) version of this script as well ~line 378.
-
-        script="""
-trajin calc/amber.NAME.nc
-fixatomorder
-AA
-run
-write
-exit
-"""
-        script = script.replace("NAME",self.name)
-        geo = ""
-
-        # read .geo file and store all possible interaction
-        bonds = []
-        angles = []
-        torsions = []
-        ref = open('./calc/'+self.name_geo,'r').readlines()
-        self.geo = ref
-        count = 0
-        for line in ref:
-            # Bonds
-            if "[angles]" in line:
-                count = 0
-            elif count == 1:
-                bonds.append(line.split()[-4:-2])
-            elif "Atom2" in line:
-                count = 1
-
-            # Angles
-            if "[dihedrals]" in line:
-                count = 0
-            if count == 2:
-                angles.append(line.split()[-6:-3])
-            elif "Atom3" in line:
-                count = 2
-
-            # Dihedral
-            # store the columns as negtive since there is unexpected "B" or E in front of column
-            if "TIME" in line:
-                count = 0
-            if count == 3:
-                torsions.append(line.split()[-8:-4])
-            elif "Atom4" in line:
-                count = 3
-
-        for a,b in bonds:
-            geo += "distance @{} @{} out calc/amber.bonds".format(a,b) + '\n'
-        for a,b,c in angles:
-            geo += "angle @{} @{} @{} out calc/amber.angles".format(a,b,c) + '\n'
-        for a,b,c,d in torsions:
-            geo += "dihedral @{} @{} @{} @{} out calc/amber.torsions".format(a,b,c,d) + '\n'
-        script = script.replace("AA",geo)
-        script_f = './calc/' + self.name + '.temp'
-        with open(script_f, 'w') as f:
-            f.write(script)
-        sp.call("cpptraj -p calc/prmtop < {}".format(script_f), shell=True, stderr=log, stdin=log, stdout=log)
-        summary = ""
-        if os.path.isfile("calc/amber.bonds"):
-            bond_file = open("calc/amber.bonds","r").readlines()
-            bond_line = bond_file[-1].split()[1:]
-            summary += "BONDS\n"
-            i = 0
-            for a,b in bonds:
-                summary += "{} {} {} \n".format(a,b,bond_line[i])
-                i += 1
-        if os.path.isfile("calc/amber.angles"):
-            angle_file = open("calc/amber.angles","r").readlines()
-            angle_line = angle_file[-1].split()[1:]
-            summary += "ANGLES\n"
-            i = 0
-            for a,b,c in angles:
-                summary += "{} {} {} {} \n".format(a,b,c,angle_line[i])
-                i += 1
-        if os.path.isfile("calc/amber.torsions"):
-            tors_file = open("calc/amber.torsions","r").readlines()
-            tors_line = tors_file[-1].split()[1:]
-            summary += "TORSIONS\n"
-            i = 0
-            for a,b,c,d in torsions:
-                summary += "{} {} {} {} {} \n".format(a,b,c,d,tors_line[i])
-                i += 1
-        summary += "END"
-        # replace name_geo with summary
-        with open('./calc/'+self.name_geo,'w') as f:
-            f.write(summary)
-        return
-
-    def hessian(self,log):
-        # if pdb file does not exit, then convert mol2 to pdb
-        os.chdir(self.directory)
-        if os.path.isfile(self.name+".pdb"):
-            0
-        else:
-            sp.call("antechamber -dr no -i {} -fi mol2 -o {} -fo pdb".format(self.name+".mol2",self.name+".pdb"),shell=True)
-        # nab input file
-        # dielectric constant = 80.4 for water.
-        # currently manual change required
-        script = """molecule m;
-float x[4000], fret;
-
-m = getpdb("{}.pdb");
-readparm(m, "./calc/prmtop");
-
-mm_options( "cut=15., ntpr=1, nsnb=99999, diel = C, dielc = 80.40" );
-mme_init( m, NULL, "::Z", x, NULL);
-setxyz_from_mol( m, NULL, x );
-
-nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name)
-        with open('./calc/'+self.name+'.nab','w') as f:
-            f.write(script)
-        # nab compile
-        sp.call("nab calc/{}.nab".format(self.name),shell=True)
-        # nab run
-        sp.call("./calc/{}".format(self.name),shell=True,stderr=log, stdin=log, stdout=log)
-        # hessian.mat formed
-        # rename to .hess
-        sp.call("mv ./calc/hessian.mat ./calc/{}".format(self.name_hes),shell = True)
-        return
-    def geo_extract(self):
-    
-        bonds = []
-        angles = []
-        torsions = []
-    
-        ref = self.geo
-        count = 0
-        for line in ref:
-            # Bonds
-            if "[angles]" in line:
-                count = 0
-            elif count == 1:
-                bonds.append(line.split()[-4:-2])
-            elif "Atom2" in line:
-                count = 1
-
-            # Angles
-            if "[dihedrals]" in line:
-                count = 0
-            if count == 2:
-                angles.append(line.split()[-6:-3])
-            elif "Atom3" in line:
-                count = 2
-
-            # Dihedral
-            # store the columns as negtive since there is unexpected "B" or E in front of column
-            if "TIME" in line:
-                count = 0
-            if count == 3:
-                torsions.append(line.split()[-8:-4])
-            elif "Atom4" in line:
-                count = 3
-
-        hes_ele = np.array([None,None,None,None])
-        for a,b in bonds:
-            hes_ele = np.vstack((hes_ele,[a,b,None,None]))
-        for a,b,c in angles:
-            hes_ele = np.vstack((hes_ele,[a,b,c,None]))
-        for a,b,c,d in torsions:
-            hes_ele = np.vstack((hes_ele,[a,b,c,d]))
-        np.save("calc/geo",hes_ele)
-        return
-        
-    def geometry(self,log):
-        # Run Trajectory (Required for cpptraj)
-        with open("./calc/"+self.name_dyn, 'w') as f:
-            f.write(self.dyn_script)
-        sp.call("sander -O -i calc/{} -o calc/traj.out -p calc/prmtop -c calc/amber.{}.rst -x calc/amber.{}.nc".format(self.name_dyn,self.name,self.name),shell=True)
-        # Generate All geometry
-        int_script = "bonds\nangles\ndihedrals\n"
-        with open('./calc/'+self.name_int, 'w') as f:
-            f.write(int_script)
-        sp.call("cpptraj -p calc/prmtop < calc/{} > calc/{}".format(self.name_int,self.name_geo),shell=True)
-        self.extract(log)
-        
-        return
-    def run(self,check_tokens=False):
-        logger.log(5, 'RUNNING: {}'.format(self.filename))
-        self._index_output_log = []
-        com_opts = self.get_com_opts()
-        current_directory = os.getcwd()
-        os.chdir(self.directory)
-        log = open(self.name_log,'w')
-        sp.call("mkdir calc",shell=True, stderr=log, stdin=log, stdout=log)
-        if com_opts['opt']:
-            logger.log(1, '  MINIMIZE & ANALYZE: {}'.format(self.filename))
-            # Run leap
-            sp.call("tleap -f {}".format(self.filename),shell=True, stderr=log, stdin=log, stdout=log) # parm7 rst7 files made
-            # Run Min
-            self.min_script = self.min_script.replace("aa","700")
-            self.min_script = self.min_script.replace("bb","5")
-            with open("./calc/"+self.name_min, 'w') as f:
-                f.write(self.min_script)
-            sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
-        elif com_opts['sp']:
-            logger.log(1, '  CALCULATE: {}'.format(self.filename))
-            # Run leap
-            sp.call("tleap -f {}".format(self.filename),shell=True, stderr=log, stdin=log, stdout=log) # parm7 rst7 files made
-            # Run Min
-            self.min_script = self.min_script.replace("aa","0")
-            self.min_script = self.min_script.replace("bb","0")
-            with open("./calc/"+self.name_min, 'w') as f:
-                f.write(self.min_script)
-            sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
-        # check if energy calculation failed
-        restart = 1
-        while(restart==1):
-            with open("./calc/"+self.name_ene,'r') as f:
-                fline = f.readlines()
-                for line in fline:
-                    if "restarting should resolve the error" in line:
-                        sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/amber.{}.rst -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name,self.name),shell=True, stderr=log, stdin=log, stdout=log)
-                        restart = 1
-                    else:
-                        restart = 0
-
-        if com_opts['geo']:
-            self.geometry(log)
-        if com_opts['freq']:
-            self.hessian(log)
-            # if geo file is already present 
-            # may not have geo file if hessian is only ran
-            if os.path.isfile('./calc/'+self.name_geo):
-                self.geo_extract()
-        os.chdir(current_directory)
 
 
 class TinkerHess(File):
@@ -1471,7 +734,7 @@ class GaussLog(File):
                 try:
                     line = next(file_iterator)
                 except:
-                    # End of file.
+                    # End of file.  #TODO MF This is absolutely disgusting, change this and shame Eric
                     break
                 if 'Charges from ESP fit' in line:
                     pattern = re.compile('RMS=\s+({0})'.format(co.RE_FLOAT))
@@ -2175,596 +1438,598 @@ def conv_sch_str(sch_struct):
         my_bond.value = sch_bond.length
     return my_struct
 
-class SchrodingerFile(File):
-    """
-    Parent class used for all Schrodinger files.
-    """
-    def conv_sch_str(self, sch_struct:sch_str):
-        """
-        Converts a schrodinger.structure object to my own structure object.
-        Sort of pointless. Probably remove soon.
-        """
-        my_struct = Structure()
-        my_struct.props.update(sch_struct.property)
-        for sch_atom in sch_struct.atom:
-            my_atom = Atom()
-            my_struct.atoms.append(my_atom)
-            my_atom.atom_type = sch_atom.atom_type
-            my_atom.atom_type_name = sch_atom.atom_type_name
-            my_atom.atomic_num = sch_atom.atomic_number
-            my_atom.bonded_atom_indices = \
-                [x.index for x in sch_atom.bonded_atoms]
-            my_atom.element = sch_atom.element
-            my_atom.index = sch_atom.index
-            my_atom.partial_charge = sch_atom.partial_charge
-            my_atom.x, my_atom.y, my_atom.z = sch_atom.x, sch_atom.y, sch_atom.z
-            my_atom.props.update(sch_atom.property)
-        for sch_bond in sch_struct.bond:
-            my_bond = Bond()
-            my_struct.bonds.append(my_bond)
-            my_bond.atom_nums = [sch_bond.atom1, sch_bond.atom2]
-            my_bond.order = sch_bond.order
-            my_bond.value = sch_bond.length
-        return my_struct
 
-class JaguarIn(SchrodingerFile):
-    """
-    Used to retrieve data from Jaguar .in files.
-    """
-    def __init__(self, path):
-        super(JaguarIn, self).__init__(path)
-        self._structures = None
-        self._hessian = None
-        self._empty_atoms = None
-        self._lines = None
-    @property
-    def hessian(self):
+if schrod_on:
+    class SchrodingerFile(File):
         """
-        Reads the Hessian from a Jaguar .in.
+        Parent class used for all Schrodinger files.
+        """
+        def conv_sch_str(self, sch_struct:sch_str):
+            """
+            Converts a schrodinger.structure object to my own structure object.
+            Sort of pointless. Probably remove soon.
+            """
+            my_struct = Structure()
+            my_struct.props.update(sch_struct.property)
+            for sch_atom in sch_struct.atom:
+                my_atom = Atom()
+                my_struct.atoms.append(my_atom)
+                my_atom.atom_type = sch_atom.atom_type
+                my_atom.atom_type_name = sch_atom.atom_type_name
+                my_atom.atomic_num = sch_atom.atomic_number
+                my_atom.bonded_atom_indices = \
+                    [x.index for x in sch_atom.bonded_atoms]
+                my_atom.element = sch_atom.element
+                my_atom.index = sch_atom.index
+                my_atom.partial_charge = sch_atom.partial_charge
+                my_atom.x, my_atom.y, my_atom.z = sch_atom.x, sch_atom.y, sch_atom.z
+                my_atom.props.update(sch_atom.property)
+            for sch_bond in sch_struct.bond:
+                my_bond = Bond()
+                my_struct.bonds.append(my_bond)
+                my_bond.atom_nums = [sch_bond.atom1, sch_bond.atom2]
+                my_bond.order = sch_bond.order
+                my_bond.value = sch_bond.length
+            return my_struct
 
-        Automatically removes Hessian elements corresponding to dummy atoms.
+    class JaguarIn(SchrodingerFile):
         """
-        if self._hessian is None:
-            num = len(self.structures[0].atoms) + len(self._empty_atoms)
-            logger.log(5,
-                       '  -- {} has {} atoms and {} dummy atoms.'.format(
-                    self.filename,
-                    len(self.structures[0].atoms),
-                    len(self._empty_atoms)))
-            assert num != 0, \
-                'Zero atoms found when loading Hessian from {}!'.format(
-                self.path)
-            hessian = np.zeros([num * 3, num * 3], dtype=float)
-            logger.log(5, '  -- Created {} Hessian matrix (including dummy '
-                       'atoms).'.format(hessian.shape))
+        Used to retrieve data from Jaguar .in files.
+        """
+        def __init__(self, path):
+            super(JaguarIn, self).__init__(path)
+            self._structures = None
+            self._hessian = None
+            self._empty_atoms = None
+            self._lines = None
+        @property
+        def hessian(self):
+            """
+            Reads the Hessian from a Jaguar .in.
+
+            Automatically removes Hessian elements corresponding to dummy atoms.
+            """
+            if self._hessian is None:
+                num = len(self.structures[0].atoms) + len(self._empty_atoms)
+                logger.log(5,
+                           '  -- {} has {} atoms and {} dummy atoms.'.format(
+                        self.filename,
+                        len(self.structures[0].atoms),
+                        len(self._empty_atoms)))
+                assert num != 0, \
+                    'Zero atoms found when loading Hessian from {}!'.format(
+                    self.path)
+                hessian = np.zeros([num * 3, num * 3], dtype=float)
+                logger.log(5, '  -- Created {} Hessian matrix (including dummy '
+                           'atoms).'.format(hessian.shape))
+                with open(self.path, 'r') as f:
+                    section_hess = False
+                    for line in f:
+                        if section_hess and line.startswith('&'):
+                            section_hess = False
+                            hessian += np.tril(hessian, -1).T
+                        if section_hess:
+                            cols = line.split()
+                            if len(cols) == 1:
+                                hess_col = int(cols[0])
+                            elif len(cols) > 1:
+                                hess_row = int(cols[0])
+                                for i, hess_ele in enumerate(cols[1:]):
+                                    hessian[hess_row - 1, i + hess_col - 1] = \
+                                        float(hess_ele)
+                        if '&hess' in line:
+                            section_hess = True
+                for atom in self._empty_atoms:
+                    logger.log(1, '>>> _empty_atom {}: {}'.format(atom.index, atom))
+                # Figure out the indices of the dummy atoms.
+                dummy_indices = []
+                for atom in self._empty_atoms:
+                    logger.log(1, '>>> atom.index: {}'.format(atom.index))
+                    index = (atom.index - 1) * 3
+                    dummy_indices.append(index)
+                    dummy_indices.append(index + 1)
+                    dummy_indices.append(index + 2)
+                logger.log(1, '>>> dummy_indices: {}'.format(dummy_indices))
+                # Delete these rows and columns.
+                logger.log(1, '>>> hessian.shape: {}'.format(hessian.shape))
+                logger.log(1, '>>> hessian:\n{}'.format(hessian))
+                hessian = np.delete(hessian, dummy_indices, 0)
+                hessian = np.delete(hessian, dummy_indices, 1)
+                logger.log(1, '>>> hessian:\n{}'.format(hessian))
+                logger.log(5, '  -- Created {} Hessian matrix (w/o dummy '
+                           'atoms).'.format(hessian.shape))
+                self._hessian = hessian * co.HESSIAN_CONVERSION
+                logger.log(1, '>>> hessian.shape: {}'.format(hessian.shape))
+            return self._hessian
+        @property
+        def structures(self):
+            if self._structures is None:
+                logger.log(10, 'READING: {}'.format(self.filename))
+                sch_ob = jag_in.read(self.path)
+                sch_struct = sch_ob.getStructure()
+                structures = [self.conv_sch_str(sch_struct)]
+                logger.log(5, '  -- Imported {} structure(s).'.format(
+                        len(structures)))
+                # This area is sketch. I added it so I could use Hessian data
+                # generated from a Jaguar calculation that had a dummy atom.
+                # No gaurantees this will always work.
+                for i, structure in enumerate(structures):
+                    empty_atoms = []
+                    for atom in structure.atoms:
+                        logger.log(1, '>>> atom {}: {}'.format(atom.index, atom))
+                        if atom.element == '':
+                            empty_atoms.append(atom)
+                    for atom in empty_atoms:
+                        structure.atoms.remove(atom)
+                    if empty_atoms:
+                        logger.log(5, 'Structure {}: {} empty atoms '
+                                   'removed.'.format(i + 1, len(empty_atoms)))
+                self._empty_atoms = empty_atoms
+                self._structures = structures
+            return self._structures
+        def gen_lines(self):
+            """
+            Attempts to figure out the lines of itself.
+
+            Since it'd be difficult, the written version will be missing much
+            of the data in the original. Maybe there's something in the
+            Schrodinger API for that.
+
+            However, I do want this to include the ability to write out an
+            atomic section with the ESP data that we'd want.
+            """
+            lines = []
+            mae_name = None
+            lines.append('MAEFILE: {}'.format(mae_name))
+            lines.append('&gen')
+            lines.append('&')
+            lines.append('&zmat')
+            # Just use the 1st structure. I don't imagine a Jaguar input file
+            # ever containing more than one structure.
+            struct = self.structures[0]
+            lines.extend(struct.format_coords(format='gauss'))
+            lines.append('&')
+            return lines
+
+    class JaguarOut(File):
+        """
+        Used to retrieve data from Schrodinger Jaguar .out files.
+        """
+        def __init__(self, path):
+            super(JaguarOut, self).__init__(path)
+            self._structures = None
+            self._eigenvalues = None
+            self._eigenvectors = None
+            self._frequencies = None
+            self._dummy_atom_eigenvector_indices = None
+            # self._force_constants = None
+        @property
+        def structures(self):
+            if self._structures is None:
+                self.import_file()
+            return self._structures
+        @property
+        def eigenvalues(self):
+            if self._eigenvalues is None:
+                self.import_file()
+            return self._eigenvalues
+        @property
+        def eigenvectors(self):
+            if self._eigenvectors is None:
+                self.import_file()
+            return self._eigenvectors
+        @property
+        def frequencies(self):
+            if self._frequencies is None:
+                self.import_file()
+            return self._frequencies
+        @property
+        def dummy_atom_eigenvector_indices(self):
+            if self._dummy_atom_eigenvector_indices is None:
+                self.import_file()
+            return self._dummy_atom_eigenvector_indices
+        def import_file(self):
+            logger.log(10, 'READING: {}'.format(self.filename))
+            frequencies = []
+            force_constants = []
+            eigenvectors = []
+            structures = []
             with open(self.path, 'r') as f:
-                section_hess = False
-                for line in f:
-                    if section_hess and line.startswith('&'):
-                        section_hess = False
-                        hessian += np.tril(hessian, -1).T
-                    if section_hess:
+                section_geometry = False
+                section_eigenvalues = False
+                section_eigenvectors = False
+                for i, line in enumerate(f):
+                    if section_geometry:
                         cols = line.split()
-                        if len(cols) == 1:
-                            hess_col = int(cols[0])
-                        elif len(cols) > 1:
-                            hess_row = int(cols[0])
-                            for i, hess_ele in enumerate(cols[1:]):
-                                hessian[hess_row - 1, i + hess_col - 1] = \
-                                    float(hess_ele)
-                    if '&hess' in line:
-                        section_hess = True
-            for atom in self._empty_atoms:
-                logger.log(1, '>>> _empty_atom {}: {}'.format(atom.index, atom))
-            # Figure out the indices of the dummy atoms.
-            dummy_indices = []
-            for atom in self._empty_atoms:
-                logger.log(1, '>>> atom.index: {}'.format(atom.index))
-                index = (atom.index - 1) * 3
-                dummy_indices.append(index)
-                dummy_indices.append(index + 1)
-                dummy_indices.append(index + 2)
-            logger.log(1, '>>> dummy_indices: {}'.format(dummy_indices))
-            # Delete these rows and columns.
-            logger.log(1, '>>> hessian.shape: {}'.format(hessian.shape))
-            logger.log(1, '>>> hessian:\n{}'.format(hessian))
-            hessian = np.delete(hessian, dummy_indices, 0)
-            hessian = np.delete(hessian, dummy_indices, 1)
-            logger.log(1, '>>> hessian:\n{}'.format(hessian))
-            logger.log(5, '  -- Created {} Hessian matrix (w/o dummy '
-                       'atoms).'.format(hessian.shape))
-            self._hessian = hessian * co.HESSIAN_CONVERSION
-            logger.log(1, '>>> hessian.shape: {}'.format(hessian.shape))
-        return self._hessian
-    @property
-    def structures(self):
-        if self._structures is None:
-            logger.log(10, 'READING: {}'.format(self.filename))
-            sch_ob = jag_in.read(self.path)
-            sch_struct = sch_ob.getStructure()
-            structures = [self.conv_sch_str(sch_struct)]
-            logger.log(5, '  -- Imported {} structure(s).'.format(
-                    len(structures)))
-            # This area is sketch. I added it so I could use Hessian data
-            # generated from a Jaguar calculation that had a dummy atom.
-            # No gaurantees this will always work.
-            for i, structure in enumerate(structures):
-                empty_atoms = []
-                for atom in structure.atoms:
-                    logger.log(1, '>>> atom {}: {}'.format(atom.index, atom))
-                    if atom.element == '':
-                        empty_atoms.append(atom)
-                for atom in empty_atoms:
-                    structure.atoms.remove(atom)
-                if empty_atoms:
-                    logger.log(5, 'Structure {}: {} empty atoms '
-                               'removed.'.format(i + 1, len(empty_atoms)))
-            self._empty_atoms = empty_atoms
-            self._structures = structures
-        return self._structures
-    def gen_lines(self):
-        """
-        Attempts to figure out the lines of itself.
-
-        Since it'd be difficult, the written version will be missing much
-        of the data in the original. Maybe there's something in the
-        Schrodinger API for that.
-
-        However, I do want this to include the ability to write out an
-        atomic section with the ESP data that we'd want.
-        """
-        lines = []
-        mae_name = None
-        lines.append('MAEFILE: {}'.format(mae_name))
-        lines.append('&gen')
-        lines.append('&')
-        lines.append('&zmat')
-        # Just use the 1st structure. I don't imagine a Jaguar input file
-        # ever containing more than one structure.
-        struct = self.structures[0]
-        lines.extend(struct.format_coords(format='gauss'))
-        lines.append('&')
-        return lines
-
-class JaguarOut(File):
-    """
-    Used to retrieve data from Schrodinger Jaguar .out files.
-    """
-    def __init__(self, path):
-        super(JaguarOut, self).__init__(path)
-        self._structures = None
-        self._eigenvalues = None
-        self._eigenvectors = None
-        self._frequencies = None
-        self._dummy_atom_eigenvector_indices = None
-        # self._force_constants = None
-    @property
-    def structures(self):
-        if self._structures is None:
-            self.import_file()
-        return self._structures
-    @property
-    def eigenvalues(self):
-        if self._eigenvalues is None:
-            self.import_file()
-        return self._eigenvalues
-    @property
-    def eigenvectors(self):
-        if self._eigenvectors is None:
-            self.import_file()
-        return self._eigenvectors
-    @property
-    def frequencies(self):
-        if self._frequencies is None:
-            self.import_file()
-        return self._frequencies
-    @property
-    def dummy_atom_eigenvector_indices(self):
-        if self._dummy_atom_eigenvector_indices is None:
-            self.import_file()
-        return self._dummy_atom_eigenvector_indices
-    def import_file(self):
-        logger.log(10, 'READING: {}'.format(self.filename))
-        frequencies = []
-        force_constants = []
-        eigenvectors = []
-        structures = []
-        with open(self.path, 'r') as f:
-            section_geometry = False
-            section_eigenvalues = False
-            section_eigenvectors = False
-            for i, line in enumerate(f):
-                if section_geometry:
-                    cols = line.split()
-                    if len(cols) == 0:
-                        section_geometry = False
-                        structures.append(current_structure)
-                        continue
-                    elif len(cols) == 1:
-                        pass
-                    else:
-                        match = re.match(
-                            '\s+([\d\w]+)\s+({0})\s+({0})\s+({0})'.format(
-                                co.RE_FLOAT), line)
-                        if match != None:
-                            current_atom = Atom()
-                            current_atom.element = match.group(1).translate(str.maketrans('','', digits))
-                            current_atom.x = float(match.group(2))
-                            current_atom.y = float(match.group(3))
-                            current_atom.z = float(match.group(4))
-                            current_structure.atoms.append(current_atom)
-                            logger.log(0,
-                                       '{0:<3}{1:>12.6f}{2:>12.6f}'
-                                       '{3:>12.6f}'.format(
-                                    current_atom.element, current_atom.x,
-                                    current_atom.y, current_atom.z))
-                if 'geometry:' in line:
-                    section_geometry = True
-                    current_structure = Structure()
-                    logger.log(5, '[L{}] Located geometry.'.format(i + 1))
-                if 'Number of imaginary frequencies' in line or \
-                        'Writing vibrational' in line or \
-                        'Thermochemical properties at' in line:
-                    section_eigenvalues = False
-                if section_eigenvectors is True:
-                    cols = line.split()
-                    if len(cols) == 0:
-                        section_eigenvectors = False
-                        eigenvectors.extend(temp_eigenvectors)
-                        continue
-                    else:
-                        for i, x in enumerate(cols[2:]):
-                            if not len(temp_eigenvectors) > i:
-                                temp_eigenvectors.append([])
-                            temp_eigenvectors[i].append(float(x))
-                if section_eigenvalues is True and \
-                        section_eigenvectors is False:
-                    if 'frequencies' in line:
+                        if len(cols) == 0:
+                            section_geometry = False
+                            structures.append(current_structure)
+                            continue
+                        elif len(cols) == 1:
+                            pass
+                        else:
+                            match = re.match(
+                                '\s+([\d\w]+)\s+({0})\s+({0})\s+({0})'.format(
+                                    co.RE_FLOAT), line)
+                            if match != None:
+                                current_atom = Atom()
+                                current_atom.element = match.group(1).translate(str.maketrans('','', digits))
+                                current_atom.x = float(match.group(2))
+                                current_atom.y = float(match.group(3))
+                                current_atom.z = float(match.group(4))
+                                current_structure.atoms.append(current_atom)
+                                logger.log(0,
+                                           '{0:<3}{1:>12.6f}{2:>12.6f}'
+                                           '{3:>12.6f}'.format(
+                                        current_atom.element, current_atom.x,
+                                        current_atom.y, current_atom.z))
+                    if 'geometry:' in line:
+                        section_geometry = True
+                        current_structure = Structure()
+                        logger.log(5, '[L{}] Located geometry.'.format(i + 1))
+                    if 'Number of imaginary frequencies' in line or \
+                            'Writing vibrational' in line or \
+                            'Thermochemical properties at' in line:
+                        section_eigenvalues = False
+                    if section_eigenvectors is True:
                         cols = line.split()
-                        frequencies.extend(map(float, cols[1:]))
-                    if 'force const' in line:
-                        cols = line.split()
-                        force_constants.extend(map(float, cols[2:]))
-                        section_eigenvectors = True
-                        temp_eigenvectors = [[]]
-                if 'normal modes in' in line:
-                    section_eigenvalues = True
-        logger.log(1, '>>> len(frequencies): {}'.format(len(frequencies)))
-        logger.log(1, '>>> frequencies:\n{}'.format(frequencies))
-        # logger.log(1, '>>> frequencies:\n{}'.format(
-        #         [x / co.FORCE_CONVERSION for x in frequencies]))
-        # logger.log(1, '>>> frequencies:\n{}'.format(
-        #         [x * 4.55633e-6 for x in frequencies]))
-        # logger.log(1, '>>> frequencies:\n{}'.format(
-        #         [x * 1.23981e-4 for x in frequencies]))
-        # logger.log(1, '>>> frequencies:\n{}'.format(
-        #         [x / 219474.6305 for x in frequencies]))
-        eigenvalues = [- fc / co.FORCE_CONVERSION if f < 0 else
-                         fc / co.FORCE_CONVERSION
-                         for fc, f in zip(force_constants, frequencies)]
-        logger.log(1, '>>> eigenvalues:\n{}'.format(eigenvalues))
-        # Remove eigenvector components related to dummy atoms.
-        # Find the index of the atoms that are dummies.
-        dummy_atom_indices = []
-        for i, atom in enumerate(structures[-1].atoms):
-            if atom.is_dummy:
-                dummy_atom_indices.append(i)
-        logger.log(10, '  -- Located {} dummy atoms.'.format(len(dummy_atom_indices)))
-        # Correlate those indices to the rows in the cartesian eigenvector.
-        dummy_atom_eigenvector_indices = []
-        for dummy_atom_index in dummy_atom_indices:
-            start = dummy_atom_index * 3
-            dummy_atom_eigenvector_indices.append(start)
-            dummy_atom_eigenvector_indices.append(start + 1)
-            dummy_atom_eigenvector_indices.append(start + 2)
-        new_eigenvectors = []
-        # Create new eigenvectors without the rows corresponding to the
-        # dummy atoms.
-        for eigenvector in eigenvectors:
-            new_eigenvectors.append([])
-            for i, eigenvector_row in enumerate(eigenvector):
-                if i not in dummy_atom_eigenvector_indices:
-                    new_eigenvectors[-1].append(eigenvector_row)
-        # Replace old eigenvectors with new where dummy atoms aren't included.
-        eigenvectors = np.array(new_eigenvectors)
-        self._dummy_atom_eigenvector_indices = dummy_atom_eigenvector_indices
-        self._structures = structures
-        self._eigenvalues = np.array(eigenvalues)
-        self._eigenvectors = np.array(eigenvectors)
-        self._frequencies = np.array(frequencies)
-        # self._force_constants = np.array(force_constants)
-        logger.log(5, '  -- Read {} structures'.format(
-                len(self.structures)))
-        logger.log(5, '  -- Read {} frequencies.'.format(
-                len(self.frequencies)))
-        logger.log(5, '  -- Read {} eigenvalues.'.format(
-                len(self.eigenvalues)))
-        logger.log(5, '  -- Read {} eigenvectors.'.format(
-                self.eigenvectors.shape))
-        # num_atoms = len(structures[-1].atoms)
-        # logger.log(5,
-        #            '  -- ({}, {}) eigenvectors expected for linear '
-        #            'molecule.'.format(
-        #         num_atoms * 3 - 5, num_atoms * 3))
-        # logger.log(5, '  -- ({}, {}) eigenvectors expected for nonlinear '
-        #            'molecule.'.format(
-        #         num_atoms * 3 - 6, num_atoms * 3))
-
-class Mae(SchrodingerFile):
-    """
-    Used to retrieve and work with data from Schrodinger .mae files.
-    """
-    def __init__(self, path):
-        super(Mae, self).__init__(path)
-        self._index_output_mae = None
-        self._index_output_mmo = None
-        self._structures = None
-        self.commands = None
-        # Strings for keeping track of this file and output files.
-        self.name = os.path.splitext(self.filename)[0]
-        self.name_com = self.name + '.q2mm.com'
-        self.name_log = self.name + '.q2mm.log'
-        self.name_mae = self.name + '.q2mm.mae'
-        self.name_mmo = self.name + '.q2mm.mmo'
-        self.name_out = self.name + '.q2mm.out'
-
-        #self.lock = multiprocessing.Lock()
-    @property
-    def structures(self):
-        if self._structures is None:
-            logger.log(10, 'READING: {}'.format(self.filename))
-            # It would be great if we could leave this as an iter.
-            try:
-                sch_structs = list(sch_str.StructureReader(self.path))
-            except:
-                logger.warning('Error reading {}.'.format(self.path))
-                raise
-            self._structures = [self.conv_sch_str(sch_struct)
-                                for sch_struct in sch_structs]
-            logger.log(5, '  -- Imported {} structure(s).'.format(
-                    len(self._structures)))
-        return self._structures
-    def get_com_opts(self):
+                        if len(cols) == 0:
+                            section_eigenvectors = False
+                            eigenvectors.extend(temp_eigenvectors)
+                            continue
+                        else:
+                            for i, x in enumerate(cols[2:]):
+                                if not len(temp_eigenvectors) > i:
+                                    temp_eigenvectors.append([])
+                                temp_eigenvectors[i].append(float(x))
+                    if section_eigenvalues is True and \
+                            section_eigenvectors is False:
+                        if 'frequencies' in line:
+                            cols = line.split()
+                            frequencies.extend(map(float, cols[1:]))
+                        if 'force const' in line:
+                            cols = line.split()
+                            force_constants.extend(map(float, cols[2:]))
+                            section_eigenvectors = True
+                            temp_eigenvectors = [[]]
+                    if 'normal modes in' in line:
+                        section_eigenvalues = True
+                logger.log(1, '>>> len(frequencies): {}'.format(len(frequencies)))
+                logger.log(1, '>>> frequencies:\n{}'.format(frequencies))
+                # logger.log(1, '>>> frequencies:\n{}'.format(
+                #         [x / co.FORCE_CONVERSION for x in frequencies]))
+                # logger.log(1, '>>> frequencies:\n{}'.format(
+                #         [x * 4.55633e-6 for x in frequencies]))
+                # logger.log(1, '>>> frequencies:\n{}'.format(
+                #         [x * 1.23981e-4 for x in frequencies]))
+                # logger.log(1, '>>> frequencies:\n{}'.format(
+                #         [x / 219474.6305 for x in frequencies]))
+                eigenvalues = [- fc / co.FORCE_CONVERSION if f < 0 else
+                                 fc / co.FORCE_CONVERSION
+                                 for fc, f in zip(force_constants, frequencies)]
+                logger.log(1, '>>> eigenvalues:\n{}'.format(eigenvalues))
+                # Remove eigenvector components related to dummy atoms.
+                # Find the index of the atoms that are dummies.
+                dummy_atom_indices = []
+                for i, atom in enumerate(structures[-1].atoms):
+                    if atom.is_dummy:
+                        dummy_atom_indices.append(i)
+                logger.log(10, '  -- Located {} dummy atoms.'.format(len(dummy_atom_indices)))
+                # Correlate those indices to the rows in the cartesian eigenvector.
+                dummy_atom_eigenvector_indices = []
+                for dummy_atom_index in dummy_atom_indices:
+                    start = dummy_atom_index * 3
+                    dummy_atom_eigenvector_indices.append(start)
+                    dummy_atom_eigenvector_indices.append(start + 1)
+                    dummy_atom_eigenvector_indices.append(start + 2)
+                new_eigenvectors = []
+                # Create new eigenvectors without the rows corresponding to the
+                # dummy atoms.
+                for eigenvector in eigenvectors:
+                    new_eigenvectors.append([])
+                    for i, eigenvector_row in enumerate(eigenvector):
+                        if i not in dummy_atom_eigenvector_indices:
+                            new_eigenvectors[-1].append(eigenvector_row)
+                # Replace old eigenvectors with new where dummy atoms aren't included.
+                eigenvectors = np.array(new_eigenvectors)
+                self._dummy_atom_eigenvector_indices = dummy_atom_eigenvector_indices
+                self._structures = structures
+                self._eigenvalues = np.array(eigenvalues)
+                self._eigenvectors = np.array(eigenvectors)
+                self._frequencies = np.array(frequencies)
+                # self._force_constants = np.array(force_constants)
+                logger.log(5, '  -- Read {} structures'.format(
+                        len(self.structures)))
+                logger.log(5, '  -- Read {} frequencies.'.format(
+                        len(self.frequencies)))
+                logger.log(5, '  -- Read {} eigenvalues.'.format(
+                        len(self.eigenvalues)))
+                logger.log(5, '  -- Read {} eigenvectors.'.format(
+                        self.eigenvectors.shape))
+                # num_atoms = len(structures[-1].atoms)
+                # logger.log(5,
+                #            '  -- ({}, {}) eigenvectors expected for linear '
+                #            'molecule.'.format(
+                #         num_atoms * 3 - 5, num_atoms * 3))
+                # logger.log(5, '  -- ({}, {}) eigenvectors expected for nonlinear '
+                #            'molecule.'.format(
+                #         num_atoms * 3 - 6, num_atoms * 3))
+    
+    class Mae(SchrodingerFile):
         """
-        Takes the users arguments from calculate (ex. mb, me, etc.) and
-        determines what has to be written to the .com file in order to
-        generate the requested data using MacroModel.
-
-        Returns
-        -------
-        dictionary of options used when writing a .com file
+        Used to retrieve and work with data from Schrodinger .mae files.
         """
-        com_opts = {
-            'freq': False,
-            'opt': False,
-            'opt_mmo': False,
-            'sp': False,
-            'sp_mmo': False,
-            'strs': False,
-            'tors': False}
-        if len(self.structures) > 1:
-            com_opts['strs'] = True
-        if any(x in ['jb', 'ja', 'jt'] for x in self.commands):
-            com_opts['sp_mmo'] = True
-        if any(x in ['me', 'mea', 'mq', 'mqh', 'mqa', 'mgESP', 'mjESP'] 
-            for x in self.commands):
-            com_opts['sp'] = True
-        # Command meig is depreciated.
-        if any(x in ['mh', 'meig', 'mjeig', 'mgeig'] for x in self.commands):
-            if com_opts['strs']:
-                raise Exception(
-                    "Can't obtain the Hessian from a Maestro file "
-                    "containing multiple structures!\n"
-                    "FILENAME: {}\n"
-                    "COMMANDS:{}\n".format(
-                        self.path, ' '.join(commands)))
-            else:
-                com_opts['freq'] = True
-        if any(x in ['mb', 'ma', 'mt', 'meo', 'meao'] for x in self.commands): # does do a 500-step mini if opt
-            com_opts['opt'] = True
-            com_opts['opt_mmo'] = True
-        elif any(x in ['mb', 'ma', 'mt'] for x in self.commands): 
-            com_opts['opt'] = True
-        if any(x in ['mt', 'jt'] for x in self.commands):
-            com_opts['tors'] = True
-        return com_opts
-    def get_debg_opts(self, com_opts):
-        """
-        Determines what arguments are needed for the DEBG line used inside
-        a MacroModel .com file.
-
-        Returns
-        -------
-        list of integers
-        """
-        debg_opts = []
-        debg_opts.append(57)
-        # Leads to problems when an angle inside a torsion is ~ 0 or 180.
-        # if com_opts['tors']:
-        #     debg_opts.append(56)
-        if com_opts['freq']:
-            debg_opts.extend((210, 211))
-        debg_opts.sort()
-        debg_opts.insert(0, 'DEBG')
-        while len(debg_opts) < 9:
-            debg_opts.append(0)
-        return debg_opts
-    def write_com(self, sometext=None):
-        """
-        Writes the .com file with all the right arguments to generate
-        the requested data.
-        """
-        # Setup new filename. User can add additional text.
-        if sometext:
-            pieces = self.name_com.split('.')
-            pieces.insert(-1, sometext)
-            self.name_com = '.'.join(pieces)
-        # Even if the command file already exists, we still need to
-        # determine these indices.
-        self._index_output_mae = []
-        self._index_output_mmo = []
-        com_opts = self.get_com_opts()
-        debg_opts = self.get_debg_opts(com_opts)
-        mae_in = os.path.join(self.directory, self.filename)
-        mae_out = os.path.join(self.directory, self.name_mae)
-        com = '{}\n{}\n'.format(mae_in, mae_out)
-        # Is this right? It seems to work, but looking back at this,
-        # I'm not sure why we wouldn't always want to control using
-        # MMOD. Also, that 2nd argument of MMOD only affects the color
-        # of atoms. I don't think this needs to be included. At some
-        # point, I am going to remove it and test everything to make
-        # sure it's not essential.
-        if debg_opts:
-            com += co.COM_FORM.format(*debg_opts)
-        else:
-            com += co.COM_FORM.format('MMOD', 0, 1, 0, 0, 0, 0, 0, 0)
-        # May want to turn on/off arg2 (continuum solvent).
-        #com += co.COM_FORM.format('FFLD', 2, 0, 0, 0, 36.7, 0, 0, 0)
-        com += co.COM_FORM.format('FFLD', 2, 0, 0, 0, 0, 0, 0, 0)
-        # Also may want to turn on/off cutoffs using BDCO.
-        ## We have noticed there are some oddities for electrostatic 
-        ## interactions. In some cases "Residue-based cutoffs" are used which
-        ## result inconsistent energy contributions. Inorder to keep this
-        ## consistent between calculations in Q2MM and conformational seaching
-        ## EXNB is used to set all vdW and electrostatic cutoffs to 99.0 
-        ## ensuring all interactions are gathered. The seventh column is the
-        ## cutoff for hydrogen bonds, and 4 is the default value.
-        com += co.COM_FORM.format('EXNB', 0, 0, 0, 0, 99., 99., 4., 0)
-        if com_opts['strs']:
-            com += co.COM_FORM.format('BGIN', 0, 0, 0, 0, 0, 0, 0, 0)
-        # Look into differences.
-        com += co.COM_FORM.format('READ', -1, 0, 0, 0, 0, 0, 0, 0)
-        if com_opts['sp'] or com_opts['sp_mmo'] or com_opts['freq']:
-            com += co.COM_FORM.format('MINI', 9, 0, 0, 0, 0, 0, 0, 0)
-            # self._index_output_mae.append('stupid_extra_structure')
-            self._index_output_mae.append('pre')
-        if com_opts['sp'] or com_opts['sp_mmo']:
-            com += co.COM_FORM.format('ELST', 1, 0, 0, 0, 0, 0, 0, 0)
-            self._index_output_mmo.append('pre')
-            # Replaced by using a pointless MINI statement. For whatever
-            # reason, that causes the .mmo file to be written without
-            # needing this WRIT statement.
-            # com += co.COM_FORM.format('WRIT', 0, 0, 0, 0, 0, 0, 0, 0)
-            # self._index_output_mae.append('pre')
-        if com_opts['freq']:
-            # Now the WRIT is handled above.
-            # com += co.COM_FORM.format('MINI', 9, 0, 0, 0, 0, 0, 0, 0)
-            # self._index_output_mae.append('stupid_extra_structure')
-            # What does arg1 as 3 even do?
-            com += co.COM_FORM.format('RRHO', 3, 0, 0, 0, 0, 0, 0, 0)
-            self._index_output_mae.append('hess')
-        if com_opts['opt']:
-            # Commented line was used in code from Per-Ola/Elaine.
-            # com += co.COM_FORM.format('MINI', 9, 0, 50, 0, 0, 0, 0, 0)
-            # TNCG has more risk of not converging, and may print NaN instead
-            # of coordinates and forces to output.
-            # arg1: 1 = PRCG, 9 = TNCG
-            com += co.COM_FORM.format('MINI', 1, 0, 500, 0, 0, 0, 0, 0)
-            self._index_output_mae.append('opt')
-        if com_opts['opt_mmo']:
-            com += co.COM_FORM.format('ELST', 1, 0, 0, 0, 0, 0, 0, 0)
-            self._index_output_mmo.append('opt')
-        if com_opts['strs']:
-            com += co.COM_FORM.format('END', 0, 0, 0, 0, 0, 0, 0, 0)
-        # If the file already exists, don't rewrite it.
-        path_com = os.path.join(self.directory, self.name_com)
-        if sometext and os.path.exists(path_com):
-            logger.log(5, '  -- {} already exists. Skipping write.'.format(
-                    self.name_com))
-        else:
-            with open(os.path.join(self.directory, self.name_com), 'w') as f:
-                f.write(com)
-            logger.log(5, 'WROTE: {}'.format(
-                    os.path.join(self.name_com)))
-
-    def run(self, max_fails=5, max_timeout=None, timeout=10, check_tokens=True, lock=None):
-        """
-        Runs MacroModel .com files. This has to be more complicated than a
-        simple subprocess command due to problems with Schrodinger tokens.
-        This script checks the available tokens, and if there's not enough,
-        waits to run MacroModel until there are.
-
-        Arguments
-        ---------
-        max_timeout : int
-                      Maximum number of attempts to look for Schrodinger
-                      license tokens before giving up.
-        max_fails : int
-                    Maximum number of times the job can fail.
-        timeout : float
-                  Time waited in between lookups of Schrodinger license
-                  tokens.
-        """
-        logger.log(logging.INFO, "Run " + str(self.filename) + " with commands:" + str(self.commands))
-        current_directory = os.getcwd()
-        #os.chdir(self.directory)
-        current_timeout = 0
-        current_fails = 0
-        licenses_available = False
-        if check_tokens is True:
-            logger.log(5, "  -- Checking Schrodinger tokens.")
-            while True:
-                token_string = sp.check_output(
-                    '$SCHRODINGER/utilities/licutil -available', shell=True)
-                if (sys.version_info > (3, 0)):
-                  token_string = token_string.decode("utf-8")
-                if 'SUITE' not in token_string:
-                    licenses_available = True
-                    break
-                suite_tokens = co.LIC_SUITE.search(token_string)
-                macro_tokens = co.LIC_MACRO.search(token_string)
-                #suite_tokens = re.search(co.LIC_SUITE, token_string)
-                #macro_tokens = re.search(co.LIC_MACRO, token_string)
-                if not suite_tokens or not macro_tokens:
-                    raise Exception(
-                        'The command "$SCHRODINGER/utilities/licutil '
-                        '-available" is not working with the current '
-                        'regex in calculate.py.\nOUTPUT:\n{}'.format(
-                            token_string))
-                suite_tokens = int(suite_tokens.group(1))
-                macro_tokens = int(macro_tokens.group(1))
-                if suite_tokens > co.MIN_SUITE_TOKENS and \
-                        macro_tokens > co.MIN_MACRO_TOKENS:
-                    licenses_available = True
-                    break
-                else:
-                    if max_timeout is not None and \
-                            current_timeout > max_timeout:
-                        pretty_timeout(
-                            current_timeout, suite_tokens,
-                            macro_tokens, end=True, name_com=self.name_com)
-                        raise Exception(
-                            "Not enough tokens to run {}. Waited {} seconds "
-                            "before giving up.".format(
-                                self.name_com, current_timeout))
-                    pretty_timeout(current_timeout, suite_tokens, macro_tokens,
-                                   name_com=self.name_com)
-                    current_timeout += timeout
-                    time.sleep(timeout)
-        else:
-            licenses_available = True
-        if licenses_available:
-            while True:
+        def __init__(self, path):
+            super(Mae, self).__init__(path)
+            self._index_output_mae = None
+            self._index_output_mmo = None
+            self._structures = None
+            self.commands = None
+            # Strings for keeping track of this file and output files.
+            self.name = os.path.splitext(self.filename)[0]
+            self.name_com = self.name + '.q2mm.com'
+            self.name_log = self.name + '.q2mm.log'
+            self.name_mae = self.name + '.q2mm.mae'
+            self.name_mmo = self.name + '.q2mm.mmo'
+            self.name_out = self.name + '.q2mm.out'
+    
+            #self.lock = multiprocessing.Lock()
+        @property
+        def structures(self):
+            if self._structures is None:
+                logger.log(10, 'READING: {}'.format(self.filename))
+                # It would be great if we could leave this as an iter.
                 try:
-                    logger.log(5, 'RUNNING: {}'.format(self.name_com))
-                    # Critical point of running file (what shouldn't happen concurrently)
-                    #if self.lock is not None: self.lock.acquire()
-                    sp.check_output(
-                        '$SCHRODINGER/bmin -WAIT {}'.format(
-                            os.path.join(self.directory, os.path.splitext(self.name_com)[0])), shell=True)
-                    #if lock is not None: self.lock.release()
-                    # End critical point
-                    break
-                except sp.CalledProcessError:
-                    logger.warning('Call to MacroModel failed and I have no '
-                                   'idea why!')
-                    current_fails += 1
-                    if current_fails < max_fails:
-                        time.sleep(timeout)
-                        continue
+                    sch_structs = list(sch_str.StructureReader(self.path))
+                except:
+                    logger.warning('Error reading {}.'.format(self.path))
+                    raise
+                self._structures = [self.conv_sch_str(sch_struct)
+                                    for sch_struct in sch_structs]
+                logger.log(5, '  -- Imported {} structure(s).'.format(
+                        len(self._structures)))
+            return self._structures
+        def get_com_opts(self):
+            """
+            Takes the users arguments from calculate (ex. mb, me, etc.) and
+            determines what has to be written to the .com file in order to
+            generate the requested data using MacroModel.
+    
+            Returns
+            -------
+            dictionary of options used when writing a .com file
+            """
+            com_opts = {
+                'freq': False,
+                'opt': False,
+                'opt_mmo': False,
+                'sp': False,
+                'sp_mmo': False,
+                'strs': False,
+                'tors': False}
+            if len(self.structures) > 1:
+                com_opts['strs'] = True
+            if any(x in ['jb', 'ja', 'jt'] for x in self.commands):
+                com_opts['sp_mmo'] = True
+            if any(x in ['me', 'mea', 'mq', 'mqh', 'mqa', 'mgESP', 'mjESP'] 
+                for x in self.commands):
+                com_opts['sp'] = True
+            # Command meig is depreciated.
+            if any(x in ['mh', 'meig', 'mjeig', 'mgeig'] for x in self.commands):
+                if com_opts['strs']:
+                    raise Exception(
+                        "Can't obtain the Hessian from a Maestro file "
+                        "containing multiple structures!\n"
+                        "FILENAME: {}\n"
+                        "COMMANDS:{}\n".format(
+                            self.path, ' '.join(self.commands)))
+                else:
+                    com_opts['freq'] = True
+            if any(x in ['mb', 'ma', 'mt', 'meo', 'meao'] for x in self.commands): # does do a 500-step mini if opt
+                com_opts['opt'] = True
+                com_opts['opt_mmo'] = True
+            elif any(x in ['mb', 'ma', 'mt'] for x in self.commands): 
+                com_opts['opt'] = True
+            if any(x in ['mt', 'jt'] for x in self.commands):
+                com_opts['tors'] = True
+            return com_opts
+        def get_debg_opts(self, com_opts):
+            """
+            Determines what arguments are needed for the DEBG line used inside
+            a MacroModel .com file.
+    
+            Returns
+            -------
+            list of integers
+            """
+            debg_opts = []
+            debg_opts.append(57)
+            # Leads to problems when an angle inside a torsion is ~ 0 or 180.
+            # if com_opts['tors']:
+            #     debg_opts.append(56)
+            if com_opts['freq']:
+                debg_opts.extend((210, 211))
+            debg_opts.sort()
+            debg_opts.insert(0, 'DEBG')
+            while len(debg_opts) < 9:
+                debg_opts.append(0)
+            return debg_opts
+        def write_com(self, sometext=None):
+            """
+            Writes the .com file with all the right arguments to generate
+            the requested data.
+            """
+            # Setup new filename. User can add additional text.
+            if sometext:
+                pieces = self.name_com.split('.')
+                pieces.insert(-1, sometext)
+                self.name_com = '.'.join(pieces)
+            # Even if the command file already exists, we still need to
+            # determine these indices.
+            self._index_output_mae = []
+            self._index_output_mmo = []
+            com_opts = self.get_com_opts()
+            debg_opts = self.get_debg_opts(com_opts)
+            mae_in = os.path.join(self.directory, self.filename)
+            mae_out = os.path.join(self.directory, self.name_mae)
+            com = '{}\n{}\n'.format(mae_in, mae_out)
+            # Is this right? It seems to work, but looking back at this,
+            # I'm not sure why we wouldn't always want to control using
+            # MMOD. Also, that 2nd argument of MMOD only affects the color
+            # of atoms. I don't think this needs to be included. At some
+            # point, I am going to remove it and test everything to make
+            # sure it's not essential.
+            if debg_opts:
+                com += co.COM_FORM.format(*debg_opts)
+            else:
+                com += co.COM_FORM.format('MMOD', 0, 1, 0, 0, 0, 0, 0, 0)
+            # May want to turn on/off arg2 (continuum solvent).
+            #com += co.COM_FORM.format('FFLD', 2, 0, 0, 0, 36.7, 0, 0, 0)
+            com += co.COM_FORM.format('FFLD', 2, 0, 0, 0, 0, 0, 0, 0)
+            # Also may want to turn on/off cutoffs using BDCO.
+            ## We have noticed there are some oddities for electrostatic 
+            ## interactions. In some cases "Residue-based cutoffs" are used which
+            ## result inconsistent energy contributions. Inorder to keep this
+            ## consistent between calculations in Q2MM and conformational seaching
+            ## EXNB is used to set all vdW and electrostatic cutoffs to 99.0 
+            ## ensuring all interactions are gathered. The seventh column is the
+            ## cutoff for hydrogen bonds, and 4 is the default value.
+            com += co.COM_FORM.format('EXNB', 0, 0, 0, 0, 99., 99., 4., 0)
+            if com_opts['strs']:
+                com += co.COM_FORM.format('BGIN', 0, 0, 0, 0, 0, 0, 0, 0)
+            # Look into differences.
+            com += co.COM_FORM.format('READ', -1, 0, 0, 0, 0, 0, 0, 0)
+            if com_opts['sp'] or com_opts['sp_mmo'] or com_opts['freq']:
+                com += co.COM_FORM.format('MINI', 9, 0, 0, 0, 0, 0, 0, 0)
+                # self._index_output_mae.append('stupid_extra_structure')
+                self._index_output_mae.append('pre')
+            if com_opts['sp'] or com_opts['sp_mmo']:
+                com += co.COM_FORM.format('ELST', 1, 0, 0, 0, 0, 0, 0, 0)
+                self._index_output_mmo.append('pre')
+                # Replaced by using a pointless MINI statement. For whatever
+                # reason, that causes the .mmo file to be written without
+                # needing this WRIT statement.
+                # com += co.COM_FORM.format('WRIT', 0, 0, 0, 0, 0, 0, 0, 0)
+                # self._index_output_mae.append('pre')
+            if com_opts['freq']:
+                # Now the WRIT is handled above.
+                # com += co.COM_FORM.format('MINI', 9, 0, 0, 0, 0, 0, 0, 0)
+                # self._index_output_mae.append('stupid_extra_structure')
+                # What does arg1 as 3 even do?
+                com += co.COM_FORM.format('RRHO', 3, 0, 0, 0, 0, 0, 0, 0)
+                self._index_output_mae.append('hess')
+            if com_opts['opt']:
+                # Commented line was used in code from Per-Ola/Elaine.
+                # com += co.COM_FORM.format('MINI', 9, 0, 50, 0, 0, 0, 0, 0)
+                # TNCG has more risk of not converging, and may print NaN instead
+                # of coordinates and forces to output.
+                # arg1: 1 = PRCG, 9 = TNCG
+                com += co.COM_FORM.format('MINI', 1, 0, 500, 0, 0, 0, 0, 0)
+                self._index_output_mae.append('opt')
+            if com_opts['opt_mmo']:
+                com += co.COM_FORM.format('ELST', 1, 0, 0, 0, 0, 0, 0, 0)
+                self._index_output_mmo.append('opt')
+            if com_opts['strs']:
+                com += co.COM_FORM.format('END', 0, 0, 0, 0, 0, 0, 0, 0)
+            # If the file already exists, don't rewrite it.
+            path_com = os.path.join(self.directory, self.name_com)
+            if sometext and os.path.exists(path_com):
+                logger.log(5, '  -- {} already exists. Skipping write.'.format(
+                        self.name_com))
+            else:
+                with open(os.path.join(self.directory, self.name_com), 'w') as f:
+                    f.write(com)
+                logger.log(5, 'WROTE: {}'.format(
+                        os.path.join(self.name_com)))
+    
+        def run(self, max_fails=5, max_timeout=None, timeout=10, check_tokens=True, lock=None):
+            """
+            Runs MacroModel .com files. This has to be more complicated than a
+            simple subprocess command due to problems with Schrodinger tokens.
+            This script checks the available tokens, and if there's not enough,
+            waits to run MacroModel until there are.
+    
+            Arguments
+            ---------
+            max_timeout : int
+                          Maximum number of attempts to look for Schrodinger
+                          license tokens before giving up.
+            max_fails : int
+                        Maximum number of times the job can fail.
+            timeout : float
+                      Time waited in between lookups of Schrodinger license
+                      tokens.
+            """
+            logger.log(logging.INFO, "Run " + str(self.filename) + " with commands:" + str(self.commands))
+            current_directory = os.getcwd()
+            #os.chdir(self.directory)
+            current_timeout = 0
+            current_fails = 0
+            licenses_available = False
+            if check_tokens is True:
+                logger.log(5, "  -- Checking Schrodinger tokens.")
+                while True:
+                    token_string = sp.check_output(
+                        '$SCHRODINGER/utilities/licutil -available', shell=True)
+                    if (sys.version_info > (3, 0)):
+                      token_string = token_string.decode("utf-8")
+                    if 'SUITE' not in token_string:
+                        licenses_available = True
+                        break
+                    suite_tokens = co.LIC_SUITE.search(token_string)
+                    macro_tokens = co.LIC_MACRO.search(token_string)
+                    #suite_tokens = re.search(co.LIC_SUITE, token_string)
+                    #macro_tokens = re.search(co.LIC_MACRO, token_string)
+                    if not suite_tokens or not macro_tokens:
+                        raise Exception(
+                            'The command "$SCHRODINGER/utilities/licutil '
+                            '-available" is not working with the current '
+                            'regex in calculate.py.\nOUTPUT:\n{}'.format(
+                                token_string))
+                    suite_tokens = int(suite_tokens.group(1))
+                    macro_tokens = int(macro_tokens.group(1))
+                    if suite_tokens > co.MIN_SUITE_TOKENS and \
+                            macro_tokens > co.MIN_MACRO_TOKENS:
+                        licenses_available = True
+                        break
                     else:
-                        raise
-        os.chdir(current_directory)
+                        if max_timeout is not None and \
+                                current_timeout > max_timeout:
+                            pretty_timeout(
+                                current_timeout, suite_tokens,
+                                macro_tokens, end=True, name_com=self.name_com)
+                            raise Exception(
+                                "Not enough tokens to run {}. Waited {} seconds "
+                                "before giving up.".format(
+                                    self.name_com, current_timeout))
+                        pretty_timeout(current_timeout, suite_tokens, macro_tokens,
+                                       name_com=self.name_com)
+                        current_timeout += timeout
+                        time.sleep(timeout)
+            else:
+                licenses_available = True
+            if licenses_available:
+                while True:
+                    try:
+                        logger.log(5, 'RUNNING: {}'.format(self.name_com))
+                        # Critical point of running file (what shouldn't happen concurrently)
+                        #if self.lock is not None: self.lock.acquire()
+                        sp.check_output(
+                            '$SCHRODINGER/bmin -WAIT {}'.format(
+                                os.path.join(self.directory, os.path.splitext(self.name_com)[0])), shell=True)
+                        #if lock is not None: self.lock.release()
+                        # End critical point
+                        break
+                    except sp.CalledProcessError:
+                        logger.warning('Call to MacroModel failed and I have no '
+                                       'idea why!')
+                        current_fails += 1
+                        if current_fails < max_fails:
+                            time.sleep(timeout)
+                            continue
+                        else:
+                            raise
+            os.chdir(current_directory)
 
 def pretty_timeout(current_timeout, macro_tokens, suite_tokens, end=False,
                    level=10, name_com=None):
@@ -2856,7 +2121,7 @@ class MacroModelLog(File):
                     start_col = True
                     continue
                 if section_hessian and start_col and '.' not in word and \
-                        word != 'NaN':
+                        word != 'NaN':  #TODO MF What is the use case for this??
                     col_nums.append(int(word))
                     continue
                 if section_hessian and start_col and '.' in word or \
@@ -3466,6 +2731,9 @@ class Atom(object):
         # dummies. It'd be really great if we all used the same atom.typ file
         # someday.
         # Could add in a check for the atom_type number. I removed it.
+        # NOTE: newer versions of Maestro have atom type info pre-compiled within, 
+        # so it doesn't recognize custom atom types and any custom atom types will
+        # turn into dummy atoms (by atomic number = -2) when converted to mae with Maestro.
         if self.atom_type_name == 'Du' or \
                 self.element == 'X' or \
                 self.atomic_num == -2:

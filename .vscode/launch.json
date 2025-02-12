@@ -14,6 +14,24 @@
             "args": ["q2mm_example/amber/Ethane/GS.loop.in"]
         },
         {
+            "name": "Amber Calc",
+            "type": "debugpy",
+            "request":"launch",
+            "subProcess": true,
+            "program": "q2mm/calculate.py",
+            "console": "integratedTerminal",
+            "args": ["-ah", "nadh/fuerza/nadh_4i4b.in"]
+        },
+        {
+            "name": "Amber Comp",
+            "type": "debugpy",
+            "request":"launch",
+            "subProcess": true,
+            "program": "q2mm/compare.py",
+            "console": "integratedTerminal",
+            "args": ["--calculate", " -ah nadh/fuerza/nadh_4i4b.in", "--reference", " -gh nadh/fuerza/nadh_4i4b.log", "-o compare.out"]
+        },
+        {
             "name": "Python: Seminario",
             "type": "debugpy",
             "request": "launch",
@@ -85,6 +103,60 @@
             ]
         },
         {
+            "name": "cisplatin seminario",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "q2mm/seminario.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--ff-out",
+                "cisplatin_gs_ff/2-fuerza/cisplatin_fuerza2.fld",
+                "--ff-in",
+                "cisplatin_gs_ff/2-fuerza/mm3.fld",
+                "--mmo",
+                "cisplatin_gs_ff/2-fuerza/cisplatin_opt_freq_m06.q2mm.mmo",
+                "--log",
+                "cisplatin_gs_ff/reference_data_gen/cisplatin_opt_freq_m06.log",
+            ]
+        },
+        {
+            "name": "nadh seminario",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "~/repos/q2mm/q2mm/seminario.py",
+            "cwd": "/home/mfarrugi/repos/q2mm/nadh/fuerza",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--ff-in", "nadh_gaff2.frcmod",
+                "-o", "fuerza.nadh_gaff2_at.frcmod",
+                "--mol", "nadh_*.mol2",
+                "--log", "nadh_*.log",
+                "--individualize"
+            ],
+        },
+        {
+            "name": "rh mm3 po estimate",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "q2mm/seminario.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--ff-out",
+                "rh-hybrid/po_rh_estimate.fld",
+                "--ff-in",
+                "rh-hybrid/rh_hyd_enamide_start.fld",
+                "--mmo",
+                "rh-hybrid/rh_enamide_training_set/rh_enamide_training_set.mmo",
+                "--jag-in",
+                "rh-hybrid/rh_enamide_training_set/jaguar_spe_freq_in_out/*.in",
+                "--prep",
+                "--invert"
+            ]
+        },
+        {
             "name": "Laura Debug",
             "type": "debugpy",
             "request": "launch",
@@ -127,10 +199,11 @@
             "type": "debugpy",
             "request": "launch",
             "program": "/home/mfarrugi/repos/q2mm/q2mm/loop.py",
+            "cwd": "/home/mfarrugi/repos/q2mm/rh-hybrid/test_grad/grad/",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "/home/mfarrugi/repos/q2mm/rh-hybrid/test_sem_hybrid_eig/loop-eig.in"
+                "/home/mfarrugi/repos/q2mm/rh-hybrid/test_grad/grad/loop-eig.in"
             ]
         },
         {
@@ -142,14 +215,15 @@
             "justMyCode": true,
             "args": [
                 "--ff-out",
-                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/ferrocene.seminario.test.fld",
+                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/ferrocene.mm.seminario.fld",
                 "--ff-in",
-                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/ferrocene_start.fld",
+                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/mm3.fld",
                 "--mmo",
-                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/1.q2mm.mmo",
-                "--log",
-                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/1.log",
-                "--prep"
+                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/*.q2mm.mmo",
+                "--mm-log",
+                "/afs/crc.nd.edu/user/m/mfarrugi/Ferrocene_FUERZA/invisidummy_tsff_dummy_fe_length_QM/*.q2mm.log",
+                "--prep",
+                "--skip-dummy"
             ]
         }
     ]

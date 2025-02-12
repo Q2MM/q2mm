@@ -36,6 +36,8 @@ import constants as co
 import compare
 import datatypes
 import filetypes
+import schrod_indep_filetypes
+from schrod_indep_filetypes import *
 import parameters
 
 # Commands where we need to load the force field.
@@ -192,13 +194,13 @@ def main(args):
         # Gausssian to Amber
         elif any(x in ['gaa','gab','gat','gaao','gabo','gato'] for x in commands_for_filename):
             if os.path.splitext(filename)[1] == ".log":
-                inps[filename] = filetypes.AmberLeap_Gaus(
+                inps[filename] = AmberLeap_Gaus(
                     os.path.join(opts.directory, filename))
                 inps[filename].commands = commands_for_filename
                     
         elif any(x in COM_AMBER for x in commands_for_filename):
             if os.path.splitext(filename)[1] == ".in": # leap.in as for now
-                inps[filename] = filetypes.AmberLeap(os.path.join(opts.directory, filename))
+                inps[filename] = AmberLeap(os.path.join(opts.directory, filename))
                 inps[filename].commands = commands_for_filename
             # This doesn't work.
             # We need to know both filenames simultaneously for this Amber crap.
@@ -1055,7 +1057,7 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
     filenames = chain.from_iterable(coms['ah'])
     for filename in filenames:
         name_hes = inps[filename].name_hes
-        hes = check_outs(name_hes, outs, filetypes.AmberHess, direc)
+        hes = check_outs(name_hes, outs, AmberHess, direc)
         hess = hes.hessian
         # hessian extracted from Amber is already mass weighted
         low_tri_idx = np.tril_indices_from(hess)
@@ -1095,7 +1097,7 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
                 if len(line) == 1:
                     f_atom.append(int(line[0]))
             print("Reading fixedatoms.txt\nFixed Atom Numbers:",f_atom)
-        def int_wht(at_1,at_2): #TODO: MF - Why is this defined within a for-loop??
+        def int_wht(at_1,at_2): #TODO: MF - Why is this defined within a for-loop?? Pretty sure this is penalty function weights
             """
                 Weighted value for hessian matrix
                 default value
@@ -2131,7 +2133,7 @@ def collect_structural_data_from_amber_geo(
     select_struct = {'pre':0, 'opt':1}
     data = []
     name_geo = inps[name_xyz].name_geo
-    log = check_outs(name_geo, outs, filetypes.AmberGeo, direc) # returns classtype
+    log = check_outs(name_geo, outs, AmberGeo, direc) # returns classtype
     log_structure = log.structures
     struct = None
     if len(inps) == 1:
@@ -2150,7 +2152,7 @@ def collect_structural_data_from_amber_ene(
     select_struct = {'pre':0, 'opt':1}
     data = []
     name_ene = inps[name_xyz].name_ene
-    log = check_outs(name_ene, outs, filetypes.AmberEne, direc) # returns classtype
+    log = check_outs(name_ene, outs, AmberEne, direc) # returns classtype
     log_structure = log.structures
     struct = None
     if len(inps) == 1:

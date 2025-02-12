@@ -35,6 +35,7 @@ from typing import List
 import numpy as np
 import parmed
 
+import datatypes
 from filetypes import MacroModelLog
 from linear_algebra import invert_ts_curvature, reform_hessian
 
@@ -50,6 +51,7 @@ from schrod_indep_filetypes import (
     JaguarIn,
     MacroModel,
     Mol2,
+    ParAMBER,
     Param,
     Structure,
     mass_weight_force_constant,
@@ -591,9 +593,241 @@ def return_params_parser(add_help=True) -> argparse.ArgumentParser:
 
 # region Estimators & Averagers
 
+# region MM3 Substructure matching, not just atom types
+
+# def estimate_bf_param(
+#     param: Param,
+#     structs: List[Structure],
+#     hessians: List[np.ndarray],
+#     ang_to_bohr=False,
+# ) -> float:
+#     """Returns estimated bond force constant for param.
+
+#      Estimates the bond force constant of the parameter based on the structures and hessians given,
+#      matching the structure's bonds to the force field parameter by the row of the FF used for it and then
+#      averaging over the force constants estimated for each bond which matches the force field parameter.
+
+#     Args:
+#         param (Param): bond force constant parameter to estimate
+#         structs (List[Structure]): structures (in Angstroms) to use as geometric basis for estimation method.
+#         type_dict (dict): dictionary containing the atom types associated with each DOF in the structure,
+#         of the form (dof:DOF, atom_types:list)
+#         hessians (List[np.ndarray]): Hessian matrices, 2nd derivative of potential energy surface of structure
+#         calculated (kJ/(mol*A^2), Cartesian, must be in order matching the structs)
+#         at the electronic structure level of theory or above to serve as a quantum-level reference of TS dynamics.
+#         ang_to_bohr (bool, optional): Whether length/position values need to be converted from Angstrom to Bohr.
+#         Defaults to False because Hessian units default to kJ/(mol*Angstrom^2) and structures are in Angstrom.
+
+#     Returns:
+#         float: estimated bond force constant
+#     """
+#     # It is necessary to average over multiple bonds in the structure which match
+#     # to the same atom type interactions in the force field.
+#     match_count = 0
+#     match_vals = []
+#     for struct, hessian in zip(structs, hessians):
+#         for bond in struct.bonds:
+#             if (
+#                 param.ff_row == bond.ff_row
+#             ):  # TODO I have no clue why there is a mismatch here, it clearly comes from past IO, but literally WHY??
+#                 # It looks like it's just an artifact of 1-basing Param ff_row and 0-basing bond ff_row when taking it from lines
+#                 # This should be investigated and fixed or explained in full otherwise it will absolutely continue
+#                 # to be a stumbling block when maintaining, improving, learning this code... Creates weird mismatches and I hate it
+#                 match_count += 1
+#                 s_bond = seminario_bond(
+#                     atoms=struct.get_atoms_in_DOF(bond),
+#                     hessian=hessian,
+#                     ang_to_bohr=ang_to_bohr,
+#                 )
+#                 #s_bond = po_bond(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
+#                 if s_bond < 0 or np.iscomplex(s_bond):
+#                     logger.log(
+#                         logging.WARN,
+#                         "Invalid estimate of param {} in structure {}".format(
+#                             param, struct.origin_name
+#                         ),
+#                     )
+
+#                 # The below reverse-massweighting of the force constant is only necessary if the mass-weighted
+#                 # Hessian is used.
+#                 # s_bond = mass_weight_force_constant(s_bond, struct.get_atoms_in_DOF(bond), reverse=True, rm = False)
+#                 logger.log(
+#                     logging.DEBUG, "Seminario (KJMOLA)" + str(bond) + ": " + str(s_bond)
+#                 )
+#                 # TODO retest PO method p_bond = po_bond(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
+#                 if s_bond > 0 and not np.iscomplex(s_bond):
+#                     match_vals.append(
+#                         s_bond
+#                     )  # only includes estimate if it is valid, warnings are triggered upon calculation. bonds where all structures have invalid estimates should simply remain unchanged from input.
+#     if match_count <= 0:
+#         logger.log(
+#             logging.WARN,
+#             "No bonds in the structures match parameter atom types for parameter: "
+#             + str(param),
+#         )
+#         return None
+#     else:
+#         if len(match_vals) == 0:
+#             logger.log(
+#                 logging.WARNING,
+#                 "WARNING: All structures with interactions matching parameter {} have invalid estimates so it will not be changed. Please review normal modes.".format(
+#                     param
+#                 ),
+#             )
+#             return None
+
+#         averaged_fc = sum([float(fc) for fc in match_vals]) / float(len(match_vals))
+#         return averaged_fc
+
+
+# def estimate_af_param(
+#     param: Param,
+#     structs: List[Structure],
+#     hessians: List[np.ndarray],
+#     ang_to_bohr=False,
+# ) -> float:
+#     """Returns estimated angle force constant for param.
+
+#      Estimates the angle force constant of the parameter based on the structures and hessians given,
+#      matching the structure's angles to the force field parameter by atom type matching and then
+#      averaging over the force constants estimated for each angle which matches the force field parameter.
+
+#     Args:
+#         param (Param): bond force constant parameter to estimate
+#         structs (List[Structure]): structures (in Angstroms) to use as geometric basis for estimation method.
+#         hessians (List[np.ndarray]): Hessian matrices, 2nd derivative of potential energy surface of structure
+#         calculated (kJ/(mol*A^2), Cartesian, must be in order matching the structs)
+#         at the electronic structure level of theory or above to serve as a quantum-level reference of TS dynamics.
+#         ang_to_bohr (bool, optional): Whether length/position values need to be converted from Angstrom to Bohr.
+#         Defaults to False because Hessian units default to kJ/(mol*Angstrom^2) and structures are in Angstrom.
+
+#     Returns:
+#         float: estimated angle force constant
+#     """
+#     # It is necessary to average over multiple bonds in the structure which match
+#     # to the same atom type interactions in the force field.
+#     match_count = 0
+#     match_vals = []
+#     for struct, hessian in zip(structs, hessians):
+#         for angle in struct.angles:
+#             if param.ff_row == angle.ff_row:
+#                 match_count += 1
+#                 s_angle = seminario_angle(
+#                     struct.get_atoms_in_DOF(angle), hessian, ang_to_bohr=ang_to_bohr
+#                 )
+#                 #s_angle = po_angle(struct.get_atoms_in_DOF(angle), hessian, ang_to_bohr)
+                
+#                 if s_angle < 0 or np.iscomplex(s_angle):
+#                     logger.log(
+#                         logging.WARN,
+#                         "Invalid estimate of param {} in structure {}".format(
+#                             param, struct.origin_name
+#                         ),
+#                     )
+#                 # TODO retest this method p_bond = po_angle(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
+#                 logger.log(
+#                     logging.DEBUG,
+#                     "Seminario (KJMOLA)" + str(angle) + ": " + str(s_angle),
+#                 )
+#                 if s_angle > 0 and not np.iscomplex(s_angle):
+#                     match_vals.append(s_angle)
+#     if match_count <= 0:
+#         logger.log(
+#             logging.WARN,
+#             "No angles in the structures match parameter atom types for parameter: "
+#             + str(param),
+#         )
+#         return None
+#     else:
+#         if len(match_vals) == 0:
+#             logger.log(
+#                 logging.WARNING,
+#                 "WARNING: All structures with interactions matching parameter {} have invalid estimates so it will not be changed. Please review normal modes.".format(
+#                     param
+#                 ),
+#             )
+#             return None
+
+#         averaged_fc = sum([float(fc) for fc in match_vals]) / match_count
+#         return averaged_fc
+
+
+# def average_ae_param(param: Param, structs: List[Structure]) -> float:
+#     """Returns averaged angle for param.
+
+#      Averages the equilibrium angle value of the parameter based on the structures given,
+#      matching the structure's angles to the force field parameter by atom type matching and then
+#      averaging over the angles measured for each angle which matches the force field parameter.
+
+#     Args:
+#         param (Param): equilibrium angle parameter to estimate
+#         structs (List[Structure]): structures (in Angstroms) to use in averaging.
+
+#     Returns:
+#         float: average angle equilibrium value (degrees)
+#     """
+#     # It is necessary to average over multiple bonds in the structure which match
+#     # to the same atom type interactions in the force field.
+#     match_count = 0
+#     match_vals = []
+#     for struct in structs:
+#         for angle in struct.angles:
+#             if param.ff_row == angle.ff_row:
+#                 match_count += 1
+#                 match_vals.append(angle.value)
+#     if match_count <= 0:
+#         logger.log(
+#             logging.WARN,
+#             "No angles in the structures match parameter atom types for parameter: "
+#             + str(param),
+#         )
+#         return param.value
+#     else:
+#         averaged_angle = sum([float(angl) for angl in match_vals]) / match_count
+#         return averaged_angle
+
+
+# def average_be_param(param: Param, structs: List[Structure]) -> float:
+#     """Returns averaged bond length for param.
+
+#      Averages the equilibrium bond length value of the parameter based on the structures given,
+#      matching the structure's bonds to the force field parameter by atom type matching and then
+#      averaging over the bonds measured for each bond which matches the force field parameter.
+
+#     Args:
+#         param (Param): equilibrium bond parameter to estimate
+#         structs (List[Structure]): structures (in Angstroms) to use in averaging.
+
+#     Returns:
+#         float: average bond length equilibrium value (Angstrom)
+#     """
+#     # It is necessary to average over multiple bonds in the structure which match
+#     # to the same atom type interactions in the force field.
+#     match_count = 0
+#     match_vals = []
+#     for struct in structs:
+#         for bond in struct.bonds:
+#             if param.ff_row == bond.ff_row:
+#                 match_count += 1
+#                 match_vals.append(bond.value)
+#     if match_count <= 0:
+#         logger.log(
+#             logging.WARN,
+#             "No bonds in the structure match parameter atom types for parameter: "
+#             + str(param),
+#         )
+#         return param.value
+
+#     else:
+#         averaged_bond = sum([float(length) for length in match_vals]) / match_count
+#         return averaged_bond
+
+# endregion MM3
+
+# region AMBER
 
 def estimate_bf_param(
-    param: Param,
+    param: ParAMBER,
     structs: List[Structure],
     hessians: List[np.ndarray],
     ang_to_bohr=False,
@@ -623,19 +857,18 @@ def estimate_bf_param(
     match_count = 0
     match_vals = []
     for struct, hessian in zip(structs, hessians):
+        type_dict = struct.get_DOF_atom_types_dict()
         for bond in struct.bonds:
             if (
-                param.ff_row == bond.ff_row
-            ):  # TODO I have no clue why there is a mismatch here, it clearly comes from past IO, but literally WHY??
-                # It looks like it's just an artifact of 1-basing Param ff_row and 0-basing bond ff_row when taking it from lines
-                # This should be investigated and fixed or explained in full otherwise it will absolutely continue
-                # to be a stumbling block when maintaining, improving, learning this code... Creates weird mismatches and I hate it
+                utilities.is_same_type_DOF(param.atom_types, type_dict[bond]) #TODO this works properly for amber, so need to move type_dict to per structure basis outside this module passed into this method
+            ):  
                 match_count += 1
                 s_bond = seminario_bond(
                     atoms=struct.get_atoms_in_DOF(bond),
                     hessian=hessian,
                     ang_to_bohr=ang_to_bohr,
                 )
+                #s_bond = po_bond(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
                 if s_bond < 0 or np.iscomplex(s_bond):
                     logger.log(
                         logging.WARN,
@@ -705,12 +938,17 @@ def estimate_af_param(
     match_count = 0
     match_vals = []
     for struct, hessian in zip(structs, hessians):
+        type_dict = struct.get_DOF_atom_types_dict()
         for angle in struct.angles:
-            if param.ff_row == angle.ff_row:
+            if (
+                utilities.is_same_type_DOF(param.atom_types, type_dict[angle]) #TODO if this works properly for amber, then need to move type_dict to per structure basis outside this module passed into this method
+            ):
                 match_count += 1
                 s_angle = seminario_angle(
                     struct.get_atoms_in_DOF(angle), hessian, ang_to_bohr=ang_to_bohr
                 )
+                #s_angle = po_angle(struct.get_atoms_in_DOF(angle), hessian, ang_to_bohr)
+                
                 if s_angle < 0 or np.iscomplex(s_angle):
                     logger.log(
                         logging.WARN,
@@ -816,11 +1054,70 @@ def average_be_param(param: Param, structs: List[Structure]) -> float:
         averaged_bond = sum([float(length) for length in match_vals]) / match_count
         return averaged_bond
 
+# endregion AMBER
 
 # endregion Estimators & Averagers
 
+def amber_seminario(
+    force_field: FF,
+    structures: List[Structure],
+    hessians: List[np.ndarray],
+    zero_out: bool,
+    hessian_units=co.GAUSSIAN,
+    skip_dummy: bool = False,
+) -> FF:
+    """Returns a FF with Seminario/FUERZA-estimated force constant and averaged equilibrium structure parameters.
 
-def seminario(
+    Args:
+        force_field (FF): FF for which to estimate new parameters.
+        structures (List[Structure]): structures for which to estimate new FF(s) in Angstrom, degrees
+        hessians (np.ndarray): Hessian matrices (Cartesian), units assumed to be in kJ mol**-1 Ang**-2. If otherwise, specify unit
+        system with hessian_units constant from constants.py. List must be in same order as structures.
+        zero_out (bool): Whether to zero out parameter values for bond dipoles/charges and torsional parameters.
+        hessian_units (str): Hessian matrix units, Defaults to Atomic Units (AU) with co.GAUSSIAN.
+
+    Note:
+        Hessian is the 2nd derivative of potential energy surface of structure calculated
+        at the electronic structure level of theory or above to serve as a quantum-level reference of TS dynamics.
+        AMBER is weird and scales the force constants a bit. In AMBER, v=0.5k(l-l0) so need to multiply FC estimate by 0.5
+
+    Returns:
+        FF: FF with parameters estimated via Seminario/FUERZA and averaged over structural values.
+    """
+    estimated_ff = copy.deepcopy(force_field)
+    structs = structures
+
+    ang_to_bohr = hessian_units == co.GAUSSIAN
+    #hessians = [datatypes.mass_weight_hessian(hessian, structs[0].atoms, reverse=True)  for hessian in hessians] #TODO TESTING THIS MF
+    for param in estimated_ff.params:
+        if param.ptype == "be":
+            param.value = average_be_param(param, structs)
+
+        elif param.ptype == "ae":
+            param.value = average_ae_param(param, structs)
+            # NOTE: user must make sure mol2 structure is the same as gaussian log or fchk structure (just in IRC)
+
+        elif zero_out and (param.ptype == "df" or param.ptype == "q"):
+            param.value = 0.0
+
+        elif skip_dummy and "D1" in param.atom_types:
+            continue
+
+        elif param.ptype == "bf":
+            est_bf = estimate_bf_param(
+                param=param, structs=structs, hessians=hessians, ang_to_bohr=ang_to_bohr
+            )
+            param.convert_and_set(0.5*est_bf)
+
+        elif param.ptype == "af":
+            param.convert_and_set(
+                estimate_af_param(param, structs, hessians, ang_to_bohr=ang_to_bohr)
+            )
+
+    return estimated_ff
+
+
+def mm3_seminario(
     force_field: FF,
     structures: List[Structure],
     hessians: List[np.ndarray],
@@ -848,13 +1145,14 @@ def seminario(
     estimated_ff = copy.deepcopy(force_field)
     structs = structures
 
-    # TODO verify if below is still an issue
+    # NOT A CURRENT ISSUE, JUST A WARNING FOR SCHROD-INDEPENDENT REFACTORING
     # In the case of MM3, user may have equivalent atom types such as HX referring to
     # H1, H2, or H3.  Outside of seminario, this is simply handled by MacroModel, but
     # here we need to ensure that any atom types with an equivalent generalized type
     # such as H1 --> HX are changed to their generalized type so that they can be
     # matched to parameters in the MM3 FF correctly without user having to manually
-    # change all atom types just for seminario. Could also be useful in future schrod-
+    # change all atom types just for seminario. 
+    # UPDATE: the above is not necessary due to ff_row matching for mm3 instead, unless future schrod-
     # independent refactoring of Q2MM.
     # if force_field is MM3:
     #     for struct in structs:
@@ -908,7 +1206,7 @@ def main(args):
 
     assert (args.mol or args.mmo) and (
         args.log or args.jag_in or args.mm_log
-    ), "Both a mol2 structure file and a Gaussian log or MacroModel log or Jaguar in (DFT Cartesian Hessian) file are needed!"
+    ), "Both a .mol2 structure file and a Gaussian .log or MacroModel .log or Jaguar .in (reference Cartesian Hessian) file are needed!"
 
     if args.ff_in[-4:] == ".fld":
         ff_in = MM3(args.ff_in)
@@ -983,6 +1281,14 @@ def main(args):
         )
         hessians: List[np.ndarray] = []
         for log in logs:
+            #TODO MF the below line is added bc sometimes it reads the archive hessian, sometimes it's None
+            #No clue what Eric did with this but it makes no sense and is unnecessarily complicated.
+            #We always need the Hessian data unless we are fitting charges or lengths, Hessian I/O is never
+            #that bad so we should just read it in at this point cus this is ridiculous. Also, elements should be
+            #protected in a consistent manner, sometimes hessian is sometimes it isn't? And they should always be
+            #validated before moving on... The below line is ideally just a temporary fix for reworking this.
+            if log.structures[-1].hess is None:
+                log.read_archive()
             mw_hessian = copy.deepcopy(log.structures[-1].hess) #converted to KJMOLA on creation
             # evals = log.evals
             # evecs = log.evecs
@@ -1052,28 +1358,47 @@ def main(args):
 
     if args.individualize:
         for i in range(len(structs)):
-            estimated_ff = seminario(
-                ff_in,
-                [structs[i]],
-                [hessians[i]],
-                args.prep,
-                hessian_units=co.KJMOLA,
-                skip_dummy=args.skip_dummy,
-            )
+
+            if isinstance(ff_in, AmberFF):
+                estimated_ff = amber_seminario(
+                    ff_in,
+                    [structs[i]],
+                    [hessians[i]],
+                    args.prep,
+                    skip_dummy=args.skip_dummy,
+                )
+
+            elif isinstance(ff_in, MM3):
+                estimated_ff = mm3_seminario(
+                    ff_in,
+                    [structs[i]],
+                    [hessians[i]],
+                    args.prep,
+                    skip_dummy=args.skip_dummy,
+                )
 
             # Write out new FF
             estimated_ff.export_ff(
                 structs[i].origin_name + "." + args.ff_out, estimated_ff.params
             )
     else:
-        estimated_ff = seminario(
-            ff_in,
-            structs,
-            hessians,
-            args.prep,
-            hessian_units=co.KJMOLA,
-            skip_dummy=args.skip_dummy,
-        )
+        if isinstance(ff_in, AmberFF):
+            estimated_ff = amber_seminario(
+                ff_in,
+                structs,
+                hessians,
+                args.prep,
+                skip_dummy=args.skip_dummy,
+            )
+        
+        elif isinstance(ff_in, MM3):
+            estimated_ff = mm3_seminario(
+                ff_in,
+                structs,
+                hessians,
+                args.prep,
+                skip_dummy=args.skip_dummy,
+            )
 
         # Write out new FF
         estimated_ff.export_ff(args.ff_out, estimated_ff.params)
