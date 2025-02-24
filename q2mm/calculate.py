@@ -40,6 +40,14 @@ import schrod_indep_filetypes
 from schrod_indep_filetypes import *
 import parameters
 
+try:
+    from schrodinger import utils as sch_util
+    schrod_on = True
+except:
+    logger.log(logging.INFO, "Schrodinger not installed, limited functionality")
+    schrod_on = False
+    pass
+
 # Commands where we need to load the force field.
 COM_LOAD_FF    = ['ma', 'mb', 'mt',
                   'ja', 'jb', 'jt']

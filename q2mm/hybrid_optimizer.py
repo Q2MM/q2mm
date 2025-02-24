@@ -616,6 +616,7 @@ class PSO_DE(SkoBase):
         for particle, coord in enumerate(self.X):
             if (coord < self.lb).any() or (coord > self.ub).any():
                 self.X[particle] = self.bounds_handler(self, coord, (self.lb, self.ub))
+        self.X[-1] = initial_points
 
     def update_pso_V(self):
         """Calculates new velocities (self.V) for the particles in the swarm."""
