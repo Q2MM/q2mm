@@ -2020,9 +2020,13 @@ if schrod_on:
                         #if lock is not None: self.lock.release()
                         # End critical point
                         break
-                    except sp.CalledProcessError:
+                    except sp.CalledProcessError as e:
                         logger.warning('Call to MacroModel failed and I have no '
                                        'idea why!')
+                        logger.warning(f"Command failed with exit code {e.returncode}")
+                        logger.warning(f"Command: {e.cmd}")
+                        logger.warning(f"Output: {e.output}")
+                        logger.warning(f"Error: {e.stderr.decode()}")
                         current_fails += 1
                         if current_fails < max_fails:
                             time.sleep(timeout)
