@@ -882,7 +882,7 @@ class PSO_DE(SkoBase):
                         break
                 else:
                     c = 0
-            if self.taper_GA:
+            if self.taper_GA and self.mutation_strategy != '':
                 if (
                     iter_num <= np.floor(0.25 * self.max_iter)
                     or (
