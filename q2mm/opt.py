@@ -13,6 +13,7 @@ import numpy as np
 import re
 import textwrap
 import sys
+import subprocess as sp
 
 import calculate
 import compare
@@ -35,7 +36,7 @@ def catch_run_errors(func):
         papa_bear = args[0]
         try:
             return func(*args, **kwargs)
-        except (ZeroDivisionError, OptError, datatypes.ParamError) as e:
+        except (ZeroDivisionError, OptError, datatypes.ParamError, sp.CalledProcessError) as e:
             logger.warning('opt.catch_run_errors caught an error!')
             logger.warning(e)
             if papa_bear.best_ff is None:
