@@ -411,9 +411,17 @@ class Loop(object):
                         tight_spread=tight_spread,
                         pop_size=num_ff_particles,
                         ff_row_expand_bounds=ff_row_expanded_bounds)
-                    self.ff = self.swarm.run(convergence_precision=self.convergence, ref_data=self.ref_data)
+                    try:
+                        self.ff = self.swarm.run(convergence_precision=self.convergence, ref_data=self.ref_data)
+                    except Exception as ex:
+                        logger.error(str(ex))
+                        continue
                 else:
-                    self.ff = self.swarm.run(convergence_precision=self.convergence, ref_data=self.ref_data, strategy='')
+                    try:
+                        self.ff = self.swarm.run(convergence_precision=self.convergence, ref_data=self.ref_data, strategy='')
+                    except Exception as ex:
+                        logger.error(str(ex))
+                        continue
                 swarm_history = self.swarm.hybrid_opt.record_value
                 with open(os.path.join(self.direc, 'hybrid_opt_history.bin'), 'wb') as swarm_history_file:
                     pickle.dump(swarm_history, swarm_history_file)
