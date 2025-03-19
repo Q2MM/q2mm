@@ -4556,7 +4556,7 @@ exit
         # Run Trajectory (Required for cpptraj)
         with open("./calc/"+self.name_dyn, 'w') as f:
             f.write(self.dyn_script)
-        sp.call("sander -O -i calc/{} -o calc/traj.out -p calc/prmtop -c calc/gaus.{}.rst -x calc/gaus.{}.nc".format(self.name_dyn,self.name,self.name),shell=True)
+        sp.call("msander -O -i calc/{} -o calc/traj.out -p calc/prmtop -c calc/gaus.{}.rst -x calc/gaus.{}.nc".format(self.name_dyn,self.name,self.name),shell=True)
         # Generate All geometry
         int_script = "bonds\nangles\ndihedrals\n"
         with open('./calc/'+self.name_int, 'w') as f:
@@ -4582,7 +4582,7 @@ exit
             # Run Min
             with open("./calc/"+self.name_min, 'w') as f:
                 f.write(self.min_script)
-            sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/gaus.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
+            sp.call("msander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/gaus.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
         if com_opts['geo']:
             self.geometry(log)
         os.chdir(current_directory)
@@ -4885,7 +4885,7 @@ nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name)
         # Run Trajectory (Required for cpptraj)
         with open("./calc/"+self.name_dyn, 'w') as f:
             f.write(self.dyn_script)
-        sp.call("sander -O -i calc/{} -o calc/traj.out -p calc/prmtop -c calc/amber.{}.rst -x calc/amber.{}.nc".format(self.name_dyn,self.name,self.name),shell=True)
+        sp.call("msander -O -i calc/{} -o calc/traj.out -p calc/prmtop -c calc/amber.{}.rst -x calc/amber.{}.nc".format(self.name_dyn,self.name,self.name),shell=True)
         # Generate All geometry
         int_script = "bonds\nangles\ndihedrals\n"
         with open('./calc/'+self.name_int, 'w') as f:
@@ -4911,7 +4911,7 @@ nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name)
             self.min_script = self.min_script.replace("bb","5")
             with open("./calc/"+self.name_min, 'w') as f:
                 f.write(self.min_script)
-            sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
+            sp.call("msander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
         elif com_opts['sp']:
             logger.log(1, '  CALCULATE: {}'.format(self.filename))
             # Run leap
@@ -4921,7 +4921,7 @@ nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name)
             self.min_script = self.min_script.replace("bb","0")
             with open("./calc/"+self.name_min, 'w') as f:
                 f.write(self.min_script)
-            sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
+            sp.call("msander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/inpcrd -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name),shell=True, stderr=log, stdin=log, stdout=log)
         # check if energy calculation failed
         restart = 1
         while(restart==1):
@@ -4929,7 +4929,7 @@ nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name)
                 fline = f.readlines()
                 for line in fline:
                     if "restarting should resolve the error" in line:
-                        sp.call("sander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/amber.{}.rst -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name,self.name),shell=True, stderr=log, stdin=log, stdout=log)
+                        sp.call("msander -O -i calc/{} -o calc/{} -p calc/prmtop -c calc/amber.{}.rst -r calc/amber.{}.rst".format(self.name_min,self.name_ene,self.name,self.name),shell=True, stderr=log, stdin=log, stdout=log)
                         restart = 1
                     else:
                         restart = 0
