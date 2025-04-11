@@ -41,6 +41,18 @@ bond_cols = ["param_type", "atom1", "atom2", "Equilibrium Value", "Force Constan
 angle_cols = ["param_type", "atom1", "atom2", "atom3", "Equilibrium Value", "Force Constant", "FF"]
 
 def plot_history(base_direc:str, directories:list, title:str, cycle_iter_length:int, starting_score:float) -> list :
+    """_summary_
+
+    Args:
+        base_direc (str): _description_
+        directories (list): _description_
+        title (str): _description_
+        cycle_iter_length (int): _description_
+        starting_score (float): _description_
+
+    Returns:
+        list: _description_
+    """    
     fig, ax = plt.subplots(1, 2, figsize=(24, 8))
     fig.suptitle(title)
     ax[0].set_title('Score Diversity Throughout Parameterization')
@@ -104,6 +116,114 @@ def plot_param_history(base_direc:str, directories:list, param_index:int, title:
 
     ax[0].xaxis.set_ticks(np.arange(1, ax[0].get_xlim()[1], cycle_iter_length))
     ax[1].xaxis.set_ticks(np.arange(1, ax[0].get_xlim()[1], cycle_iter_length))
+
+    plt.show()
+    return final_scores
+
+def plot_param_history_y(base_direc:str, directories:list, param_index:int, title:str, cycle_iter_length:int, starting_score:float) -> list :
+    fig, ax = plt.subplots(1, 2, figsize=(24, 8))
+    fig.suptitle(title)
+    ax[0].set_title('Param '+str(param_index)+' Throughout Parameterization')
+    ax[1].set_title('Loss, aka Best Score Throughout Parameterization')
+
+    ax[0].axhline(y=starting_score, color='gray')
+    ax[1].axhline(y=starting_score, color='gray')
+
+    final_scores = []
+
+    for directory in directories:
+
+        swarm_history_file = open(os.path.join(base_direc, directory, 'hybrid_opt_history.bin'), 'rb')
+        swarm_history = pickle.load(swarm_history_file)
+        swarm_history_file.close()
+        num_iters = len(swarm_history['Y'])
+        num_ffs = len(swarm_history['Y'][0])
+        color = next(ax[0]._get_lines.prop_cycler)['color']
+        X_history = np.array(swarm_history['X'])
+        Y_history = pd.DataFrame(np.array(swarm_history['Y']).reshape((num_iters, num_ffs)))
+        param_history = pd.DataFrame(X_history[:,:,param_index])
+        ax[0].plot(param_history.index, param_history.values, '.', color=color)
+        ax[1].plot(param_history.index, Y_history, '.', color=color)
+        #loss = Y_history.min(axis=1).cummin()
+        #loss.plot(kind='line', ax=ax[1], color=color, label='Final Score: '+'{0:.3f}'.format(loss.iloc[-1]))
+        #final_scores.append(loss.iloc[-1])
+
+    ax[1].legend()
+
+    ax[0].xaxis.set_ticks(np.arange(1, ax[0].get_xlim()[1], cycle_iter_length))
+    ax[1].xaxis.set_ticks(np.arange(1, ax[0].get_xlim()[1], cycle_iter_length))
+
+    plt.show()
+    return final_scores
+
+def plot_param_y(base_direc:str, directories:list, param_index:int, title:str, cycle_iter_length:int, starting_score:float) -> list :
+    fig, ax = plt.subplots(1, 2, figsize=(24, 8))
+    fig.suptitle(title)
+    ax[0].set_title('Param '+str(param_index)+' Throughout Parameterization')
+    ax[1].set_title('Loss, aka Best Score Throughout Parameterization')
+
+    ax[0].axhline(y=starting_score, color='gray')
+    ax[1].axhline(y=starting_score, color='gray')
+
+    final_scores = []
+
+    for directory in directories:
+
+        swarm_history_file = open(os.path.join(base_direc, directory, 'hybrid_opt_history.bin'), 'rb')
+        swarm_history = pickle.load(swarm_history_file)
+        swarm_history_file.close()
+        num_iters = len(swarm_history['Y'])
+        num_ffs = len(swarm_history['Y'][0])
+        color = next(ax[0]._get_lines.prop_cycler)['color']
+        X_history = np.array(swarm_history['X'])
+        Y_history = np.array(swarm_history['Y']).reshape((num_iters, num_ffs))
+        param_history = X_history[:,:,param_index]
+        #ax[0].plot(param_history.index, param_history.values, '.', color=color)
+        ax[1].plot(param_history, Y_history, '.')
+        #loss = Y_history.min(axis=1).cummin()
+        #loss.plot(kind='line', ax=ax[1], color=color, label='Final Score: '+'{0:.3f}'.format(loss.iloc[-1]))
+        #final_scores.append(loss.iloc[-1])
+
+    ax[1].legend()
+
+    #ax[0].xaxis.set_ticks(np.arange(1, ax[0].get_xlim()[1], cycle_iter_length))
+    #ax[1].xaxis.set_ticks(np.arange(1, ax[0].get_xlim()[1], cycle_iter_length))
+
+    plt.show()
+    return final_scores
+
+def plot_param_late_y(base_direc:str, directories:list, param_index:int, title:str, cycle_iter_length:int, starting_score:float) -> list :
+    fig, ax = plt.subplots(1, 2, figsize=(24, 8))
+    fig.suptitle(title)
+    ax[0].set_title('Param '+str(param_index)+' Throughout Parameterization')
+    ax[1].set_title('Loss, aka Best Score Throughout Parameterization')
+
+    ax[0].axhline(y=starting_score, color='gray')
+    ax[1].axhline(y=starting_score, color='gray')
+
+    final_scores = []
+
+    for directory in directories:
+
+        swarm_history_file = open(os.path.join(base_direc, directory, 'hybrid_opt_history.bin'), 'rb')
+        swarm_history = pickle.load(swarm_history_file)
+        swarm_history_file.close()
+        num_iters = len(swarm_history['Y'])
+        num_ffs = len(swarm_history['Y'][0])
+        color = next(ax[0]._get_lines.prop_cycler)['color']
+        X_history = np.array(swarm_history['X'])
+        Y_history = np.array(swarm_history['Y']).reshape((num_iters, num_ffs))
+        param_history = X_history[:,:,param_index]
+        #ax[0].plot(param_history.index, param_history.values, '.', color=color)
+        ax[1].plot(param_history[:-100], Y_history[:-100], '.')
+        #loss = Y_history.min(axis=1).cummin()
+        #loss.plot(kind='line', ax=ax[1], color=color, label='Final Score: '+'{0:.3f}'.format(loss.iloc[-1]))
+        #final_scores.append(loss.iloc[-1])
+
+    ax[1].legend()
+
+    #ax[0].xaxis.set_ticks(np.arange(1, ax[0].get_xlim()[1], cycle_iter_length))
+    #ax[1].xaxis.set_ticks(np.arange(1, ax[0].get_xlim()[1], cycle_iter_length))
 
     plt.show()
     return final_scores
@@ -262,7 +382,7 @@ def plot_off_diag_scatter(starting_scores:pd.DataFrame, starting_score:float, sc
 
 def plot_off_diag_violin(starting_scores:pd.DataFrame, starting_score:float, scored_runs:list, final_scores:list, title:str=''):
 
-    fig, ax = plt.subplots(1, 1, figsize=(8*(len(scored_runs)+1), 8))
+    fig, ax = plt.subplots(1, 1, figsize=(4*(len(scored_runs)+1), 8))
     off_diag_start = starting_scores.loc[starting_scores['Reference'] == 0.0000]
     off_diag_start = off_diag_start.loc[off_diag_start['Weight'] != 0.0000]
     off_diag_start = off_diag_start.sort_values(by='Calculated', ignore_index=True)
@@ -272,8 +392,9 @@ def plot_off_diag_violin(starting_scores:pd.DataFrame, starting_score:float, sco
     off_diag_merged = pd.concat([off_diag_start, off_diag_merged])
     off_diag_merged['FF'] = off_diag_merged['FF'].astype(str)
 
-    seaborn.violinplot(data=off_diag_merged, x='FF', y='Calculated')#, title='Off-Diagonal Eigenmatrix terms'+title)
+    seaborn.violinplot(data=off_diag_merged, x='FF', y='Calculated', hue='FF')#, title='Off-Diagonal Eigenmatrix terms'+title)
     ax.set_label('FF Score')
+    fig.suptitle(title)
 
     plt.show()
 
@@ -315,7 +436,7 @@ def linear_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, s
     diag = diag.loc[diag['Weight'] != 0.0000]
     slope, intercept, r2, pv, se = stats.linregress(diag['Reference'], diag['Calculated'])
 
-    seaborn.scatterplot(data=diag, y='Calculated', x='Reference', color=next(palette), label='FF', ax=ax[0])
+    seaborn.scatterplot(data=diag, y='Calculated', x='Reference', color='gray', label='FF', ax=ax[0])
     ax[0].legend()
     r2_ = r2_score(diag['Reference'], diag['Calculated'])
     ax[0].set_title('FUERZA - '+'{0:.3f}'.format(starting_score)+' y=x r2:'+'{0:.3f}'.format(r2_))
@@ -382,12 +503,16 @@ def get_ff_params(base_direc:str, directories:list, filename:str, final_scores:l
 
     bonds = []
     angles = []
+    bonds_rows = [str(bond_row+1) for bond_row in bond_rows]
+    angles_rows = [str(angle_row+1) for angle_row in angle_rows]
 
     for directory, score in zip(directories, final_scores):
-        bonds.append((pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in bond_rows, delim_whitespace=True, names=bond_cols).assign(FF=title+'{0:.3f}'.format(score))))
-        angles.append(pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in angle_rows, delim_whitespace=True, names=angle_cols).assign(FF=title+'{0:.3f}'.format(score)))
+        bonds.append((pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in bond_rows, delim_whitespace=True, names=bond_cols).assign(FF=title+'{0:.3f}'.format(score))).assign(ff_row = bonds_rows))
+        angles.append(pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in angle_rows, delim_whitespace=True, names=angle_cols).assign(FF=title+'{0:.3f}'.format(score)).assign(FF=score).assign(ff_row=angles_rows))
 
-    return bonds, angles
+    params = [pd.concat([bond, angle]) for bond, angle in zip(bonds, angles)]
+    
+    return bonds, angles, params
 
 def get_substr_def(filename:str, row:int) -> list:
     
