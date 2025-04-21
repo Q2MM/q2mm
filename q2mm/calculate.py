@@ -41,7 +41,8 @@ from schrod_indep_filetypes import *
 import parameters
 
 try:
-    from schrodinger import utils as sch_util
+    from schrodinger import utils
+    import sch_util
     schrod_on = True
 except:
     logger.log(logging.INFO, "Schrodinger not installed, limited functionality")
