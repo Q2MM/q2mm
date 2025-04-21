@@ -1003,8 +1003,11 @@ def average_ae_param(param: Param, structs: List[Structure]) -> float:
     match_count = 0
     match_vals = []
     for struct in structs:
+        type_dict = struct.get_DOF_atom_types_dict()
         for angle in struct.angles:
-            if param.ff_row == angle.ff_row:
+            if (
+                utilities.is_same_type_DOF(param.atom_types, type_dict[angle]) #TODO if this works properly for amber, then need to move type_dict to per structure basis outside this module passed into this method
+            ):
                 match_count += 1
                 match_vals.append(angle.value)
     if match_count <= 0:
@@ -1038,8 +1041,11 @@ def average_be_param(param: Param, structs: List[Structure]) -> float:
     match_count = 0
     match_vals = []
     for struct in structs:
+        type_dict = struct.get_DOF_atom_types_dict()
         for bond in struct.bonds:
-            if param.ff_row == bond.ff_row:
+            if (
+                utilities.is_same_type_DOF(param.atom_types, type_dict[bond]) #TODO this works properly for amber, so need to move type_dict to per structure basis outside this module passed into this method
+            ):  
                 match_count += 1
                 match_vals.append(bond.value)
     if match_count <= 0:
@@ -1107,12 +1113,11 @@ def amber_seminario(
             est_bf = estimate_bf_param(
                 param=param, structs=structs, hessians=hessians, ang_to_bohr=ang_to_bohr
             )
-            param.convert_and_set(0.5*est_bf)
+            if est_bf: param.convert_and_set(0.5*est_bf)
 
         elif param.ptype == "af":
-            param.convert_and_set(
-                estimate_af_param(param, structs, hessians, ang_to_bohr=ang_to_bohr)
-            )
+            est_af = estimate_af_param(param, structs, hessians, ang_to_bohr=ang_to_bohr)
+            if est_af: param.convert_and_set(est_af)
 
     return estimated_ff
 
