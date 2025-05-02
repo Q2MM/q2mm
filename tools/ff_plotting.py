@@ -356,7 +356,26 @@ def plot_scores(starting_scores:pd.DataFrame, starting_score:float, scored_runs:
     
     plt.show()
 
-def plot_off_diag_scatter(starting_scores:pd.DataFrame, starting_score:float, scored_runs:list, final_scores:list, title:str=''):
+def plot_off_diag_scatter(score_matrices:list, total_scores:list, title:str=''):
+    fig, ax = plt.subplots(1, len(score_matrices), figsize=(8*(len(score_matrices)), 10))
+    fig.suptitle('Off-Diagonal Eigenmatrix terms'+title)
+    palette = itertools.cycle(zesty_palette)
+    max_y = 0.
+
+    for i, run in enumerate(score_matrices):
+        off_diag = run.loc[run['Reference'] == 0.0000]
+        off_diag = off_diag.loc[off_diag['Weight'] != 0.0000]
+        off_diag = off_diag.sort_values(by='Calculated', ignore_index=True)
+
+        color = next(palette)
+        seaborn.regplot(data=off_diag, x=off_diag.index, label='FF', y='Calculated', fit_reg=False, ax=ax[i], color=color)
+        ax[i].set_title(total_scores[i])
+        max_y = max(max_y, max(off_diag['Calculated']))
+        ax[i].set_ylim(top=max_y, bottom=-max_y)
+
+    plt.show()
+
+def plot_off_diag_scatter_(starting_scores:pd.DataFrame, starting_score:float, scored_runs:list, final_scores:list, title:str=''):
     fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(8*(len(scored_runs)+1), 10))
     fig.suptitle('Off-Diagonal Eigenmatrix terms'+title)
     palette = itertools.cycle(zesty_palette)
@@ -375,7 +394,7 @@ def plot_off_diag_scatter(starting_scores:pd.DataFrame, starting_score:float, sc
 
         color = next(palette)
         seaborn.regplot(data=off_diag, x=off_diag.index, label='FF', y='Calculated', fit_reg=False, ax=ax[i+1], color=color)
-        ax[i+1].set_title('Score: '+'{0:.3f}'.format(final_scores[i]))
+        ax[i+1].set_title(final_scores[i])
         ax[i+1].set_ylim(top=max_y, bottom=-max_y)
 
     plt.show()
@@ -420,7 +439,7 @@ def plot_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, sco
         seaborn.regplot(data=diag, y='Calculated', x='Reference', color=next(palette), label=final_scores[i], line_kws={'label':'$y=%3.7s*x+%3.7s   r2:%3.7s$'%(slope, intercept, r2)}, ax=ax[i+1])
 
         ax[i+1].legend()
-        ax[i+1].set_title('Score: '+'{0:.3f}'.format(final_scores[i]))
+        ax[i+1].set_title('Score: '+'{0:.3f}'.format(final_scores[i]) if final_scores[i] is not str else final_scores[i])
 
     for a in ax:
         seaborn.lineplot(data=diag, x='Reference', y='Reference', color='gray', ax=a)
@@ -429,17 +448,17 @@ def linear_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, s
     # Plot Diagonal Elements with a PROPER linear fit
 
     fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(5*(len(scored_runs)+1),4))
-    fig.suptitle('Diagonal Eigenmatrix terms'+title)
+    fig.suptitle(title)
     palette = itertools.cycle(zesty_palette)
 
     diag = starting_scores.loc[starting_scores['Reference'] != 0.0000]
     diag = diag.loc[diag['Weight'] != 0.0000]
     slope, intercept, r2, pv, se = stats.linregress(diag['Reference'], diag['Calculated'])
 
-    seaborn.scatterplot(data=diag, y='Calculated', x='Reference', color='gray', label='FF', ax=ax[0])
+    seaborn.scatterplot(data=diag, y='Calculated', x='Reference', color='gray', label=starting_score, ax=ax[0])
     ax[0].legend()
     r2_ = r2_score(diag['Reference'], diag['Calculated'])
-    ax[0].set_title('FUERZA - '+'{0:.3f}'.format(starting_score)+' y=x r2:'+'{0:.3f}'.format(r2_))
+    ax[0].set_title('Score: '+'{0:.3f}'.format(starting_score)+' y=x r2:'+'{0:.3f}'.format(r2_))
 
 
     for i, run in enumerate(scored_runs):
@@ -451,7 +470,10 @@ def linear_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, s
         seaborn.scatterplot(data=diag, y='Calculated', x='Reference', color=next(palette), label=final_scores[i], ax=ax[i+1])
         r2_ = r2_score(diag['Reference'], diag['Calculated'])
         ax[i+1].legend()
-        ax[i+1].set_title('Score: '+'{0:.3f}'.format(final_scores[i])+' y=x r2: '+'{0:.3f}'.format(r2_))
+        if type(final_scores[i]) is str:
+            ax[i+1].set_title(final_scores[i] + r' $y=x r^{2}$: '+'{0:.3f}'.format(r2_))
+        else:
+            ax[i+1].set_title('Score: '+'{0:.3f}'.format(final_scores[i])+r' $y=x r^{2}$: '+'{0:.3f}'.format(r2_))
 
     for a in ax:
         seaborn.lineplot(data=diag, x='Reference', y='Reference', color='gray', ax=a)
@@ -507,8 +529,8 @@ def get_ff_params(base_direc:str, directories:list, filename:str, final_scores:l
     angles_rows = [str(angle_row+1) for angle_row in angle_rows]
 
     for directory, score in zip(directories, final_scores):
-        bonds.append((pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in bond_rows, delim_whitespace=True, names=bond_cols).assign(FF=title+'{0:.3f}'.format(score))).assign(ff_row = bonds_rows))
-        angles.append(pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in angle_rows, delim_whitespace=True, names=angle_cols).assign(FF=title+'{0:.3f}'.format(score)).assign(FF=score).assign(ff_row=angles_rows))
+        bonds.append((pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in bond_rows, sep='\s+', names=bond_cols).assign(FF=title+'{0:.3f}'.format(score))).assign(ff_row = bonds_rows))
+        angles.append(pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in angle_rows, sep='\s+', names=angle_cols).assign(FF=title+'{0:.3f}'.format(score)).assign(FF=score).assign(ff_row=angles_rows))
 
     params = [pd.concat([bond, angle]) for bond, angle in zip(bonds, angles)]
     
@@ -568,9 +590,8 @@ def get_ff_param_labels(directory:str, filename:str, df:pd.DataFrame, bond_rows:
     bonds = []
     angles = []
 
-    for directory, score in zip(directories, final_scores):
-        bonds.append(pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in bond_rows, delim_whitespace=True, names=bond_cols).assign(FF=title+'{0:.3f}'.format(score)))
-        angles.append(pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in angle_rows, delim_whitespace=True, names=angle_cols).assign(FF=title+'{0:.3f}'.format(score)))
+    bonds.append(pd.read_csv(os.path.join('base_direc', directory, filename), skiprows=lambda x: x not in bond_rows, sep='\s+', names=bond_cols).assign(FF=title+'{0:.3f}'.format(score)))
+    angles.append(pd.read_csv(os.path.join('base_direc', directory, filename), skiprows=lambda x: x not in angle_rows, sep='\s+', names=angle_cols).assign(FF=title+'{0:.3f}'.format(score)))
 
     return bonds, angles
 
@@ -595,10 +616,8 @@ def plot_ff_params(bonds:list, angles:list, final_scores:list, title:str='', bon
 
     plt.xticks(rotation=45)
     ax[1].legend()
-    ax[0].set_ylabel('Force Constant (mdyne/Ang)')
-    ax[1].set_ylabel('Force Constant (mdyne/Ang)')
-    ax[0].set_xlabel('atom1, atom2, param_type')
-    ax[1].set_xlabel('atom1, atom2, atom3, param_type')
+    ax[0].set_ylabel(r'Force Constant ($mdyn/\AA$)')
+    ax[1].set_ylabel(r'Force Constant ($mdyn/\AA$)')
     plt.show()
 
 def plot_ff_params_v_static(bonds:list, angles:list, final_scores:list, title:str='', bond_labels=None, angles_labels=None, estimate_score=None):
@@ -608,11 +627,12 @@ def plot_ff_params_v_static(bonds:list, angles:list, final_scores:list, title:st
     ax[1].set_title('Angles')
 
     palette = itertools.cycle(zesty_palette)
+    palette_opt = itertools.cycle(zesty_palette)
     edges = itertools.cycle(zesty2_palette)
     
     color=next(palette)
     edge=next(edges)
-    estimate_label = 'Estimate ' + '{0:.3f}'.format(estimate_score) if estimate_score is not None else 'Estimate'
+    estimate_label = estimate_score if estimate_score is not None else 'Estimate'
     ax[0].axhline(5, color=color, label=estimate_label)
     ax[1].axhline(0.5, color=color, label=estimate_label)
 
@@ -623,19 +643,22 @@ def plot_ff_params_v_static(bonds:list, angles:list, final_scores:list, title:st
         angles_labels = angles[0][['atom1', 'atom2', 'atom3', 'param_type']].values
         angles_labels = [str(al) for al in angles_labels]
     for i in range(len(bonds)):
-        color = next(palette)
         edge = next(edges)
-        seaborn.scatterplot(data=bonds[i], label=final_scores[i], x = bond_labels, y="Force Constant", edgecolor=edge, ax=ax[0], color=color)
-        seaborn.scatterplot(data=angles[i], label=final_scores[i], x = angles_labels, y="Force Constant", edgecolor=edge, ax=ax[1], color=color)
+        if any(opt_flag in final_scores[i] for opt_flag in ['Opt', 'OPT', 'GRAD', 'HO']):
+            marker="^"
+            color = next(palette_opt)
+        else:
+            marker = "o"
+            color = next(palette)
+        seaborn.scatterplot(data=bonds[i], label=final_scores[i], x = bond_labels, y="Force Constant", ax=ax[0], color=color, marker=marker)
+        seaborn.scatterplot(data=angles[i], label=final_scores[i], x = angles_labels, y="Force Constant", ax=ax[1], color=color, marker=marker)
 
 
     plt.xticks(rotation=45)
-    ax[0].legend(fancybox=True, framealpha=0.5)
-    ax[1].legend()
-    ax[0].set_ylabel('Force Constant (mdyne/Ang)')
-    ax[1].set_ylabel('Force Constant (mdyne/Ang)')
-    ax[0].set_xlabel('atom1, atom2, param_type')
-    ax[1].set_xlabel('atom1, atom2, atom3, param_type')
+    ax[0].legend_.remove()
+    ax[1].legend(bbox_to_anchor=(1.0, 0.85), fancybox=True, framealpha=0.5)
+    ax[0].set_ylabel(r'Force Constant ($mdyn/\AA$)')
+    ax[1].set_ylabel(r'Force Constant ($mdyn/\AA$)')
     plt.show()
     return fig, ax
 
@@ -701,8 +724,8 @@ def plot_ff_params_v_static_table(bonds:list, angles:list, finalized_bonds:pd.Da
     plt.xticks(rotation=90)
     ax[0].legend()
     ax[1].legend()
-    ax[0].set_ylabel('Force Constant (mdyne/Ang)')
-    ax[1].set_ylabel('Force Constant (mdyne/Ang)')
+    ax[0].set_ylabel(r'Force Constant ($mdyn/\AA$)')
+    ax[1].set_ylabel(r'Force Constant ($mdyn/\AA$)')
     plt.show()
     return fig, ax
 
@@ -779,7 +802,7 @@ def plot_bond_params_v_static_table(bonds:list, finalized_bonds:pd.DataFrame, su
     table.set_fontsize(8)
 
     ax[0].legend()
-    ax[0].set_ylabel('Force Constant (mdyne/Ang)')
+    ax[0].set_ylabel(r'Force Constant ($mdyn/\AA$)')
     return fig, ax
 
 def plot_ff_params_vert(bonds:list, angles:list, final_scores:list, title:str='', bond_labels=None, angles_labels=None):
@@ -803,11 +826,9 @@ def plot_ff_params_vert(bonds:list, angles:list, final_scores:list, title:str=''
 
     plt.xticks(rotation=45)
     ax[1].legend()
-    ax[0].set_ylabel('Force Constant (mdyne/Ang)')
+    ax[0].set_ylabel(r'Force Constant ($mdyn/\AA$)')
     ax[0].set_ylim(top=6)
-    ax[1].set_ylabel('Force Constant (mdyne/Ang)')
-    ax[0].set_xlabel('atom1, atom2, param_type')
-    ax[1].set_xlabel('atom1, atom2, atom3, param_type')
+    ax[1].set_ylabel(r'Force Constant ($mdyn/\AA$)')
     plt.show()
 
 def plot_last_x(history:dict, rows:list, title:str=''):
@@ -823,7 +844,7 @@ def plot_last_x(history:dict, rows:list, title:str=''):
         seaborn.regplot(x=rows, y=particle, fit_reg=False, label=i, ax=ax, color=color)
 
     ax.legend()
-    ax.set_ylabel('Force Constant (mdyne/Ang)')
+    ax.set_ylabel(r'Force Constant ($mdyn/\AA$)')
     plt.show()
 
 
