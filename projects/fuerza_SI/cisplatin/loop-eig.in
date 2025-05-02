@@ -1,0 +1,12 @@
+DIR ./
+FFLD read mm3.fld
+PARM param_eig.txt
+RDAT -d ./ -geigz cisplatin_opt_freq_m06.log
+CDAT -d ./ -mgeig cisplatin_opt_freq_m06.mae,cisplatin_opt_freq_m06.log
+COMP -o eig_gamma.txt
+LOOP 0.001
+GRAD
+END
+FFLD write mm3.gamma.grad.fld
+CDAT
+COMP -o score.gamma.grad.txt
