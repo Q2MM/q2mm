@@ -338,6 +338,7 @@ def return_calculate_parser(add_help=True, parents=None):
     opts.add_argument(
         '--weight', '-w', action='store_true',
         help='Add weights to data points.')
+    #TODO: MF - this ^ doesn't do anything??? it's already weighted???
     # GAUSSIAN OPTIONS
     gau_args = parser.add_argument_group("gaussian reference data types")
     gau_args.add_argument(
