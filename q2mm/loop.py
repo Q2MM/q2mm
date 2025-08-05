@@ -90,6 +90,7 @@ class Loop(object):
         os.popen('rm -rd '+os.path.join(self.direc, 'temp_*'))
         for param in self.ff.params:
             param.value_at_limits()
+        self.swarm = None
         return self.ff
     def run_loop_input(self, lines, score=None):
         lines_iterator = iter(lines)
@@ -162,6 +163,11 @@ class Loop(object):
                     self.args_ff = ' '.join(cols[1:]).split()
                 self.ff.data = calculate.main(self.args_ff)
                 
+            if cols[0] == 'PDEP':
+                dependency_data = opt.dependency_check(self.ff, self.args_ff)
+                with open(os.path.join(self.direc, 'param_dependency.bin'), 'wb') as param_dependency_file:
+                    pickle.dump(dependency_data, param_dependency_file)
+                    
             if cols[0] == 'COMP':
             # Deprecated
             #    self.ff.score = compare.compare_data(
@@ -396,10 +402,13 @@ class Loop(object):
                 self.ff.calc_args=self.args_ff #TODO added feature by MF, stale ff tracking and auto-recalculation to save time
                 num_ho_cores = int(cols[1])
                 max_iter = int(cols[2]) if len(cols) > 2 else 1000
-                tight_spread = cols[3] != 'F' if len(cols) > 3 else True 
+                if len(cols) > 3:
+                    tight_spread = cols[3]
+                else:
+                    tight_spread = 'T' 
                 num_ff_particles = int(cols[4]) if len(cols) > 4 else 10 #TODO: do some benchmarking to determine best default
                 ff_row_expanded_bounds = int(cols[5]) if len(cols) > 5 else None
-                if not hasattr(self, 'swarm'):
+                if not hasattr(self, 'swarm') or not self.swarm:
                     self.swarm = Swarm_Optimizer(
                         direc=self.direc,
                         ff=self.ff,
