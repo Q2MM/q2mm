@@ -314,6 +314,25 @@ def cal_ff(ff, ff_args, parent_ff=None, store_data=False):
         ff.data = data
     return data
 
+def dependency_check(ff:FF, ff_args, store_data=False, variance=0.2):
+
+    heuristic_by_param_variation = dict()
+    mod_ff = copy.deepcopy(ff)
+    heuristic_by_param_variation['baseline'] = cal_ff(ff, ff_args, parent_ff=ff, store_data=store_data)
+
+    for param_index in range(len(ff.params)):
+        heuristic_by_param_variation[0] = []
+        mod_ff.params[param_index].value = ff.params[param_index].value + (variance * ff.params[param_index].value)
+        mod_ff.export_ff()
+        forward = calculate.main(ff_args)
+        heuristic_by_param_variation[0].append(forward)
+        mod_ff.params[param_index].value = ff.params[param_index].value - (variance * ff.params[param_index].value)
+        mod_ff.export_ff()
+        backward = calculate.main(ff_args)
+        heuristic_by_param_variation[0].append(backward)
+        mod_ff.params[param_index].value = ff.params[param_index].value
+    return heuristic_by_param_variation
+
 def pretty_derivs(params, level=5):
     """
     Displays the parameter derivatives in a pretty fashion.
