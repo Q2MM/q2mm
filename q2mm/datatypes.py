@@ -6,7 +6,7 @@ from __future__ import absolute_import
 from __future__ import division
 
 import copy
-import logging
+import logging.config
 import numpy as np
 import os
 import re
