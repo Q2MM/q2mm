@@ -70,7 +70,7 @@ class Swarm_Optimizer(opt.Optimizer):
         bias_to_current=True,
         loose_bounds=False,
         ref_data=None,
-        tight_spread=True,
+        tight_spread='T',
         num_ho_cores=1,
         max_iter=1000,
         pop_size=24,
@@ -81,6 +81,8 @@ class Swarm_Optimizer(opt.Optimizer):
         lower_bounds = []
         upper_bounds = []
         deviations = []
+        tighter_spread = tight_spread == 'TT'
+        tight_spread = 'T' in tight_spread
         for param in self.ff.params:
             if param.ptype == "af":
                 lower_bounds.append(0.1)
@@ -264,7 +266,7 @@ class Swarm_Optimizer(opt.Optimizer):
         Returns
         -------
         `datatypes.FF` (or subclass)
-            Contains the best parameters.
+            Contains the best parameters found.
         """
 
         # calculate initial FF results
