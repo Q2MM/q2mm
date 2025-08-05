@@ -520,7 +520,7 @@ def linear_fit_diag_scores_grid(starting_scores:list, starting_score:list, final
         seaborn.lineplot(data=diag, x='Reference', y='Reference', color='gray', ax=ax[int(i%2)][int(i/2)+1])
 
 
-def get_ff_params(base_direc:str, directories:list, filename:str, final_scores:list, bond_rows:list, angle_rows:list, title:str=''):# -> tuple[list, list]:
+def get_ff_params(base_direc:str, directories:list, filename:str, final_scores:list, bond_rows:list, angle_rows:list, title:str='', bond_cols=bond_cols, angle_cols=angle_cols):# -> tuple[list, list]:
     # Plot FCs
 
     bonds = []
@@ -529,8 +529,26 @@ def get_ff_params(base_direc:str, directories:list, filename:str, final_scores:l
     angles_rows = [str(angle_row+1) for angle_row in angle_rows]
 
     for directory, score in zip(directories, final_scores):
-        bonds.append((pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in bond_rows, sep='\s+', names=bond_cols).assign(FF=title+'{0:.3f}'.format(score))).assign(ff_row = bonds_rows))
-        angles.append(pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in angle_rows, sep='\s+', names=angle_cols).assign(FF=title+'{0:.3f}'.format(score)).assign(FF=score).assign(ff_row=angles_rows))
+        bonds.append((pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in bond_rows, sep='\s+', names=bond_cols).assign(FF=title+'{0:.3f}'.format(score))))#.assign(ff_row = bonds_rows))
+        angles.append(pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in angle_rows, sep='\s+', names=angle_cols).assign(FF=title+'{0:.3f}'.format(score)).assign(FF=score))#.assign(ff_row=angles_rows))
+
+    params = [pd.concat([bond, angle]) for bond, angle in zip(bonds, angles)]
+    
+    return bonds, angles, params
+
+def get_frcmod_params(base_direc:str, directories:list, filename:str, final_scores:list, bond_rows:list, angle_rows:list, title:str='', bond_cols=bond_cols, angle_cols=angle_cols):# -> tuple[list, list]:
+    # Plot FCs
+
+    bonds = []
+    angles = []
+    bonds_rows = [str(bond_row+1) for bond_row in bond_rows]
+    angles_rows = [str(angle_row+1) for angle_row in angle_rows]
+
+    amber_cols = ["Parameter", "Force Constant", "Equilibrium Value"]
+
+    for directory, score in zip(directories, final_scores):
+        bonds.append((pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in bond_rows, sep='\s+', names=amber_cols).assign(FF=title+'{0:.3f}'.format(score))))#.assign(ff_row = bonds_rows))
+        angles.append(pd.read_csv(os.path.join(base_direc, directory, filename), skiprows=lambda x: x not in angle_rows, sep='\s\s+', names=amber_cols).assign(FF=title+'{0:.3f}'.format(score)).assign(FF=score))#.assign(ff_row=angles_rows))
 
     params = [pd.concat([bond, angle]) for bond, angle in zip(bonds, angles)]
     
@@ -595,6 +613,55 @@ def get_ff_param_labels(directory:str, filename:str, df:pd.DataFrame, bond_rows:
 
     return bonds, angles
 
+def filter_params_by_opt(bonds, angles, final_scores):
+    param_opt = pd.DataFrame()
+    param_unopt = pd.DataFrame()
+
+    for i in range(len(bonds)):
+        bonds[i]["FF"] = final_scores[i]
+        angles[i]["FF"]=final_scores[i]
+        if any(opt_flag in final_scores[i] for opt_flag in ['Opt', 'OPT', 'GRAD', 'HO']):
+            param_opt = pd.concat([param_opt, bonds[i]])
+            param_opt = pd.concat([param_opt, angles[i]])
+        else:
+            param_unopt = pd.concat([param_unopt, bonds[i]])
+            param_unopt = pd.concat([param_unopt, angles[i]])
+
+    return param_unopt, param_opt
+
+
+def filter_params_by_type_opt(bonds, angles, final_scores):
+    bond_opt = pd.DataFrame()
+    bond_unopt = pd.DataFrame()
+    angle_opt = pd.DataFrame()
+    angle_unopt = pd.DataFrame()
+
+    for i in range(len(bonds)):
+        bonds[i] = bonds[i].assign(FF=final_scores[i])
+        angles[i] = angles[i].assign(FF=final_scores[i])
+        if any(opt_flag in final_scores[i] for opt_flag in ['Opt', 'OPT', 'GRAD', 'HO']):
+            bond_opt = pd.concat([bond_opt, bonds[i]])
+            angle_opt = pd.concat([angle_opt, angles[i]])
+        else:
+            bond_unopt = pd.concat([bond_unopt, bonds[i]])
+            angle_unopt = pd.concat([angle_unopt, angles[i]])
+
+    return bond_unopt, angle_unopt, bond_opt, angle_opt
+
+def score_r2s(scores, score_sums):
+    r2_scores = []
+    r2_score_labels = []
+
+    for eigenmatrix, score in zip(scores, score_sums):
+        diag = eigenmatrix.loc[eigenmatrix['Reference'] != 0.0000]
+        diag = diag.loc[diag['Weight'] != 0.0000]
+        #slope, intercept, r2, pv, se = stats.linregress(diag_start['Reference'], diag_start['Calculated'])
+        r2_ = r2_score(diag['Reference'], diag['Calculated'])
+        r2_scores.append(r2_)
+        r2_score_labels.append(score + r' $r^{2}$: '+str(np.round(r2_, decimals=3)))
+
+    return r2_scores, r2_score_labels
+
 def plot_ff_params(bonds:list, angles:list, final_scores:list, title:str='', bond_labels=None, angles_labels=None):
     fig, ax = plt.subplots(1, 2, figsize=(24, 8))
     fig.suptitle('Force Constants'+title)
@@ -621,13 +688,16 @@ def plot_ff_params(bonds:list, angles:list, final_scores:list, title:str='', bon
     plt.show()
 
 def plot_ff_params_v_static(bonds:list, angles:list, final_scores:list, title:str='', bond_labels=None, angles_labels=None, estimate_score=None):
-    fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+    fig, ax = plt.subplots(1, 2, figsize=(14, 4))
     fig.suptitle('Force Constants'+title)
     ax[0].set_title('Bonds')
     ax[1].set_title('Angles')
 
-    palette = itertools.cycle(zesty_palette)
-    palette_opt = itertools.cycle(zesty_palette)
+    colors_pick = seaborn.color_palette('muted')
+    # palette = itertools.cycle(seaborn.color_palette(palette=zesty))
+    # palette_opt = itertools.cycle(seaborn.color_palette(palette=zesty))
+    palette = itertools.cycle(seaborn.color_palette('muted'))
+    palette_opt = itertools.cycle(seaborn.color_palette('muted'))
     edges = itertools.cycle(zesty2_palette)
     
     color=next(palette)
@@ -636,29 +706,140 @@ def plot_ff_params_v_static(bonds:list, angles:list, final_scores:list, title:st
     ax[0].axhline(5, color=color, label=estimate_label)
     ax[1].axhline(0.5, color=color, label=estimate_label)
 
+
     if bond_labels is None:
         bond_labels = bonds[0][['atom1', 'atom2', 'param_type']].values
         bond_labels = [str(bl) for bl in bond_labels]
     if angles_labels is None:
         angles_labels = angles[0][['atom1', 'atom2', 'atom3', 'param_type']].values
         angles_labels = [str(al) for al in angles_labels]
-    for i in range(len(bonds)):
-        edge = next(edges)
-        if any(opt_flag in final_scores[i] for opt_flag in ['Opt', 'OPT', 'GRAD', 'HO']):
-            marker="^"
-            color = next(palette_opt)
-        else:
-            marker = "o"
-            color = next(palette)
-        seaborn.scatterplot(data=bonds[i], label=final_scores[i], x = bond_labels, y="Force Constant", ax=ax[0], color=color, marker=marker)
-        seaborn.scatterplot(data=angles[i], label=final_scores[i], x = angles_labels, y="Force Constant", ax=ax[1], color=color, marker=marker)
+
+    bond_unopt, angle_unopt, bond_opt, angle_opt = filter_params_by_type_opt(bonds, angles, final_scores)
+    seaborn.stripplot(data=bond_unopt, x="Parameter", y="Force Constant", ax=ax[0], hue="FF", dodge=True, palette=palette)
+    seaborn.stripplot(data=angle_unopt, x="Parameter", y="Force Constant", ax=ax[1], hue="FF", dodge=True, palette=itertools.cycle(colors_pick[1:]))
+    seaborn.stripplot(data=bond_opt, x="Parameter", y="Force Constant", ax=ax[0], hue="FF", dodge=True, palette=itertools.cycle(colors_pick), marker='^')
+    seaborn.stripplot(data=angle_opt, x="Parameter", y="Force Constant", ax=ax[1], hue="FF", dodge=True, palette=itertools.cycle(colors_pick), marker='^')
 
 
-    plt.xticks(rotation=45)
+    plt.xticks(rotation=90)
     ax[0].legend_.remove()
     ax[1].legend(bbox_to_anchor=(1.0, 0.85), fancybox=True, framealpha=0.5)
     ax[0].set_ylabel(r'Force Constant ($mdyn/\AA$)')
     ax[1].set_ylabel(r'Force Constant ($mdyn/\AA$)')
+    plt.show()
+    return fig, ax
+
+def plot_ff_params_v_static_(bonds:list, angles:list, final_scores:list, title:str='', bond_labels=None, angles_labels=None, estimate_score=None):
+    fig, ax = plt.subplots(figsize=(14, 4))
+    fig.suptitle('Force Constants'+title)
+
+    colors_pick = seaborn.color_palette('muted')
+    # palette = itertools.cycle(seaborn.color_palette(palette=zesty))
+    # palette_opt = itertools.cycle(seaborn.color_palette(palette=zesty))
+    palette = itertools.cycle(seaborn.color_palette('muted'))
+    palette_opt = itertools.cycle(seaborn.color_palette('muted'))
+    edges = itertools.cycle(zesty2_palette)
+    
+    color=next(palette)
+    edge=next(edges)
+    estimate_label = estimate_score if estimate_score is not None else 'Estimate'
+    ax.axhline(5, color=color, label=estimate_label)
+    ax.axhline(0.5, color=color, label=estimate_label)
+
+
+    if bond_labels is None:
+        bond_labels = bonds[0][['atom1', 'atom2', 'param_type']].values
+        bond_labels = [str(bl) for bl in bond_labels]
+    if angles_labels is None:
+        angles_labels = angles[0][['atom1', 'atom2', 'atom3', 'param_type']].values
+        angles_labels = [str(al) for al in angles_labels]
+
+    param_unopt, param_opt = filter_params_by_opt(bonds, angles, final_scores)
+
+    seaborn.stripplot(data=param_unopt, x="Parameter", y="Force Constant", ax=ax, hue="FF", dodge=True, palette=palette)
+    seaborn.stripplot(data=param_opt, x="Parameter", y="Force Constant", ax=ax, hue="FF", dodge=True, palette=itertools.cycle(colors_pick), marker='^')
+
+
+    plt.xticks(rotation=90)
+    ax.legend(bbox_to_anchor=(1.0, 0.85), fancybox=True, framealpha=0.5)
+    ax.set_ylabel(r'Force Constant ($mdyn/\AA$)')
+    plt.show()
+    return fig, ax
+
+def compare_opt_params(bonds:list, angles:list, final_scores:list, title:str='', bond_labels=None, angles_labels=None, estimate_score=None):
+    fig, ax = plt.subplots(2, 2, figsize=(14, 10))
+    fig.suptitle('Force Constants'+title)
+    ax[0,0].set_title('Bonds')
+    ax[0,1].set_title('Angles')
+
+    colors_pick = seaborn.color_palette('muted') #seaborn.color_palette(palette=zesty)
+    # palette_opt = itertools.cycle(seaborn.color_palette(palette=zesty))
+    palette = itertools.cycle(colors_pick)
+    edges = itertools.cycle(zesty2_palette)
+    
+    color=next(palette)
+    estimate_label = estimate_score if estimate_score is not None else 'Estimate'
+    ax[0,0].axhline(5, color=color, label=estimate_label)
+    ax[0,1].axhline(0.5, color=color, label=estimate_label)
+
+
+    if bond_labels is None:
+        bond_labels = bonds[0][['atom1', 'atom2', 'param_type']].values
+        bond_labels = [str(bl) for bl in bond_labels]
+    if angles_labels is None:
+        angles_labels = angles[0][['atom1', 'atom2', 'atom3', 'param_type']].values
+        angles_labels = [str(al) for al in angles_labels]
+
+    bond_unopt, angle_unopt, bond_opt, angle_opt = filter_params_by_type_opt(bonds, angles, final_scores)
+
+    seaborn.stripplot(data=bond_unopt, x="Parameter", y="Force Constant", ax=ax[0,0], hue="FF", dodge=True, palette=palette)
+    seaborn.stripplot(data=angle_unopt, x="Parameter", y="Force Constant", ax=ax[0,1], hue="FF", dodge=True, palette=itertools.cycle(colors_pick[1:]))
+    seaborn.stripplot(data=bond_opt, x="Parameter", y="Force Constant", ax=ax[1,0], hue="FF", dodge=True, palette=itertools.cycle(colors_pick))
+    seaborn.stripplot(data=angle_opt, x="Parameter", y="Force Constant", ax=ax[1,1], hue="FF", dodge=True, palette=itertools.cycle(colors_pick))
+
+    plt.xticks(rotation=90)
+    ax[0,0].legend_.remove()
+    ax[1,0].legend_.remove()
+    ax[0,1].legend(bbox_to_anchor=(1.0, 0.85), fancybox=True, framealpha=0.5)
+    ax[1,1].legend(bbox_to_anchor=(1.0, 0.85), fancybox=True, framealpha=0.5)
+    ax[0,0].set_ylabel(r'Force Constant ($mdyn/\AA$)')
+    ax[0,1].set_ylabel(r'Force Constant ($mdyn/\AA$)')
+    ax[1,0].set_ylabel(r'Force Constant ($mdyn/\AA$)')
+    ax[1,1].set_ylabel(r'Force Constant ($mdyn/\AA$)')
+    plt.show()
+    return fig, ax
+
+def compare_opt_params_(bonds:list, angles:list, final_scores:list, title:str='', bond_labels=None, angles_labels=None, estimate_score=None):
+    fig, ax = plt.subplots(2, 1, figsize=(14, 10))
+    fig.suptitle('Force Constants'+title)
+
+    colors_pick = seaborn.color_palette('muted') #seaborn.color_palette(palette=zesty)
+    # palette_opt = itertools.cycle(seaborn.color_palette(palette=zesty))
+    palette = itertools.cycle(colors_pick)
+    edges = itertools.cycle(zesty2_palette)
+    
+    color=next(palette)
+    estimate_label = estimate_score if estimate_score is not None else 'Estimate'
+    ax[0].axhline(5, color=color, label=estimate_label)
+    ax[0].axhline(0.5, color=color, label=estimate_label)
+
+
+    if bond_labels is None:
+        bond_labels = bonds[0][['atom1', 'atom2', 'param_type']].values
+        bond_labels = [str(bl) for bl in bond_labels]
+    if angles_labels is None:
+        angles_labels = angles[0][['atom1', 'atom2', 'atom3', 'param_type']].values
+        angles_labels = [str(al) for al in angles_labels]
+
+    param_unopt, param_opt = filter_params_by_opt(bonds, angles, final_scores)
+
+    seaborn.stripplot(data=param_unopt, x="Parameter", y="Force Constant", ax=ax[0], hue="FF", dodge=True, palette=palette)
+    seaborn.stripplot(data=param_opt, x="Parameter", y="Force Constant", ax=ax[1], hue="FF", dodge=True, palette=itertools.cycle(colors_pick))
+
+    for axis in ax.flat:  # Iterate through all subplots
+        axis.tick_params(axis='x', rotation=90)
+        axis.legend(bbox_to_anchor=(1.0, 0.85), fancybox=True, framealpha=0.5)
+        axis.set_ylabel(r'Force Constant ($mdyn/\AA$)')
     plt.show()
     return fig, ax
 
