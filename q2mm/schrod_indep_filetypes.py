@@ -1796,6 +1796,65 @@ class JaguarIn(File):
         self._empty_atoms = None
         self._lines = None
     
+    @property
+    def hessian(self):
+        """
+        Reads the Hessian from a Jaguar .in.
+        Automatically removes Hessian elements corresponding to dummy atoms.
+        """
+        if self._hessian is None:
+            num = len(self.structures[0].atoms) + len(self._empty_atoms)
+            logger.log(5,
+                       '  -- {} has {} atoms and {} dummy atoms.'.format(
+                    self.filename,
+                    len(self.structures[0].atoms),
+                    len(self._empty_atoms)))
+            assert num != 0, \
+                'Zero atoms found when loading Hessian from {}!'.format(
+                self.path)
+            hessian = np.zeros([num * 3, num * 3], dtype=float)
+            logger.log(5, '  -- Created {} Hessian matrix (including dummy '
+                       'atoms).'.format(hessian.shape))
+            with open(self.path, 'r') as f:
+                section_hess = False
+                for line in f:
+                    if section_hess and line.startswith('&'):
+                        section_hess = False
+                        hessian += np.tril(hessian, -1).T
+                    if section_hess:
+                        cols = line.split()
+                        if len(cols) == 1:
+                            hess_col = int(cols[0])
+                        elif len(cols) > 1:
+                            hess_row = int(cols[0])
+                            for i, hess_ele in enumerate(cols[1:]):
+                                hessian[hess_row - 1, i + hess_col - 1] = \
+                                    float(hess_ele)
+                    if '&hess' in line:
+                        section_hess = True
+            for atom in self._empty_atoms:
+                logger.log(1, '>>> _empty_atom {}: {}'.format(atom.index, atom))
+            # Figure out the indices of the dummy atoms.
+            dummy_indices = []
+            for atom in self._empty_atoms:
+                logger.log(1, '>>> atom.index: {}'.format(atom.index))
+                index = (atom.index - 1) * 3
+                dummy_indices.append(index)
+                dummy_indices.append(index + 1)
+                dummy_indices.append(index + 2)
+            logger.log(1, '>>> dummy_indices: {}'.format(dummy_indices))
+            # Delete these rows and columns.
+            logger.log(1, '>>> hessian.shape: {}'.format(hessian.shape))
+            logger.log(1, '>>> hessian:\n{}'.format(hessian))
+            hessian = np.delete(hessian, dummy_indices, 0)
+            hessian = np.delete(hessian, dummy_indices, 1)
+            logger.log(1, '>>> hessian:\n{}'.format(hessian))
+            logger.log(5, '  -- Created {} Hessian matrix (w/o dummy '
+                       'atoms).'.format(hessian.shape))
+            self._hessian = hessian * co.HESSIAN_CONVERSION
+            logger.log(1, '>>> hessian.shape: {}'.format(hessian.shape))
+        return self._hessian
+
     def get_hessian(self, num_atoms:int):
         """
         Reads the Hessian from a Jaguar .in.
@@ -1838,7 +1897,33 @@ class JaguarIn(File):
             self._hessian = hessian * co.HESSIAN_CONVERSION #TODO find a more universal way to manage units, JAGUAR IGNORED UNITS SETTINGS????!
             logger.log(1, '>>> hessian.shape: {}'.format(hessian.shape))
         return self._hessian
-    
+    @property
+    def structures(self):
+        if self._structures is None:
+            logger.log(10, 'READING: {}'.format(self.filename))
+            sch_ob = jag_in.read(self.path)
+            sch_struct = sch_ob.getStructure()
+            structures = [self.conv_sch_str(sch_struct)]
+            logger.log(5, '  -- Imported {} structure(s).'.format(
+                    len(structures)))
+            # This area is sketch. I added it so I could use Hessian data
+            # generated from a Jaguar calculation that had a dummy atom.
+            # No gaurantees this will always work.
+            for i, structure in enumerate(structures):
+                empty_atoms = []
+                for atom in structure.atoms:
+                    logger.log(1, '>>> atom {}: {}'.format(atom.index, atom))
+                    if atom.element == '':
+                        empty_atoms.append(atom)
+                for atom in empty_atoms:
+                    structure.atoms.remove(atom)
+                if empty_atoms:
+                    logger.log(5, 'Structure {}: {} empty atoms '
+                               'removed.'.format(i + 1, len(empty_atoms)))
+            self._empty_atoms = empty_atoms
+            self._structures = structures
+        return self._structures
+
     def gen_lines(self):
         """
         Attempts to figure out the lines of itself.

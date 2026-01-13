@@ -1918,11 +1918,12 @@ def replace_minimum(array, value=1):
     # It would be better to address this in a different way. This particular
     # data structure just isn't what we want.
     array.setflags(write=True)
+    logger.log(logging.INFO,"max eval: "+str(array.max()))
     # Sometimes we use 1, but sometimes we use co.HESSIAN_CONVERSION.
     array[minimum_index] = value
     logger.log(1, '>>> minimum_index: {}'.format(minimum_index))
     logger.log(1, '>>> array:\n{}'.format(array))
-    logger.log(10, '  -- Replaced minimum in array with {}.'.format(value))
+    logger.log(logging.INFO, '  -- Replaced minimum in array with {}.'.format(value))
 
 def check_mm_dummy(hess, dummy_indices):
     """

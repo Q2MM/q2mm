@@ -62,17 +62,19 @@ def check_licenses():
     logger.log(5, "  -- Checking Schrodinger tokens.")
     while True:
         token_string = sp.check_output(
-            '$SCHRODINGER/utilities/licutil -available', shell=True)
+            '$SCHRODINGER/run lictool status', shell=True)
         if (sys.version_info > (3, 0)):
           token_string = token_string.decode("utf-8")
         suite_tokens = co.LIC_SUITE.search(token_string)
+        print(suite_tokens)
         macro_tokens = co.LIC_MACRO.search(token_string)
+        print(macro_tokens)
         #suite_tokens = re.search(co.LIC_SUITE, token_string)
         #macro_tokens = re.search(co.LIC_MACRO, token_string)
         if not suite_tokens and not macro_tokens:
             raise Exception(
-                'The command "$SCHRODINGER/utilities/licutil '
-                '-available" is not working with the current '
+                'The command "$SCHRODINGER/run lictool '
+                'status" is not working with the current '
                 'regex in calculate.py.\nOUTPUT:\n{}'.format(
                     token_string))
         suite_tokens = int(suite_tokens.group(1))

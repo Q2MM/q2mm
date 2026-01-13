@@ -339,7 +339,7 @@ def import_weights(data):
     for datum in data:
         if datum.wht is None:
             if datum.typ == 'eig':
-                if datum.idx_1 == datum.idx_2 == 1:
+                if datum.idx_1 == datum.idx_2 == 1 and datum.val < 0.: #TODO second condition is added by Mikaela
                     datum.wht = co.WEIGHTS['eig_i']
                 elif datum.idx_1 == datum.idx_2:
                     if datum.val < 1100:

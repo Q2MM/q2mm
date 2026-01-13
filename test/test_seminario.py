@@ -8,7 +8,7 @@ import numpy as np
 import linear_algebra
 
 from schrod_indep_filetypes import MM3, MacroModelLog, GaussLog, Mol2, mass_weight_hessian
-from seminario import seminario
+from seminario import mm3_seminario
 import constants as co
 import utilities
 
@@ -29,7 +29,7 @@ class TestEthane(unittest.TestCase):
 
     def run_seminario(self):
         
-        ethane_ff = seminario(self.ethane_og_fld, self.structs, self.hessians, zero_out=True, hessian_units=co.KJMOLA)
+        ethane_ff = mm3_seminario(self.ethane_og_fld, self.structs, self.hessians, zero_out=True, hessian_units=co.KJMOLA)
         ethane_ff.export_ff(self.seminario_fld_path, ethane_ff.params)
 
     def read_in_files(self):

@@ -16,14 +16,10 @@ import itertools
 
 from sklearn.metrics import r2_score
 
-seaborn.set_theme(style="whitegrid")
-
-seaborn.set_theme()
-seaborn.set_context("paper")
-seaborn.set_style('white')
+seaborn.set_theme(font_scale=0.8, context="paper", style="whitegrid")
 #seaborn.set_style("ticks")
-zesty = ['#F5793A', '#A95AA1', '#85C0F9', '#0F2080', '#528D6A']
-zesty2 = ['#F65300', '#6e3a69', '#6793bc', '#081142', '#39634a'] #c86431
+zesty = ['#F5793A', '#A95AA1', '#85C0F9', '#0F2080', '#528D6A', "#695AA9", "#5A97A9"]
+zesty2 = ['#F65300', '#6e3a69', '#6793bc', '#081142', '#39634a', "#403768", "#5A97A9"] #c86431
 zesty_palette = seaborn.color_palette(palette=zesty)
 zesty2_palette = seaborn.color_palette(palette=zesty2)
 edges = itertools.cycle(zesty2_palette)
@@ -228,7 +224,7 @@ def plot_param_late_y(base_direc:str, directories:list, param_index:int, title:s
     plt.show()
     return final_scores
 
-def plot_param_history_histogram(base_direc:str, directories:list, param_index:int, title:str, cycle_iter_length:int, starting_score:float) -> list :
+def plot_param_history_histogram(base_direc:str, directories:list, param_index:int, title:str, cycle_iter_length:int, starting_score:float):
     fig, ax = plt.subplots(1, len(directories), figsize=(24, 8))
     fig.suptitle(title)
     ax[0].set_title('Param '+str(param_index)+' Throughout Parameterization')
@@ -259,9 +255,8 @@ def plot_param_history_histogram(base_direc:str, directories:list, param_index:i
     ax[0].legend()
 
     plt.show()
-    return
 
-def plot_param_history_penalty(base_direc:str, directories:list, param_index:int, title:str, cycle_iter_length:int, starting_score:float) -> list :
+def plot_param_history_penalty(base_direc:str, directories:list, param_index:int, title:str, cycle_iter_length:int, starting_score:float):
     fig, ax = plt.subplots(1, len(directories), figsize=(24, 8))
     fig.suptitle(title)
     ax[0].set_title('Param '+str(param_index)+' Throughout Parameterization')
@@ -298,7 +293,6 @@ def plot_param_history_penalty(base_direc:str, directories:list, param_index:int
     ax[0].legend()
 
     plt.show()
-    return
 
 def plot_param_history_histogram3d(base_direc:str, directories:list, param_indices:list, title:str, cycle_iter_length:int, starting_score:float) -> list :
     fig, ax = plt.subplots(1, 2, figsize=(24, 8))
@@ -458,7 +452,7 @@ def linear_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, s
     seaborn.scatterplot(data=diag, y='Calculated', x='Reference', color='gray', label=starting_score, ax=ax[0])
     ax[0].legend()
     r2_ = r2_score(diag['Reference'], diag['Calculated'])
-    ax[0].set_title('Score: '+'{0:.3f}'.format(starting_score)+' y=x r2:'+'{0:.3f}'.format(r2_))
+    ax[0].set_title('Score: '+'{0:.3f}'.format(starting_score)+r' $y=x r^{2}$:'+'{0:.3f}'.format(r2_))
 
 
     for i, run in enumerate(scored_runs):
@@ -637,6 +631,7 @@ def filter_params_by_type_opt(bonds, angles, final_scores):
     angle_unopt = pd.DataFrame()
 
     for i in range(len(bonds)):
+        assert isinstance(bonds[i], pd.DataFrame), "Element "+str(i)+" not DataFrame, but "+str(type(bonds[i]))
         bonds[i] = bonds[i].assign(FF=final_scores[i])
         angles[i] = angles[i].assign(FF=final_scores[i])
         if any(opt_flag in final_scores[i] for opt_flag in ['Opt', 'OPT', 'GRAD', 'HO']):
@@ -985,6 +980,48 @@ def plot_bond_params_v_static_table(bonds:list, finalized_bonds:pd.DataFrame, su
     ax[0].legend()
     ax[0].set_ylabel(r'Force Constant ($mdyn/\AA$)')
     return fig, ax
+
+def plot_parameters():
+    plt.rcParams['figure.dpi'] = 800
+    plt.rcParams['font.size'] = plt.rcParamsDefault['font.size']
+    seaborn.set_theme(font_scale=0.8, context="paper", style="whitegrid")
+    fig, ax = plt.subplots( 1, 2, figsize=(7, 3.1), width_ratios=[3, 4])
+    fig.suptitle('Force Constants'+' - Rh TSFF')
+    
+    #colors_pick = seaborn.color_palette('muted')
+    colors_pick = seaborn.color_palette(palette=zesty)
+    
+    bond_unopt, angle_unopt, bond_opt, angle_opt = filter_params_by_type_opt(bonds, angles, score_sums)
+    
+    seaborn.stripplot(data=bond_unopt, x="Parameter", y="Force Constant", ax=ax[0], hue="FF", dodge=True, palette=itertools.cycle(colors_pick)) # type: ignore
+    seaborn.stripplot(data=bond_opt, x="Parameter", y="Force Constant", ax=ax[0], hue="FF", dodge=True, palette=itertools.cycle(colors_pick), marker='^') # type: ignore
+    
+    ax[0].tick_params(labelrotation=90)
+    
+    indices = [2, 5, 6, 10, 11, 12, 14, 15, 16, -1]#13, 7
+    
+    keep_angles = [angle_label_list[ind] for ind in indices]
+    
+    angle_unopt = angle_unopt[angle_unopt["Parameter"].isin(keep_angles)]
+    angle_opt = angle_opt[angle_opt["Parameter"].isin(keep_angles)]
+    
+    seaborn.stripplot(data=angle_unopt, x="Parameter", y="Force Constant", ax=ax[1], hue="FF", dodge=True, palette=itertools.cycle(colors_pick)) # type: ignore
+    g = seaborn.stripplot(data=angle_opt, x="Parameter", y="Force Constant", ax=ax[1], hue="FF", dodge=True, palette=itertools.cycle(colors_pick), marker='^') # type: ignore
+    
+    plt.xticks(rotation=90)
+    plt.ylim(top=7.5)
+    ax[0].set_ylabel(r'Force Constant ($mdyn/\AA$)')
+    ax[1].set_ylabel(r'Force Constant ($mdyn/rad^2$)')
+    ax[0].set_xlabel(None)
+    ax[1].set_xlabel(None)
+    ax[0].legend().remove()
+    plt.tight_layout(rect=[0, 0, 1, 1.05])
+    ax[1].legend(bbox_to_anchor=(0.8, -0.35), ncol=4, fancybox=True, framealpha=0.5)
+    for a in ax:
+        print(a.get_xlim()[1])
+        for i in range(int(a.get_xlim()[1])):
+            a.axvline(x=i+0.5, color='lightgray', linewidth=1.)
+    plt.show()
 
 def plot_ff_params_vert(bonds:list, angles:list, final_scores:list, title:str='', bond_labels=None, angles_labels=None):
     fig, ax = plt.subplots(2, 1, figsize=(16, 24))

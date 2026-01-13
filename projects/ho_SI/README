@@ -1,0 +1,4 @@
+All work in ho_SI was run beginning from the QFUERZA or FrankenFUERZA preliminary force constants.
+
+Charges and equilibrium geometry were either generated from Gaussian log averages as typical to Q2MM workflow
+or pulled from Donoghue's previous work.

@@ -32,35 +32,35 @@ LOG_SETTINGS = {
             # 'class': 'logging.FileHandler', 'filename': 'root.log',
             # 'formatter': 'basic', 'level': 20}
         },
-    'loggers': {'__main__': {'level': 5, 'propagate': True},
-                'calculate': {'level': 20, 'propagate': True},
-                'compare': {'level': 10, 'propagate': True},
-                'constants': {'level': 20, 'propagate': True},
-                'datatypes': {'level': 20,' propagate': True},
-                'filetypes': {'level': 20, 'propagate': True},
-                'gradient': {'level': 20, 'propagate': True},
-                'loop': {'level': 5, 'propagate': True},
-                'opt': {'level': 5, 'propagate': True},
-                'parameters': {'level': 20, 'propagate': True},
-                'simplex': {'level': 5, 'propagate': True},
-                'seminario': {'level': 20, 'propagate': True},
-                'schrod_indep_filetypes': {'level': 20, 'propagate': True},
-                'swarm_opt': {'level': 20, 'propagate': True},
-                },
-
-    #  debug logger
-    # 'loggers': {'__main__': {'level': 1, 'propagate': True},
-    #             'calculate': {'level': 1, 'propagate': True},
-    #             'compare': {'level': 1, 'propagate': True},
-    #             'constants': {'level': 1, 'propagate': True},
-    #             'datatypes': {'level': 1,' propagate': True},
-    #             'filetypes': {'level': 1, 'propagate': True},
-    #             'gradient': {'level': 1, 'propagate': True},
-    #             'loop': {'level': 1, 'propagate': True},
-    #             'opt': {'level': 1, 'propagate': True},
-    #             'parameters': {'level': 1, 'propagate': True},
-    #             'simplex': {'level': 1, 'propagate': True}
+    # 'loggers': {'__main__': {'level': 5, 'propagate': True},
+    #             'calculate': {'level': 20, 'propagate': True},
+    #             'compare': {'level': 10, 'propagate': True},
+    #             'constants': {'level': 20, 'propagate': True},
+    #             'datatypes': {'level': 20,' propagate': True},
+    #             'filetypes': {'level': 20, 'propagate': True},
+    #             'gradient': {'level': 20, 'propagate': True},
+    #             'loop': {'level': 5, 'propagate': True},
+    #             'opt': {'level': 5, 'propagate': True},
+    #             'parameters': {'level': 20, 'propagate': True},
+    #             'simplex': {'level': 5, 'propagate': True},
+    #             'seminario': {'level': 20, 'propagate': True},
+    #             'schrod_indep_filetypes': {'level': 20, 'propagate': True},
+    #             'swarm_opt': {'level': 20, 'propagate': True},
     #             },
+
+     #debug logger
+    'loggers': {'__main__': {'level': 1, 'propagate': True},
+                'calculate': {'level': 1, 'propagate': True},
+                'compare': {'level': 1, 'propagate': True},
+                'constants': {'level': 1, 'propagate': True},
+                'datatypes': {'level': 1,' propagate': True},
+                'filetypes': {'level': 1, 'propagate': True},
+                'gradient': {'level': 1, 'propagate': True},
+                'loop': {'level': 1, 'propagate': True},
+                'opt': {'level': 1, 'propagate': True},
+                'parameters': {'level': 1, 'propagate': True},
+                'simplex': {'level': 1, 'propagate': True}
+                },
 
     'root': {
         'level': 'NOTSET',
@@ -232,14 +232,12 @@ COM_FORM = (' {0:4}{1:>8}{2:>7}{3:>7}{4:>7}{5:>11.4f}'
             '{6:>11.4f}{7:>11.4f}{8:>11.4f}\n')
 # When you use "$SCHRODINGER/utilities/licutil -used -verbose", many token
 # allocations appear, but these are the 2 we care about.
-LABEL_SUITE = 'SUITE_\w+' # Ex.) SUITE_26NOV2012
+LABEL_SUITE = 'MMLIBS' # Ex.) SUITE_26NOV2012
 LABEL_MACRO = 'MMOD_MACROMODEL'
 # Some regex to pick out the number of available tokens.
-LIC_SUITE = re.compile('(?<!_){}\s+(\d+)\sof\s\d+\s'
-                       'tokens\savailable'.format(LABEL_SUITE))
-LIC_MACRO = re.compile('{}\s+(\d+)\sof\s\d+\stokens\s'
-                       'available'.format(LABEL_MACRO))
-# Minimum number of tokens required to run MacrModel calculations.
+LIC_SUITE = re.compile('(?<!_){}:[^\d]+\d+[^\d]+\d+[^\d]+(\d+)\slicenses\savailable'.format(LABEL_SUITE))
+LIC_MACRO = re.compile('{}:[^\d]+\d+[^\d]+\d+[^\d]+(\d+)\slicenses\savailable'.format(LABEL_MACRO))
+# Minimum number of tokens required to run MacrModel calculations. TODO This might have changed with new LM
 MIN_SUITE_TOKENS = 2
 MIN_MACRO_TOKENS = 2
 

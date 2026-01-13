@@ -84,25 +84,27 @@ class Swarm_Optimizer(opt.Optimizer):
         tighter_spread = tight_spread == 'TT'
         tight_spread = 'T' in tight_spread
         for param in self.ff.params:
+            lower_bounds.append(param.allowed_range[0])
+            upper_bounds.append(param.allowed_range[1])
             if param.ptype == "af":
-                lower_bounds.append(0.1)
-                upper_bounds.append(7.0)
+                #lower_bounds.append(0.1)
+                #upper_bounds.append(7.0)
                 deviations.append(0.125) if tight_spread else deviations.append(1.0)
             elif param.ptype == "bf":
-                lower_bounds.append(15.0) if ff_row_expand_bounds == param.ff_row else lower_bounds.append(0.1)
-                upper_bounds.append(30.0) if ff_row_expand_bounds == param.ff_row else upper_bounds.append(7.0)
+                #lower_bounds.append(15.0) if ff_row_expand_bounds == param.ff_row else lower_bounds.append(0.1)
+                #upper_bounds.append(30.0) if ff_row_expand_bounds == param.ff_row else upper_bounds.append(7.0)
                 deviations.append(0.125) if tight_spread else deviations.append(1.0)
             elif param.ptype == "ae":
-                lower_bounds.append(0.0)
-                upper_bounds.append(180.0)
+                #lower_bounds.append(0.0)
+                #upper_bounds.append(180.0)
                 deviations.append(15.0)
             elif param.ptype == "be":
-                lower_bounds.append(0.0)
-                upper_bounds.append(6.0)
+                #lower_bounds.append(0.0)
+                #upper_bounds.append(6.0)
                 deviations.append(0.5)  # TODO reassess
             elif param.ptype == "df":
-                lower_bounds.append(-5.0)
-                upper_bounds.append(5.0)
+                #lower_bounds.append(-5.0)
+                #upper_bounds.append(5.0)
                 deviations.append(np.inf)
             elif (
                 param.ptype == "q"
@@ -121,6 +123,7 @@ class Swarm_Optimizer(opt.Optimizer):
             else:
                 raise ("Parameter type not supported: " + param.ptype)
 
+        logger.log(logging.INFO, upper_bounds)
         ff_params = [param.value for param in self.ff.params]
 
         param_opt_config = {

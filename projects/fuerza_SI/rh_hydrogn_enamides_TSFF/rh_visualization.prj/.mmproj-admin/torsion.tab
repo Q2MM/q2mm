@@ -1,0 +1,35 @@
+{ 
+ s_m_m2io_version
+ :::
+ 2.0.0 
+} 
+
+f_m_table { 
+ :::
+ m_column[7] { 
+  s_m_data_name
+  s_m_column_name
+  i_m_width
+  b_m_visible
+  s_m_print_format
+  b_m_editable
+  :::
+  1 s_m_dihedral_atom1  Atom1  8 1 %s  0
+  2 s_m_dihedral_atom2  Atom2  8 1 %s  0
+  3 s_m_dihedral_atom3  Atom3  8 1 %s  0
+  4 s_m_dihedral_atom4  Atom4  8 1 %s  0
+  5 s_m_dihedral_dihedral  Dihedral  8 1 %s  0
+  6 s_m_dihedral_residue  Residue  7 1 %s  0
+  7 s_m_dihedral_name  Name  11 1 %s  0
+  :::
+ } 
+ m_row[0] { 
+  :::
+  :::
+ } 
+ m_exists[0] { 
+  :::
+  :::
+ } 
+} 
+

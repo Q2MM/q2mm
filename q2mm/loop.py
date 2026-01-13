@@ -87,7 +87,7 @@ class Loop(object):
             logger.log(20, '  -- Wrote best FF to {}'.format(mm3_file))
             logger.log(logging.INFO, 'change: {} convergence criteria: {}'.format(change, self.convergence))
         logger.log(logging.INFO, 'change: {} convergence criteria: {}'.format(change, self.convergence))
-        os.popen('rm -rd '+os.path.join(self.direc, 'temp_*'))
+        os.popen('rm -rd '+os.path.join(self.direc, 'temp_*')) if change < self.convergence and change != 0.0 else logger.log(logging.INFO, "LOOP ended early or no change occurred, please troubleshoot by checking the requisite files.")
         for param in self.ff.params:
             param.value_at_limits()
         self.swarm = None

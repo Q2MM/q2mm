@@ -36,7 +36,7 @@ import numpy as np
 import parmed
 
 import datatypes
-from filetypes import MacroModelLog
+from filetypes import MacroModelLog, JaguarIn
 from linear_algebra import invert_ts_curvature, reform_hessian
 
 import logging
@@ -48,7 +48,7 @@ from schrod_indep_filetypes import (
     GaussLog,
     MM3,
     AmberFF,
-    JaguarIn,
+    #JaguarIn,
     MacroModel,
     Mol2,
     ParAMBER,
@@ -59,6 +59,14 @@ from schrod_indep_filetypes import (
 )
 import utilities
 
+try:
+    from schrodinger import structure as sch_str
+    from schrodinger.application.jaguar import input as jag_in
+    schrod_on = True
+except:
+    print("Schrodinger not installed, limited functionality")
+    schrod_on = False
+    pass
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)
@@ -879,7 +887,7 @@ def estimate_bf_param(
 
                 # The below reverse-massweighting of the force constant is only necessary if the mass-weighted
                 # Hessian is used.
-                # s_bond = mass_weight_force_constant(s_bond, struct.get_atoms_in_DOF(bond), reverse=True, rm = False)
+                s_bond = mass_weight_force_constant(s_bond, struct.get_atoms_in_DOF(bond), reverse=True, rm = False)
                 logger.log(
                     logging.DEBUG, "Seminario (KJMOLA)" + str(bond) + ": " + str(s_bond)
                 )
@@ -956,6 +964,7 @@ def estimate_af_param(
                             param, struct.origin_name
                         ),
                     )
+                s_angle = mass_weight_force_constant(s_angle, struct.get_atoms_in_DOF(angle), reverse=True, rm = False)
                 # TODO retest this method p_bond = po_angle(struct.get_atoms_in_DOF(bond), hessian, ang_to_bohr)
                 logger.log(
                     logging.DEBUG,
@@ -1320,8 +1329,8 @@ def main(args):
         hessians: List[np.ndarray] = []
         for i in range(len(logs)):
             log = logs[i]
-            hessian = log.get_hessian(structs[i].num_atoms) #converted to KJMOLA on creation
-            # mass_weight_hessian(mw_hessian, log.structures[-1].atoms)
+            hessian = log.hessian #converted to KJMOLA on creation
+            mass_weight_hessian(hessian, log.structures[-1].atoms)
             if args.invert:
                 hessian = invert_ts_curvature(hessian)
                 logger.log(

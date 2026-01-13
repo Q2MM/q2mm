@@ -152,7 +152,7 @@ def read_param_file(filename):
     pos    - Forces parameter to positive values.
     both   - Allows negative or positive values.
 
-    Example parameter file:
+    Example parameter file: #TODO: This has changed signficantly a long time ago and ought to be updated
       1858 1         # Equilibrium length of bond on line 1858
       1858 2         # Force constant of bond on line 1858
       1859 1         # ...

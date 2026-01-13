@@ -4,32 +4,53 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
+        {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": "${command:pickArgs}"
+        },
         {
             "name": "Loop Q2MM",
             "type": "debugpy",
-            "request":"launch",
+            "request": "launch",
             "subProcess": true,
             "program": "q2mm/loop.py",
             "console": "integratedTerminal",
-            "args": ["q2mm_example/amber/Ethane/GS.loop.in"]
+            "args": [
+                "q2mm_example/amber/Ethane/GS.loop.in"
+            ]
         },
         {
             "name": "Amber Calc",
             "type": "debugpy",
-            "request":"launch",
+            "request": "launch",
             "subProcess": true,
             "program": "q2mm/calculate.py",
             "console": "integratedTerminal",
-            "args": ["-ah", "nadh/fuerza/nadh_4i4b.in"]
+            "args": [
+                "-ah",
+                "nadh/fuerza/nadh_4i4b.in"
+            ]
         },
         {
             "name": "Amber Comp",
             "type": "debugpy",
-            "request":"launch",
+            "request": "launch",
             "subProcess": true,
-            "program": "q2mm/compare.py",
+            "cwd": "/home/mfarrugi/repos/q2mm/nadh/fuerza",
+            "program": "/home/mfarrugi/repos/q2mm/q2mm/compare.py",
             "console": "integratedTerminal",
-            "args": ["--calculate", " -ah nadh/fuerza/nadh_4i4b.in", "--reference", " -gh nadh/fuerza/nadh_4i4b.log", "-o compare.out"]
+            "args": [
+                "--calculate",
+                " -ah NADH-RW.in",
+                "--reference",
+                " -gh NADH-RW.log",
+                "-oNADH-RW.compare.out"
+            ]
         },
         {
             "name": "Python: Seminario",
@@ -40,16 +61,17 @@
             "justMyCode": true,
             "args": [
                 "--ff-out",
-                "q2mm_example/amber/Ethane/GS.CT.seminario.frcmod",
+                "q2mm_example/amber/hp-thiohemiacet/theo-tsnadhm06.invfuerza.frcmod",
                 "--ff-in",
-                "q2mm_example/amber/Ethane/GS.CT.frcmod",
+                "q2mm_example/amber/hp-thiohemiacet/theo-tsnadhm06.frcmod",
                 "--mol",
-                "q2mm_example/amber/Ethane/GS.CT.mol2",
+                "q2mm_example/amber/hp-thiohemiacet/theo-tsnadhm06.mol2",
                 "--log",
-                "q2mm_example/amber/Ethane/GS.log",
+                "q2mm_example/amber/hp-thiohemiacet/theo-tsnadhm06.log",
                 "--prep",
+                "--invert",
                 ">",
-                "q2mm_example/amber/Ethane/GS.CT.txt"
+                "q2mm_example/amber/hp-thiohemiacet/theo-tsnadhm06.fuerza.inv.txt"
             ],
             // "args": [
             //     "--ff-out",
@@ -129,11 +151,14 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--ff-in", "nadh_gaff2.frcmod",
-                "-o", "fuerza.nadh_gaff2_at.frcmod",
-                "--mol", "nadh_*.mol2",
-                "--log", "nadh_*.log",
-                "--individualize"
+                "--ff-in",
+                "nadh_gaff2.frcmod",
+                "-o",
+                "fuerza.rw.nadh_gaff2.frcmod",
+                "--mol",
+                "nadh_rw.mol2",
+                "--log",
+                "nadh_rw.log",
             ],
         },
         {
@@ -199,11 +224,11 @@
             "type": "debugpy",
             "request": "launch",
             "program": "/home/mfarrugi/repos/q2mm/q2mm/loop.py",
-            "cwd": "/home/mfarrugi/repos/q2mm/rh-hybrid/test_grad/grad/",
+            "cwd": "/home/mfarrugi/repos/q2mm/projects/ho_SI/cisplatin_ex/",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "/home/mfarrugi/repos/q2mm/rh-hybrid/test_grad/grad/loop-eig.in"
+                "/home/mfarrugi/repos/q2mm/projects/ho_SI/cisplatin_ex/loop-eig.in"
             ]
         },
         {

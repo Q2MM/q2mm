@@ -52,9 +52,12 @@ def replace_neg_eigenvalue(
     if zer_out_neg:
         for neg_index in neg_indices:
             replaced_eigenvalues[neg_index[0]] = 0.00
+    print("max eval: "+str(max(replaced_eigenvalues)))
     replaced_eigenvalues[
         index_to_replace
     ] = replace_with * co.HESSIAN_CONVERSION  if units == co.KJMOLA else replace_with # TODO: MF determine if we stick to this method, what it depends on, etc
+    print("replaced with "+str(replaced_eigenvalues[index_to_replace]))
+    print(str([replaced_eigenvalues[index] for index in neg_indices]))
 
     return replaced_eigenvalues
 

@@ -1,0 +1,48 @@
+{ 
+ s_m_m2io_version
+ :::
+ 2.0.0 
+} 
+
+f_m_table { 
+ :::
+ m_column[4] { 
+  s_m_data_name
+  s_m_column_name
+  i_m_width
+  b_m_visible
+  s_m_print_format
+  b_m_editable
+  s_m_description
+  :::
+  1 b_view  View  4 1 ""  1 "Which scene is active" 
+  2 i_id  Scene  12 1 ""  0 "Thumbnail" 
+  3 s_description  Description  40 1 "%s"  1 "Description" 
+  4 s_image_file  File  20 0 "%s"  0 "Image filename" 
+  :::
+ } 
+ m_row[5] { 
+  b_view
+  i_id
+  s_description
+  s_image_file
+  :::
+  1 0 1 "1-fig-align"  scene1.jpg 
+  2 0 2 "ZDMP DMPE fig aligned"  scene2.jpg 
+  3 0 3 "pro-S fig aligned"  scene3.jpg 
+  4 0 4 "pro-R fig aligned"  scene4.jpg 
+  5 0 5 "pro-R fig aligned"  scene5.jpg 
+  :::
+ } 
+ m_exists[5] { 
+  s_m_exists
+  :::
+  1 1111 
+  2 1111 
+  3 1111 
+  4 1111 
+  5 1111 
+  :::
+ } 
+} 
+
