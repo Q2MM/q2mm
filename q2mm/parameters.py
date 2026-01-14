@@ -18,7 +18,7 @@ import sys
 import constants as co
 import datatypes
 import filetypes
-from q2mm.seminario import seminario_bond, seminario_bond_new
+from seminario import seminario_bond, seminario_bond_new
 from tools.file_converter import mae_to_mol2
 
 logging.config.dictConfig(co.LOG_SETTINGS)
