@@ -692,10 +692,24 @@ exit
         # nab input file
         # dielectric constant = 80.4 for water.
         # currently manual change required
+        
+        # get AMBERHOME from environment variables
+        amber_home = os.environ.get('AMBERHOME')
+
+        if amber_home:
+
+            # sff path, eg: /home/user/amber24/include/sff.h
+            sff_path = os.path.join(amber_home, 'include', 'sff.h')
+            # format inclue line for C code
+            include_line = '#include "{}"'.format(sff_path)
+            print("Found AMBERHOME: {}, using header: {}".format(amber_home, sff_path))
+        else:
+            print('Warning: AMBERHOME environment variable not set. Assuming compiler knows path.')
+            include_line = '#include "sff.h"'
         script = """#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "/opt/miniconda3/include/sff.h"
+{}
 FILE* nabout;
 
 nabout = stdout; 
@@ -710,7 +724,7 @@ mm_options( "cut=15., ntpr=1, nsnb=99999, diel = C, dielc = 80.40" );
 mme_init( m, NULL, "::Z", x, NULL);
 setxyz_from_mol( m, NULL, x );
 
-nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name, self.directory)
+nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(include_line, self.name, self.directory)
         with open(self.directory+'/calc/'+self.name+'.c','w') as f:
             f.write(script)
         #TODO try catch this in case no gcc compiler installed?  Error should be clear and fatal though
