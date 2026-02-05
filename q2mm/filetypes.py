@@ -97,7 +97,7 @@ class AmberHess(File):
                     self.natoms = int(line.split()[1])
                     hessian = np.zeros([self.natoms * 3, self.natoms * 3], dtype=float)
                 else:
-                    row = np.array(line.split()).astype(np.float)
+                    row = np.array(line.split()).astype(np.float64)
                     hessian[:,i-1] = row
             # Convert hessian units to use kJ/mol instead of kcal/mol.
 
