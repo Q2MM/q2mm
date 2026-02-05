@@ -707,12 +707,15 @@ nmode( x, 3*m.natoms, mme2, 0, 0, 0.0, 0.0, 0);""".format(self.name, self.direct
         with open(self.directory+'/calc/'+self.name+'.nab','w') as f:
             f.write(script)
         # nab compile
-        sp.call("nab "+self.directory+"/calc/{}.nab".format(self.name),shell=True)
+        sp.call("nab {1}/calc/{0}.nab -o {1}/calc/{0}".format(self.name, self.directory), shell=True)
         # nab run
         sp.call(self.directory+"/calc/{}".format(self.name),shell=True,stderr=log, stdin=log, stdout=log)
         # hessian.mat formed
         # rename to .hess
-        sp.call("mv "+self.directory+"/calc/hessian.mat "+self.directory+"/calc/{}".format(self.name_hes),shell = True)
+        try:
+            sp.call("mv "+self.directory+"/calc/hessian.mat "+self.directory+"/{}".format(self.name_hes),shell = True)
+        except Exception as e:
+            logger.log(logging.CRITICAL, "Unable to rename hessian.mat file:"+e.args)
         return
     def geo_extract(self):
         """Extracts amber geometry information from .geo file AND hessian information from amber.leap-name.hes (hessian.mat)
