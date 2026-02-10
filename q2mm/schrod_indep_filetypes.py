@@ -926,10 +926,15 @@ class Mol2(File):
             if atom_entry == "" or atom_entry.strip() == self.ATOM_FLAG:
                 continue
             atom_split = atom_entry.split()
+            for chr in atom_split[1]:
+                if chr.isdigit():
+                    numer_index = atom_split[1].index(chr)
+                    break
+            element = atom_split[1][0:numer_index] if numer_index else atom_split[1]
             atoms.append(
                 Atom(
                     index=int(atom_split[0]),
-                    element=atom_split[1],
+                    element=element,
                     coords=atom_split[2:5],
                     atom_type_name=atom_split[5],
                     partial_charge=atom_split[8],
@@ -3893,6 +3898,24 @@ def mass_weight_eigenvectors(evecs, atoms, reverse=False):
                 evecs[i, j] /= changes[j]
             else:
                 evecs[i, j] *= changes[j]
+
+def replace_minimum(array, value=1):
+    """
+    Replace the minimum vallue in an arbitrary NumPy array. Historically,
+    the replace value is either 1 or co.HESSIAN_CONVERSION.
+    """
+    minimum = array.min()
+    minimum_index = np.where(array == minimum)
+    assert minimum < 0, 'Minimum of array is not negative!'
+    # It would be better to address this in a different way. This particular
+    # data structure just isn't what we want.
+    array.setflags(write=True)
+    logger.log(logging.INFO,"max eval: "+str(array.max()))
+    # Sometimes we use 1, but sometimes we use co.HESSIAN_CONVERSION.
+    array[minimum_index] = value
+    logger.log(1, '>>> minimum_index: {}'.format(minimum_index))
+    logger.log(1, '>>> array:\n{}'.format(array))
+    logger.log(logging.INFO, '  -- Replaced minimum in array with {}.'.format(value))
 
 class MacroModel(File):
     """
