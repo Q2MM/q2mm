@@ -36,7 +36,7 @@ import numpy as np
 import parmed
 
 import datatypes
-from filetypes import MacroModelLog, JaguarIn
+from filetypes import MacroModelLog#, JaguarIn
 from linear_algebra import invert_ts_curvature, reform_hessian
 
 import logging
