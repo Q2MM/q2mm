@@ -1,6 +1,6 @@
 # <center>Q2MM</center>
 
-Q2MM stands for quantum (mechanics) to molecular mechanics or quantum guided
+Q2MM stands for quantum (mechanics) to molecular mechanics or quantum-guided
 molecular mechanics, depending on what you prefer. Q2MM is open source software
 for force field optimization.
 
@@ -8,11 +8,8 @@ for force field optimization.
 
 ### <center>Python Dependencies</center>
 
-Q2MM uses Python 2.7.4. I'm reluctant to use more recent versions of Python
-because as far as I know, Schrödinger still uses 2.7.4.
-
 The following modules are required, but are included in the standard library for
-Python 2.7.4.
+Python 3.
 
 * argparse
 * collections
@@ -34,13 +31,19 @@ Python 2.7.4.
 These are required, but aren't in the standard library.
 
 * numpy
+* parmed
 
 Required for particular features.
 
 * schrodinger
+* openbabel
+* pubchempy
+* matplotlib
+* seaborn
+* pandas
 
-If you'd like to use Schrödinger features, they recommend running external
-Python scripts using
+If you'd like to use Schrödinger features, it is best to follow their instructions to create a 
+Schrodinger virtual environment, but you can also run external Python scripts using
 
 ```
 $SCHRODINGER/run somepythoncode.py
