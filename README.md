@@ -313,7 +313,7 @@ WGHT b 10.0
 STEP be 1.0
 ```
 #### For using hessian matrix from AmberMD:
-In order to use -ah flag in CDAT section, the user must compile their own version of AmberMD.
+In order to use -ah flag in CDAT section, the user must compile their own version of AmberMD. NOTE: while the instructions for this section have not changed, different AMBER versions use either nab or nabc to perform these operations in C. This variation can prevent Q2MM from correctly running nmode calculations, so a new modular version of Q2MM for AMBER, including full compilation instructions, is under development. Until then, users may consider using either: AMBER24 or newer with the cloned and compiled nabc repository, or the cloned and compiled AmberClassic repository with AmberTools24.
 ```
             // q2mm
             FILE * hFile;
