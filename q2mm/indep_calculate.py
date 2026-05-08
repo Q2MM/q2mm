@@ -64,7 +64,7 @@ COM_TINKER     = ['ta','tao', 'tb', 'tbo',
                   'tea','teao', 'th',
                   'tjeigz', 'tgeig']
 # Commands related to Amber.
-COM_AMBER      = ['ae','ae1','aeo','ae1o','abo','aao','ato','ah']
+COM_AMBER      = ['ae','ae1','aeo','ae1o','abo','aao','ato','ah', 'aha', 'ageig']
 # All other commands.
 COM_OTHER = ['r']                           
 # All possible commands.
@@ -634,6 +634,11 @@ def return_calculate_parser(add_help=True, parents=None):
         '-aha', type=str, nargs='+', action='append',
         default=[], metavar='somename.in',
         help='Amber Hessian (post-FF optimization).')
+    amb_args.add_argument(
+        '-ageig', type=str, nargs='+', action='append',
+        default=[], metavar='somename.in,somename.log',
+        help='Amber eigenmatrix (all elements). Uses Gaussian '
+        'eigenvectors.')
     return parser
 
 def check_outs(filename, outs, classtype, direc):
@@ -1129,6 +1134,101 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
                 for e, x, y in zip(
                     low_tri, low_tri_idx[0], low_tri_idx[1])])
         
+    # AMBER EIGENMATRIX USING GAUSSIAN EIGENVECTORS TODO
+    filenames = chain.from_iterable(coms['ageig'])
+    for comma_filenames in filenames:
+        name_amber_hes, name_gau_log = comma_filenames.split(',')
+        name_hes = inps[name_amber_hes].name_hes
+        hes = check_outs(name_hes, outs, schrod_indep_filetypes.AmberHess, direc)
+        gau_log = check_outs(name_gau_log, outs, schrod_indep_filetypes.GaussLog, direc)
+        hess = hes.hessian
+        evec = gau_log.evecs
+        try:
+            eigenmatrix = np.dot(np.dot(evec, hess), evec.T)
+        except ValueError:
+            logger.warning('Matrices not aligned!')
+            logger.warning('Hessian retrieved from {}: {}'.format(
+                    filename, hess.shape))
+            logger.warning('Eigenvectors retrieved from {}: {}'.format(
+                    name_gau_log, evec.shape))
+            raise
+        # hessian extracted from Amber is already mass weighted
+        low_tri_idx = np.tril_indices_from(eigenmatrix)
+        low_tri = hess[low_tri_idx]
+        int2 = []
+        int3 = []
+        int4 = []
+        if os.path.isfile("calc/geo.npy"):
+            hes_geo = None
+            if np.__version__ >= '1.16.4':
+                hes_geo = np.load("calc/geo.npy",allow_pickle=True)
+            else:
+                hes_geo = np.load("calc/geo.npy")
+            for ele in hes_geo:
+                inter = np.count_nonzero(ele)
+                a,b,c,d = ele
+                if inter == 2:
+                    a = int(a)
+                    b = int(b)
+                    int2.append([a,b])
+                elif inter == 3:
+                    a = int(a)
+                    c = int(c)
+                    int3.append([a,c])
+                elif inter == 4:        
+                    a = int(a)
+                    d = int(d)            
+                    int4.append([a,d])
+        frozen = 0
+        f_atom = []
+        if os.path.isfile("fixedatoms.txt"):
+            frozen = 1
+            ref = open("fixedatoms.txt","r")
+            flines = ref.readlines()
+            for fline in flines:
+                line = fline.split()
+                if len(line) == 1:
+                    f_atom.append(int(line[0]))
+            print("Reading fixedatoms.txt\nFixed Atom Numbers:",f_atom)
+        def int_wht(at_1,at_2, val): #TODO: MF - Why is this defined within a for-loop??
+            """
+                Weighted value for hessian matrix
+                default value
+                diagonal zero
+                1-2      0.031
+                1-3      0.031
+                1-4      0.31
+                else     0.031
+            """
+            if frozen:
+                if at_1 in f_atom or at_2 in f_atom:
+                    #print("DEBUG:",at_1,at_2,f_atom)
+                    return 0.0
+                else:
+                    return 1.0
+            elif at_1 == at_2 == 1 and datum.val < 0.: #TODO second condition is added by Mikaela
+                    return co.WEIGHTS['eig_i']
+            elif at_1 == at_2:
+                if val < 1100:
+                    return co.WEIGHTS['eig_d_low']
+                else:
+                    return co.WEIGHTS['eig_d_high']
+            else:
+                return co.WEIGHTS['eig_o']
+        data.extend([schrod_indep_filetypes.Datum(
+                    val=e,
+                    com='mgeig',
+                    typ='eig',
+                    src_1=hes.filename,
+                    src_2=name_gau_log,
+                    atm_1=int((x)//3+1),
+                    atm_2=int((y)//3+1),
+                    idx_1=x + 1,
+                    idx_2=y + 1,
+                    wht = int_wht(int((x)//3+1),int((y)//3+1), e))
+                     for e, x, y in zip(
+                    low_tri, low_tri_idx[0], low_tri_idx[1])])
+
     # AMBER ENERGIES
 #    filenames_s = coms['ae']
 #    for idx_1, filenames in enumerate(filenames_s):
