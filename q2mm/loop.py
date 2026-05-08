@@ -164,7 +164,7 @@ class Loop(object):
                 self.ff.data = calculate.main(self.args_ff)
                 
             if cols[0] == 'PDEP':
-                dependency_data = opt.dependency_check(self.ff, self.args_ff)
+                dependency_data = opt.dependency_check(self.ff, self.args_ff, self.ref_data)
                 with open(os.path.join(self.direc, 'param_dependency.bin'), 'wb') as param_dependency_file:
                     pickle.dump(dependency_data, param_dependency_file)
                     

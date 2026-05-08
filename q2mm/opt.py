@@ -314,22 +314,28 @@ def cal_ff(ff, ff_args, parent_ff=None, store_data=False):
         ff.data = data
     return data
 
-def dependency_check(ff:FF, ff_args, store_data=False, variance=0.2):
+def dependency_check(ff:FF, ff_args, ref_data, store_data=True, variance=0.2):
 
     heuristic_by_param_variation = dict()
     mod_ff = copy.deepcopy(ff)
-    heuristic_by_param_variation['baseline'] = cal_ff(ff, ff_args, parent_ff=ff, store_data=store_data)
+    mod_ff.path = ff.path[-4]+'_temp.fld'
+    r_dict = compare.data_by_type(ref_data)
+    c_dict = compare.data_by_type(cal_ff(mod_ff, ff_args, parent_ff=ff, store_data=store_data))
+    r_dict, c_dict = compare.trim_data(r_dict, c_dict)
+    heuristic_by_param_variation['baseline'] = compare.compare_data(r_dict, c_dict)
 
     for param_index in range(len(ff.params)):
-        heuristic_by_param_variation[0] = []
+        heuristic_by_param_variation[param_index] = []
         mod_ff.params[param_index].value = ff.params[param_index].value + (variance * ff.params[param_index].value)
-        mod_ff.export_ff()
-        forward = calculate.main(ff_args)
-        heuristic_by_param_variation[0].append(forward)
+        c_dict = compare.data_by_type(cal_ff(mod_ff, ff_args, parent_ff=ff, store_data=store_data))
+        r_dict, c_dict = compare.trim_data(r_dict, c_dict)
+        forward = compare.compare_data(r_dict, c_dict)
+        heuristic_by_param_variation[param_index].append(forward)
         mod_ff.params[param_index].value = ff.params[param_index].value - (variance * ff.params[param_index].value)
-        mod_ff.export_ff()
-        backward = calculate.main(ff_args)
-        heuristic_by_param_variation[0].append(backward)
+        c_dict = compare.data_by_type(cal_ff(mod_ff, ff_args, parent_ff=ff, store_data=store_data))
+        r_dict, c_dict = compare.trim_data(r_dict, c_dict)
+        backward = compare.compare_data(r_dict, c_dict)
+        heuristic_by_param_variation[param_index].append(backward)
         mod_ff.params[param_index].value = ff.params[param_index].value
     return heuristic_by_param_variation
 
