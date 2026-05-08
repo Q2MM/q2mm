@@ -331,7 +331,7 @@ def plot_param_history_histogram3d(base_direc:str, directories:list, param_indic
     return final_scores
 
 def plot_scores(starting_scores:pd.DataFrame, starting_score:float, scored_runs:list, final_scores:list, title:str):
-    fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(8*(len(scored_runs)+1), 8))
+    fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(8*(len(scored_runs)+1), 8), sharex='col', sharey='row')
     fig.suptitle(title)
     palette = itertools.cycle(zesty_palette)
     
@@ -351,7 +351,7 @@ def plot_scores(starting_scores:pd.DataFrame, starting_score:float, scored_runs:
     plt.show()
 
 def plot_off_diag_scatter(score_matrices:list, total_scores:list, title:str=''):
-    fig, ax = plt.subplots(1, len(score_matrices), figsize=(8*(len(score_matrices)), 10))
+    fig, ax = plt.subplots(1, len(score_matrices), figsize=(8*(len(score_matrices)), 10), sharex='col', sharey='row')
     fig.suptitle('Off-Diagonal Eigenmatrix terms'+title)
     palette = itertools.cycle(zesty_palette)
     max_y = 0.
@@ -370,7 +370,7 @@ def plot_off_diag_scatter(score_matrices:list, total_scores:list, title:str=''):
     plt.show()
 
 def plot_off_diag_scatter_(starting_scores:pd.DataFrame, starting_score:float, scored_runs:list, final_scores:list, title:str=''):
-    fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(8*(len(scored_runs)+1), 10))
+    fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(8*(len(scored_runs)+1), 10), sharex='col', sharey='row')
     fig.suptitle('Off-Diagonal Eigenmatrix terms'+title)
     palette = itertools.cycle(zesty_palette)
 
@@ -395,7 +395,7 @@ def plot_off_diag_scatter_(starting_scores:pd.DataFrame, starting_score:float, s
 
 def plot_off_diag_violin(starting_scores:pd.DataFrame, starting_score:float, scored_runs:list, final_scores:list, title:str=''):
 
-    fig, ax = plt.subplots(1, 1, figsize=(4*(len(scored_runs)+1), 8))
+    fig, ax = plt.subplots(1, 1, figsize=(4*(len(scored_runs)+1), 8), sharex='col', sharey='row')
     off_diag_start = starting_scores.loc[starting_scores['Reference'] == 0.0000]
     off_diag_start = off_diag_start.loc[off_diag_start['Weight'] != 0.0000]
     off_diag_start = off_diag_start.sort_values(by='Calculated', ignore_index=True)
@@ -414,7 +414,7 @@ def plot_off_diag_violin(starting_scores:pd.DataFrame, starting_score:float, sco
 def plot_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, scored_runs:list, final_scores, title:str=''):
     # Plot Diagonal Elements with a linear fit
 
-    fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(8*(len(scored_runs)+1),8))
+    fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(8*(len(scored_runs)+1),8), sharex='col', sharey='row')
     fig.suptitle('Diagonal Eigenmatrix terms after a PSO only - Rh Hyd Enamides')
     palette = itertools.cycle(zesty_palette)
 
@@ -441,7 +441,7 @@ def plot_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, sco
 def linear_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, scored_runs:list, final_scores, title:str=''):
     # Plot Diagonal Elements with a PROPER linear fit
 
-    fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(5*(len(scored_runs)+1),4))
+    fig, ax = plt.subplots(1, len(scored_runs)+1, figsize=(5*(len(scored_runs)+1),4), sharex='col', sharey='row')
     fig.suptitle(title)
     palette = itertools.cycle(zesty_palette)
 
@@ -452,8 +452,11 @@ def linear_fit_diag_scores(starting_scores:pd.DataFrame, starting_score:float, s
     seaborn.scatterplot(data=diag, y='Calculated', x='Reference', color='gray', label=starting_score, ax=ax[0])
     ax[0].legend()
     r2_ = r2_score(diag['Reference'], diag['Calculated'])
-    ax[0].set_title('Score: '+'{0:.3f}'.format(starting_score)+r' $y=x r^{2}$:'+'{0:.3f}'.format(r2_))
-
+    if type(starting_score) is str:
+        ax[0].set_title(starting_score + r' $y=x r^{2}$: '+'{0:.3f}'.format(r2_))
+    else:
+        ax[0].set_title('Score: '+'{0:.3f}'.format(starting_score)+r' $y=x r^{2}$: '+'{0:.3f}'.format(r2_))
+    max_y = max(diag['Calculated'])
 
     for i, run in enumerate(scored_runs):
         diag = run.loc[run['Reference'] != 0.0000]
@@ -484,7 +487,7 @@ def linear_fit_diag_scores_grid(starting_scores:list, starting_score:list, final
     """    
     # Plot Diagonal Elements with a PROPER linear fit
 
-    fig, ax = plt.subplots(len(starting_scores), 2, figsize=(12, 10*int(len(final_scores)/2)+1))
+    fig, ax = plt.subplots(len(starting_scores), 2, figsize=(12, 10*int(len(final_scores)/2)+1), sharex='col', sharey='row')
     fig.suptitle('Diagonal Eigenmatrix terms')
     palette = itertools.cycle(zesty_palette)
 
@@ -492,26 +495,27 @@ def linear_fit_diag_scores_grid(starting_scores:list, starting_score:list, final
         diag = start.loc[start['Reference'] != 0.0000]
         diag = diag.loc[diag['Weight'] != 0.0000]
         slope, intercept, r2, pv, se = stats.linregress(diag['Reference'], diag['Calculated'])
-        labl = '{0:.3f}'.format(starting_score[i]) #+ diag['FF'][0]
-        seaborn.regplot(data=diag, y='Calculated', x='Reference', color=next(palette), label=labl, line_kws={'label':'$y=%3.7s*x+%3.7s   r2:%3.7s$'%(slope, intercept, r2)}, ax=ax[i][0])
+        #labl = '{0:.3f}'.format(starting_score[i]) #+ diag['FF'][0]
+        seaborn.regplot(data=diag, y='Calculated', x='Reference', color=next(palette), label='FF', line_kws={'label':'$y=%3.7s*x+%3.7s   r2:%3.7s$'%(slope, intercept, r2)}, ax=ax[i][0])
         ax[i][0].legend()
         seaborn.move_legend(ax[i][0], "upper left", bbox_to_anchor=(1, 1))
         r2_ = r2_score(diag['Reference'], diag['Calculated'])
         ax[i][0].set_title(str(start['FF'][0])+' - '+'{0:.3f}'.format(starting_score[i])+' y=x r2:'+'{0:.3f}'.format(r2_))
         seaborn.lineplot(data=diag, x='Reference', y='Reference', color='gray', ax=ax[i][0])
 
+    palette = itertools.cycle(zesty_palette)
 
     for i, run in enumerate(final_scores):
         diag = run.loc[run['Reference'] != 0.0000]
         diag = diag.loc[diag['Weight'] != 0.0000]
         slope, intercept, r2, pv, se = stats.linregress(diag['Reference'], diag['Calculated'])
-
-        seaborn.regplot(data=diag, y='Calculated', x='Reference', color=next(palette), label=final_score[i], line_kws={'label':'$y=%3.7s*x+%3.7s   r2:%3.7s$'%(slope, intercept, r2)}, ax=ax[int(i%2)][int(i/2)+1])
+        seaborn.regplot(data=diag, y='Calculated', x='Reference', color=next(palette), label='FF', line_kws={'label':'$y=%3.7s*x+%3.7s   r2:%3.7s$'%(slope, intercept, r2)}, ax=ax[i][1])
         r2_ = r2_score(diag['Reference'], diag['Calculated'])
-        ax[int(i%2)][int(i/2)+1].legend()
-        seaborn.move_legend(ax[int(i%2)][int(i/2)+1], "upper left", bbox_to_anchor=(1, 1))
-        ax[int(i%2)][int(i/2)+1].set_title('Score: '+'{0:.3f}'.format(final_score[i])+' y=x r2:'+'{0:.3f}'.format(r2_))
-        seaborn.lineplot(data=diag, x='Reference', y='Reference', color='gray', ax=ax[int(i%2)][int(i/2)+1])
+        ax[i][1].legend()
+        seaborn.move_legend(ax[i][1], "upper left", bbox_to_anchor=(1, 1))
+        ax[i][1].set_title('Score: '+'{0:.3f}'.format(final_score[i])+' y=x r2:'+'{0:.3f}'.format(r2_))
+        seaborn.lineplot(data=diag, x='Reference', y='Reference', color='gray', ax=ax[i][1])
+
 
 
 def get_ff_params(base_direc:str, directories:list, filename:str, final_scores:list, bond_rows:list, angle_rows:list, title:str='', bond_cols=bond_cols, angle_cols=angle_cols):# -> tuple[list, list]:
