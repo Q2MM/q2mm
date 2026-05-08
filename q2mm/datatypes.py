@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Contains basic data structures used throughout the rest of Q2MM.
 """
@@ -12,7 +13,10 @@ import os
 import re
 import sys
 
-import constants as co
+try:
+    from . import constants as co
+except:
+    import constants as co
 
 logging.config.dictConfig(co.LOG_SETTINGS)
 logger = logging.getLogger(__file__)

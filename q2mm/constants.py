@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Constants and variables used throughout Q2MM.
 """
@@ -411,7 +412,7 @@ COM_TINKER     = ['ta','tao', 'tb', 'tbo',
                   'tea','teao', 'th',
                   'tjeigz', 'tgeig']
 # Commands related to Amber.
-COM_AMBER      = ['ae','ae1','aeo','ae1o','abo','aao','ato','ah']
+COM_AMBER      = ['ae','ae1','aeo','ae1o','abo','aao','ato','ah', 'ageig']
 # All other commands.
 COM_OTHER = ['r']                           
 # All possible commands.
