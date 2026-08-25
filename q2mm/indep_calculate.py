@@ -1217,7 +1217,7 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
                 return co.WEIGHTS['eig_o']
         data.extend([schrod_indep_filetypes.Datum(
                     val=e,
-                    com='mgeig',
+                    com='ageig',
                     typ='eig',
                     src_1=hes.filename,
                     src_2=name_gau_log,
