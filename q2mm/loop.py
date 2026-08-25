@@ -86,7 +86,9 @@ class Loop(object):
             self.ff.export_ff(path=mm3_file)
             logger.log(20, '  -- Wrote best FF to {}'.format(mm3_file))
             logger.log(logging.INFO, 'change: {} convergence criteria: {}'.format(change, self.convergence))
+            pretty_deriv_summary(self.cycle_num, self.ff.params)
         logger.log(logging.INFO, 'change: {} convergence criteria: {}'.format(change, self.convergence))
+        pretty_deriv_summary(self.cycle_num, self.ff.params)
         os.popen('rm -rd '+os.path.join(self.direc, 'temp_*')) if change < self.convergence and change != 0.0 else logger.log(logging.INFO, "LOOP ended early or no change occurred, please troubleshoot by checking the requisite files.")
         for param in self.ff.params:
             param.value_at_limits()
@@ -164,9 +166,12 @@ class Loop(object):
                 self.ff.data = calculate.main(self.args_ff)
                 
             if cols[0] == 'PDEP':
-                dependency_data = opt.dependency_check(self.ff, self.args_ff, self.ref_data)
-                with open(os.path.join(self.direc, 'param_dependency.bin'), 'wb') as param_dependency_file:
+                pdep_file_name = cols[1] or 'param_dependency.bin'
+                variation = float(cols[2]) or loop.convergence
+                dependency_data = opt.dependency_check(self.ff, self.args_ff, self.ref_data, variance=variation)
+                with open(os.path.join(self.direc, pdep_file_name), 'wb') as param_dependency_file:
                     pickle.dump(dependency_data, param_dependency_file)
+                self.ff
                     
             if cols[0] == 'COMP':
             # Deprecated
@@ -465,6 +470,16 @@ def pretty_loop_summary(cycle_num, score, change):
             cycle_num).center(50, '-'))
     logger.log(20, '| PF Score: {:36.15f} |'.format(score))
     logger.log(20, '| % change: {:36.15f} |'.format(change * 100))
+    logger.log(20, '-' * 50)
+
+def pretty_deriv_summary(cycle_num, param_set):
+    logger.log(20, ' Cycle {} Derivatives '.format(
+            cycle_num).center(50, '-'))
+    first_derivs = [param.d1 for param in param_set]
+    second_derivs = [param.d2 for param in param_set]
+    logger.log(20, '| 1st Derivatives: '+str(first_derivs))#+(*(f"{x:.2f}" for x in first_derivs))) #+'{:36.15f} |'.format(first_derivs))
+    logger.log(20, '| 2nd Derivatives: '+str(second_derivs))#+(*(f"{x:.2f}" for x in second_derivs)))
+    #logger.log(20, '| 2nd Derivatives: {:36.15f} |'.format(second_derivs))
     logger.log(20, '-' * 50)
 
 def main(args):

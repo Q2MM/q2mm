@@ -315,29 +315,65 @@ def cal_ff(ff, ff_args, parent_ff=None, store_data=False):
     return data
 
 def dependency_check(ff:FF, ff_args, ref_data, store_data=True, variance=0.2):
+    """Runs a routine to calculate the change in score from increasing and decreasing each 
+    parameter value by some amount <variance> and returns it as a dictionary. This is used to 
+    check that each parameter effects the score of the objective function.
 
+    Note: Some of this code is redundant to other methods, but this is more straightforward and
+    efficient for the goal of this use case...
+
+    Args:
+        ff (FF): _description_
+        ff_args (_type_): _description_
+        ref_data (_type_): _description_
+        store_data (bool, optional): _description_. Defaults to True.
+        variance (float, optional): _description_. Defaults to 0.2.
+
+    Returns:
+        _type_: _description_
+    """    
+
+    logger.log(20, '~~ PARAMETER DEPENDENCY CHECK ~~'.rjust(79, '~'))
+    logger.info("Variance: param.value * "+str(variance))
     heuristic_by_param_variation = dict()
+    param_dep_log = dict()
     mod_ff = copy.deepcopy(ff)
-    mod_ff.path = ff.path[-4]+'_temp.fld'
     r_dict = compare.data_by_type(ref_data)
-    c_dict = compare.data_by_type(cal_ff(mod_ff, ff_args, parent_ff=ff, store_data=store_data))
+    c_dict = compare.data_by_type(cal_ff(mod_ff, ff_args, parent_ff=mod_ff, store_data=store_data))
     r_dict, c_dict = compare.trim_data(r_dict, c_dict)
     heuristic_by_param_variation['baseline'] = compare.compare_data(r_dict, c_dict)
+    param_dep_log['best_X'] = []
+    param_dep_log['best_Y'] = []
+    param_dep_log['best_X'].append([param.value for param in mod_ff.params])
+    param_dep_log['best_Y'].append(compare.compare_data(r_dict, c_dict))
+    param_dep_log["X"] = []
+    param_dep_log["Y"] = []
+    logger.info('~~ DEPENDENCY CHECK COMPLETE ~~'.rjust(79, '~'))
 
-    for param_index in range(len(ff.params)):
+
+    for param_index in range(len(mod_ff.params)):
         heuristic_by_param_variation[param_index] = []
         mod_ff.params[param_index].value = ff.params[param_index].value + (variance * ff.params[param_index].value)
-        c_dict = compare.data_by_type(cal_ff(mod_ff, ff_args, parent_ff=ff, store_data=store_data))
+        c_dict = compare.data_by_type(cal_ff(mod_ff, ff_args, parent_ff=mod_ff, store_data=store_data))
         r_dict, c_dict = compare.trim_data(r_dict, c_dict)
         forward = compare.compare_data(r_dict, c_dict)
+        logger.info(forward)
         heuristic_by_param_variation[param_index].append(forward)
+        param_dep_log["X"].append([param.value for param in mod_ff.params])
+        param_dep_log["Y"].append(forward)
         mod_ff.params[param_index].value = ff.params[param_index].value - (variance * ff.params[param_index].value)
         c_dict = compare.data_by_type(cal_ff(mod_ff, ff_args, parent_ff=ff, store_data=store_data))
         r_dict, c_dict = compare.trim_data(r_dict, c_dict)
         backward = compare.compare_data(r_dict, c_dict)
+        logger.info(backward)
         heuristic_by_param_variation[param_index].append(backward)
+        param_dep_log["X"].append([param.value for param in mod_ff.params])
+        param_dep_log["Y"].append(backward)
         mod_ff.params[param_index].value = ff.params[param_index].value
-    return heuristic_by_param_variation
+
+    cal_ff(ff, ff_args, parent_ff=ff, store_data=store_data)
+
+    return param_dep_log #heuristic_by_param_variation
 
 def pretty_derivs(params, level=5):
     """
