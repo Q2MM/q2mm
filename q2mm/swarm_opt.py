@@ -189,6 +189,7 @@ class Swarm_Optimizer(opt.Optimizer):
         calc_args = calc_parser.parse_args(self.args_ff)
         temp = {key: value for key, value in calc_args.__dict__.items() if key
                 in co.COM_ALL and value}
+        logger.info(str(temp)) # TODO remove after testing for amber parallelization
         for calc in temp.values():
             for file_set in calc[0]:
                 files_to_move.extend(file_set.split(','))

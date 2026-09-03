@@ -37,8 +37,10 @@ import sys
 try:
     from schrodinger import structure as sch_str
     from schrodinger.application.jaguar import input as jag_in
+    schrod_on = True
 except:
     print("Schrodinger not installed, limited functionality")
+    schrod_on = False
     pass
 
 import constants as co
@@ -49,6 +51,10 @@ logger = logging.getLogger(__file__)
 
 
 def check_licenses():
+    if not schrod_on: return (math.inf, math.inf) 
+    # hacky way to parallelize amber without having to extricate schrodinger from 
+    # swarm optimizer bc it's only in there bc it had to be unless all q2mm refactored... NOT RECOMMENDED
+    # this is NOT how it will work in the future
     max_fails=5
     max_timeout=None
     timeout=10
