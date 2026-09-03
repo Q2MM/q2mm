@@ -51,8 +51,8 @@ logger = logging.getLogger(__file__)
 
 
 def check_licenses():
-    if not schrod_on: return (math.inf, math.inf) 
-    # hacky way to parallelize amber without having to extricate schrodinger from 
+    if not schrod_on: return (100, 100) 
+    # TODO MF hacky way to parallelize amber without having to extricate schrodinger from 
     # swarm optimizer bc it's only in there bc it had to be unless all q2mm refactored... NOT RECOMMENDED
     # this is NOT how it will work in the future
     max_fails=5
