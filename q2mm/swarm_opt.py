@@ -220,9 +220,9 @@ class Swarm_Optimizer(opt.Optimizer):
             ff_i.set_param_values(self.hybrid_opt.X[i])
             logger.info(type(ff_i))
             match ff_i:
-                case schrod_indep_filetypes.MM3:
+                case datatypes.MM3:
                     ff_i.path = os.path.join(self.base_pool_dir, "temp_" + str(j), "mm3.fld")
-                case schrod_indep_filetypes.AmberFF:
+                case datatypes.AmberFF:
                     ff_i.path = os.path.join(self.base_pool_dir, "temp_" + str(j), ff_i.path.name)
 
             self.pool_ff_objects.append(ff_i)
