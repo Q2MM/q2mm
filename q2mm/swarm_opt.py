@@ -194,8 +194,6 @@ class Swarm_Optimizer(opt.Optimizer):
             for file_set in calc[0]:
                 files_to_move.extend(file_set.split(','))
         #TODO remove after testing
-        hacky_hardcoded_name = files_to_move[-2][:-3]
-        files_to_move.extend([hacky_hardcoded_name+'.frcmod', hacky_hardcoded_name+'.mol2'])
         for i in range(self.num_ff_threads):
             os.mkdir(os.path.join(self.direc, "temp_" + str(i)))
             for file in files_to_move:

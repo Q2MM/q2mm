@@ -636,7 +636,7 @@ def return_calculate_parser(add_help=True, parents=None):
         help='Amber Hessian (post-FF optimization).')
     amb_args.add_argument(
         '-ageig', type=str, nargs='+', action='append',
-        default=[], metavar='somename.in,somename.log',
+        default=[], metavar='somename.in,somename.log,somename.mol2',
         help='Amber eigenmatrix (all elements). Uses Gaussian '
         'eigenvectors.')
     return parser
@@ -1137,10 +1137,12 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
     # AMBER EIGENMATRIX USING GAUSSIAN EIGENVECTORS TODO
     filenames = chain.from_iterable(coms['ageig'])
     for comma_filenames in filenames:
-        name_amber_hes, name_gau_log = comma_filenames.split(',')
+        name_amber_hes, name_gau_log, name_mol2 = comma_filenames.split(',')
         name_hes = inps[name_amber_hes].name_hes
         hes = check_outs(name_hes, outs, schrod_indep_filetypes.AmberHess, direc)
+        logger.info('name_gau_log: '+name_gau_log+", direc: "+direc)
         gau_log = check_outs(name_gau_log, outs, schrod_indep_filetypes.GaussLog, direc)
+        logger.info('gau_log path: '+str(gau_log.path))
         hess = hes.hessian
         evec = gau_log.evecs
         try:
@@ -2012,7 +2014,9 @@ def collect_data(coms, inps, direc='.', sub_names=['OPT'], invert=None):
     # GAUSSIAN EIGENMATRIX
     filenames = chain.from_iterable(coms['geigz'])
     for filename in filenames:
+        logger.info('GAUSSIAN EIGENMATRIX filename: '+filename+", direc: "+direc)
         log = check_outs(filename, outs, schrod_indep_filetypes.GaussLog, direc)
+        logger.info('log path: '+str(log.path))
         evals = log.evals * co.HESSIAN_CONVERSION
         if invert:
             schrod_indep_filetypes.replace_minimum(evals, value=invert)
