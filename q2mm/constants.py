@@ -60,7 +60,10 @@ LOG_SETTINGS = {
                 'loop': {'level': 1, 'propagate': True},
                 'opt': {'level': 1, 'propagate': True},
                 'parameters': {'level': 1, 'propagate': True},
-                'simplex': {'level': 1, 'propagate': True}
+                'simplex': {'level': 1, 'propagate': True},
+                'seminario': {'level': 20, 'propagate': True},
+                'schrod_indep_filetypes': {'level': 20, 'propagate': True},
+                'swarm_opt': {'level': 20, 'propagate': True},
                 },
 
     'root': {
