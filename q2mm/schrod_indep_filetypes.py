@@ -1154,6 +1154,7 @@ class GaussLog(File):
         self._structures = []
         force_constants = []
         evecs = []
+        logger.info("read_out path: "+self.path) #TODO debugging
         with open(self.path, "r") as f:
             # The keyword "harmonic" shows up before the section we're
             # interested in. It can show up multiple times depending on the
@@ -4284,6 +4285,7 @@ class AmberHess(File):
         super(AmberHess, self).__init__(path)
         self._hessian = None
         self.natoms = None
+        #TODO MF in future versions, we should calculate Hessian, Eigenmatrix, and Eigvals/Eigvecs all in one go, this is just dumb cus you only need to read it once...
     @property
     def hessian(self):
         if self._hessian is None:
@@ -4311,11 +4313,14 @@ class AmberHess(File):
                 else:
                     eigval[i] = np.sqrt(eig)
             eigval *= 108.587 # freq in cm**-1
+            self._eigvals = eigval
+            self._eigvecs = v #TODO: MF unsure what units since it's not in wavenumbers
             self._hessian = hessian / co.HARTREE_TO_KCALMOL \
                 * co.HARTREE_TO_KJMOL
             logger.log(5, '  -- Finished Creating {} Hessian matrix.'.format(
                 hessian.shape))
-            return self._hessian
+        return self._hessian
+
 class AmberEne(File):
     """
         Amber .ene file to read either current energy or optimized energy
