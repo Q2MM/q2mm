@@ -218,7 +218,12 @@ class Swarm_Optimizer(opt.Optimizer):
             j = i % self.num_ff_threads
             ff_i: datatypes.FF = copy.deepcopy(self.ff)
             ff_i.set_param_values(self.hybrid_opt.X[i])
-            ff_i.path = os.path.join(self.base_pool_dir, "temp_" + str(j), "mm3.fld")
+            if ff_i is schrod_indep_filetypes.MM3:
+                ff_i.path = os.path.join(self.base_pool_dir, "temp_" + str(j), "mm3.fld")
+            elif ff_i is schrod_indep_filetypes.AmberFF:
+                ff_i.path = os.path.join(self.base_pool_dir, "temp_" + str(j), ff_i.path.name)
+            else:
+                raise NotImplemented
             self.pool_ff_objects.append(ff_i)
 
             # then the export of the ff will take care of itself, will just need to pass worker num to calculate and score
